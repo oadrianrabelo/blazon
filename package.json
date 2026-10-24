@@ -1,12 +1,13 @@
 {
-  "name": "crest-windows",
+  "name": "blazon",
   "private": true,
   "version": "0.1.0",
   "license": "MPL-2.0",
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "tauri build"
+    "build": "tauri build",
+    "test": "node --test tests/ui.test.mjs && cd src-tauri && cargo test"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.10.0"

@@ -1,0 +1,29 @@
+html, body { background: transparent !important; overflow: hidden; }
+.backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, .38); animation: fade .12s ease-out; }
+@keyframes fade { from { opacity: 0; } }
+.palette {
+  position: fixed; left: 50%; top: 14vh; transform: translateX(-50%); width: min(640px, calc(100vw - 32px));
+  background: var(--panel); border-radius: 14px; box-shadow: 0 24px 60px rgba(0, 0, 0, .55), 0 0 0 1px var(--faint); overflow: hidden;
+  animation: pop .14s ease-out;
+}
+@keyframes pop { from { opacity: 0; transform: translateX(-50%) scale(.97); } }
+.pal-input { display: flex; align-items: center; gap: 8px; padding: 14px 16px; border-bottom: 1px solid var(--faint); }
+#pal-q { flex: 1; min-width: 0; border: 0; background: none; outline: none; color: var(--fg); font: inherit; font-size: 16px; user-select: text; }
+#pal-q::placeholder { color: var(--muted); }
+.chip { background: var(--c2); color: var(--c0); font-weight: 600; font-size: 12px; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.pal-list { list-style: none; margin: 0; padding: 6px; max-height: 52vh; overflow-y: auto; }
+.pal-list .sec { color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; padding: 10px 10px 4px; }
+.pal-list .item { display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 9px; }
+.pal-list .item.sel { background: var(--active); }
+.pal-list .item .text { flex: 1; min-width: 0; }
+.pal-list .item .title, .pal-list .item .sub { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pal-list .item .sub { color: var(--muted); font-size: 11px; }
+.pal-list .item .hint { color: var(--muted); font-size: 11px; flex: none; }
+.pal-list .glyph { width: 18px; height: 18px; display: grid; place-items: center; flex: none; color: var(--muted); }
+.pal-list .glyph svg { width: 16px; height: 16px; }
+.pal-list .glyph img { width: 18px; height: 18px; }
+.pal-foot { color: var(--muted); font-size: 11px; padding: 8px 16px; border-top: 1px solid var(--faint); }
+.peekbar { position: fixed; display: flex; align-items: center; gap: 6px; height: 34px; }
+.peek-url { flex: 1; min-width: 0; color: #fff; opacity: .85; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-shadow: 0 1px 3px rgba(0, 0, 0, .6); }
+.pbtn { padding: 6px 12px; border-radius: 8px; background: var(--panel); color: var(--fg); box-shadow: 0 0 0 1px var(--faint); }
+.pbtn:hover { background: var(--active); }

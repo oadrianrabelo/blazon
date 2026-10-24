@@ -13,6 +13,10 @@ permissions:
 jobs:
   windows:
     runs-on: windows-latest
+    env:
+      # Optional code signing: add these repository secrets to sign the installers.
+      WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
+      WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,10 +28,32 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Ad blocking lists bundled with the installer (refreshed weekly at runtime).
+      - name: Download filter lists
+        shell: bash
+        run: |
+          mkdir -p src-tauri/adblock
+          curl -sSfL -o src-tauri/adblock/easylist.txt https://easylist.to/easylist/easylist.txt
+          curl -sSfL -o src-tauri/adblock/easyprivacy.txt https://easylist.to/easylist/easyprivacy.txt
+      - name: Test UI logic
+        run: node --test tests/ui.test.mjs
+      - name: Test Rust
+        working-directory: src-tauri
+        run: cargo test --locked
       - run: npx tauri build
+      - name: Sign installers
+        if: env.WINDOWS_CERTIFICATE != ''
+        shell: pwsh
+        run: |
+          $pfx = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($pfx, [Convert]::FromBase64String($env:WINDOWS_CERTIFICATE))
+          $signtool = Get-ChildItem "${env:ProgramFiles(x86)}\Windows Kits\10\bin\*\x64\signtool.exe" | Select-Object -Last 1
+          $files = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe, src-tauri/target/release/bundle/msi/*.msi
+          & $signtool.FullName sign /f $pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $files.FullName
+          Remove-Item $pfx
       - uses: actions/upload-artifact@v4
         with:
-          name: crest-windows
+          name: blazon-windows
           path: |
             src-tauri/target/release/bundle/nsis/*.exe
             src-tauri/target/release/bundle/msi/*.msi

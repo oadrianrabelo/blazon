@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Blazon</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="overlay.css">
+</head>
+<body>
+  <div id="backdrop" class="backdrop"></div>
+
+  <div id="palette" class="palette" hidden>
+    <div class="pal-input">
+      <span id="pal-chip" class="chip" hidden></span>
+      <input id="pal-q" type="text" spellcheck="false" autocomplete="off" placeholder="Pesquisar, abrir um site ou digitar um comando">
+    </div>
+    <ul id="pal-list" class="pal-list"></ul>
+    <div class="pal-foot">↑↓ navegar · Enter abrir · Tab buscar em um site (yt, w, gh…) · Esc fechar</div>
+  </div>
+
+  <div id="peekbar" class="peekbar" hidden>
+    <span id="peek-url" class="peek-url"></span>
+    <button id="peek-tab" class="pbtn">Abrir como aba</button>
+    <button id="peek-copy" class="pbtn">Copiar link</button>
+    <button id="peek-close" class="pbtn" title="Fechar (Esc)">✕</button>
+  </div>
+  <script src="i18n.js"></script>
+  <script src="diag.js"></script>
+  <script src="houses.js"></script>
+  <script src="overlay.js"></script>
+</body>
+</html>

@@ -3,20 +3,46 @@
 <head>
   <meta charset="utf-8">
   <title>Nova aba</title>
+  <link rel="stylesheet" href="style.css">
   <style>
-    html, body { margin: 0; height: 100%; }
-    body { display: grid; place-items: center; background: #fafafa; color: #3f3f46; font: 15px "Segoe UI", system-ui, sans-serif; }
-    @media (prefers-color-scheme: dark) { body { background: #1c1c1f; color: #d4d4d8; } }
-    main { text-align: center; opacity: .8; }
-    svg { width: 72px; height: 72px; }
-    p { margin: 10px 0 0; font-size: 13px; opacity: .7; }
+    body { user-select: none; }
+    .start { position: fixed; inset: 0; display: grid; place-items: center; overflow-y: auto; }
+    .start::before { content: ""; position: fixed; inset: 0; background: radial-gradient(ellipse at 50% 35%, color-mix(in srgb, var(--c0) 55%, transparent), var(--c0) 75%); }
+    main { position: relative; width: min(640px, 90vw); text-align: center; padding: 48px 0; }
+    .emblem { width: 120px; height: 120px; margin: 0 auto; }
+    .emblem img, .emblem svg { width: 100%; height: 100%; }
+    h1 { margin: 6px 0 2px; font: 600 26px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; letter-spacing: .01em; }
+    .greet { color: var(--muted); margin: 0 0 26px; }
+    form { display: flex; align-items: center; gap: 8px; background: rgba(0, 0, 0, .32); border: 1px solid var(--faint); border-radius: 14px; padding: 4px 6px 4px 14px; }
+    form:focus-within { border-color: color-mix(in srgb, var(--c2) 70%, transparent); }
+    form svg { width: 16px; height: 16px; color: var(--muted); flex: none; }
+    #q { flex: 1; min-width: 0; padding: 11px 4px; border: 0; background: none; color: var(--fg); font: inherit; font-size: 15px; outline: none; user-select: text; }
+    #q::placeholder { color: var(--muted); }
+    .sites { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-top: 28px; }
+    .site { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 14px 6px 10px; border-radius: 14px; color: var(--fg); text-decoration: none; background: rgba(255, 255, 255, .06); }
+    .site:hover { background: rgba(255, 255, 255, .12); }
+    .site .fav { width: 32px; height: 32px; border-radius: 9px; font-size: 15px; }
+    .site span:last-child { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
   </style>
 </head>
 <body>
-  <main>
-    <svg viewBox="0 0 64 64" aria-hidden="true"><path d="M32 4 8 12v18c0 15 10 25 24 30 14-5 24-15 24-30V12Z" fill="#3b82f6"/><path d="M32 16 20 21v9c0 8 5 13 12 16 7-3 12-8 12-16v-9Z" fill="#fff" opacity=".9"/></svg>
-    <h1 style="font-weight:600;font-size:22px;margin:12px 0 0">Crest</h1>
-    <p>Digite um endereço ou pesquisa na barra lateral (Ctrl+L)</p>
-  </main>
+  <div id="banner" class="banner" aria-hidden="true"><div class="p-mid"></div><div class="p-low"></div></div>
+  <div class="start">
+    <main>
+      <div id="emblem" class="emblem"></div>
+      <h1 id="name">Blazon</h1>
+      <p id="greet" class="greet"></p>
+      <form id="search" action="https://duckduckgo.com/">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" name="q" type="text" autocomplete="off" spellcheck="false" placeholder="Pesquisar na web">
+      </form>
+      <nav id="sites" class="sites"></nav>
+    </main>
+  </div>
+  <script src="i18n.js"></script>
+  <script src="houses.js"></script>
+  <script src="charges.js"></script>
+  <script src="crest.js"></script>
+  <script src="newtab.js"></script>
 </body>
 </html>

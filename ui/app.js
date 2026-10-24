@@ -1,7 +1,35 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
+const appWindow = window.__TAURI__.window.getCurrentWindow();
 
+const ICONS = {
+  back: '<path d="m15 18-6-6 6-6"/>',
+  forward: '<path d="m9 18 6-6-6-6"/>',
+  reload: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
+  x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  min: '<path d="M5 12h14"/>',
+  max: '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  more: '<circle cx="5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="19" cy="12" r=".6"/>',
+  plus: '<path d="M12 5v14M5 12h14"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4Z"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16Z"/>',
+  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
+  shield: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  shieldOff: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="M4 4l16 16"/>',
+  sound: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
+  muted: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="m22 9-6 6M16 9l6 6"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M8 7h7"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
+  archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+};
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
+
 const $ = (id) => document.getElementById(id);
 let state = null;
 let dragId = null;
@@ -12,6 +40,63 @@ function el(tag, cls, text) {
   if (text != null) e.textContent = text;
   return e;
 }
+
+function icon(name) {
+  const t = document.createElement('template');
+  t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+  return t.content.firstChild;
+}
+document.querySelectorAll('[data-i]').forEach((n) => n.append(icon(n.dataset.i)));
+
+function setIcon(node, name) {
+  node.replaceChildren(icon(name));
+}
+
+function emblem(space) {
+  const t = document.createElement('template');
+  t.innerHTML = renderCrest(crestOf(space));
+  return t.content.firstChild;
+}
+
+function applyLook(space) {
+  const { colors, pattern } = look(space);
+  const root = document.documentElement.style;
+  colors.forEach((c, i) => root.setProperty(`--c${i}`, c));
+  const banner = $('banner');
+  banner.className = `banner ${pattern}` + (TILED.includes(pattern) ? ' tiles' : '');
+  banner.style.backgroundImage = tileImage(pattern, colors);
+  if (!banner.children.length) banner.append(el('div', 'p-mid'), el('div', 'p-low'));
+}
+
+// Look & feel options (settings.appearance)
+function applyAppearance(settings) {
+  const a = lookOf(settings);
+  const root = document.documentElement.style;
+  root.setProperty('--tab-scale', a.tabScale);
+  root.setProperty('--radius', { square: '3px', rounded: '9px', pill: '999px' }[a.tabShape] || '9px');
+  root.setProperty('--sidebar-w', `${Math.min(420, Math.max(200, settings.sidebar_width || 264))}px`);
+  if (a.accent) root.setProperty('--c2', a.accent);
+  const b = document.body.classList;
+  for (const k of ['sel-outline', 'sel-glow']) b.remove(k);
+  if (a.selected !== 'fill') b.add(`sel-${a.selected}`);
+  b.toggle('follow-accent', a.followAccent);
+  b.toggle('no-dim', !a.dimUnloaded);
+  b.toggle('no-pin-fill', !a.pinFill);
+  b.toggle('no-stretch', !a.stretchPins);
+  b.toggle('folder-plain', !a.folderAccent);
+  b.toggle('no-address-outline', !a.addressOutline);
+  b.toggle('no-banner', !a.banner);
+  b.toggle('floating', !!settings.floating_sidebar);
+  if (!settings.floating_sidebar) b.remove('collapsed');
+  else if (!b.contains('collapsed') && !$('sidebar').matches(':hover') && document.activeElement !== $('address')) b.add('collapsed');
+  const pins = state.tabs.filter((t) => t.space === state.active_space && t.pinned && t.folder == null).length;
+  let cols = a.pinsPerRow;
+  if (!cols) cols = Math.ceil(pins / Math.ceil(pins / 4 || 1)) || 4;
+  root.setProperty('--pin-cols', a.stretchPins ? `repeat(${cols}, 1fr)` : `repeat(${cols}, 52px)`);
+  window.folderCounts = a.folderCounts;
+}
+
+// Rendering
 
 function host(url) {
   try { return new URL(url).hostname; } catch { return ''; }
@@ -42,23 +127,142 @@ function dragTarget(node, t, pinned) {
   node.addEventListener('dragleave', () => node.classList.remove('drop-before'));
   node.addEventListener('drop', (e) => {
     e.preventDefault();
+    e.stopPropagation();
     node.classList.remove('drop-before');
-    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned });
+    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned, folder: t ? t.folder ?? null : null });
     dragId = null;
   });
 }
 
+function tabEvents(node, t) {
+  node.onclick = () => invoke('activate_tab', { id: t.id });
+  node.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
+  node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
+}
+
+// Context menu
+
+function showMenu(e, items) {
+  const m = $('ctx');
+  m.replaceChildren();
+  for (const it of items) {
+    if (it === '-') { m.append(el('hr')); continue; }
+    if (it.sub) { m.append(el('div', 'sub', it.sub)); continue; }
+    const b = el('button');
+    if (it.icon) b.append(icon(it.icon));
+    b.append(document.createTextNode(it.label));
+    b.onclick = () => { hideMenu(); it.run(); };
+    m.append(b);
+  }
+  m.hidden = false;
+  // Stay inside the sidebar: the page card covers the rest of the window.
+  const bar = $('sidebar').getBoundingClientRect();
+  const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
+  const y = Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
+  m.style.left = `${x}px`;
+  m.style.top = `${Math.max(6, y)}px`;
+}
+function hideMenu() { $('ctx').hidden = true; }
+addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
+addEventListener('blur', hideMenu);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
+
+function askFolderName(initial) {
+  const name = prompt('Nome da pasta:', initial || 'Nova pasta');
+  return name && name.trim();
+}
+
+function tabMenu(e, t) {
+  const folders = state.folders.filter((f) => f.space === state.active_space);
+  const items = [
+    { label: t.pinned ? 'Desafixar' : 'Fixar', icon: 'pin', run: () => invoke('toggle_pin', { id: t.id }) },
+    { label: 'Nova pasta com esta aba', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: t.id }); } },
+  ];
+  if (folders.length || t.folder != null) items.push('-', { sub: 'Mover para' });
+  for (const f of folders) {
+    if (f.id !== t.folder) items.push({ label: f.name, icon: 'folder', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: f.id }) });
+  }
+  if (t.folder != null) items.push({ label: 'Fora da pasta', icon: 'chev', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: null }) });
+  const pair = state.splits.find((p) => p.includes(t.id));
+  items.push('-');
+  if (pair) items.push({ label: 'Desfazer lado a lado', icon: 'split', run: () => invoke('unsplit_tab', { id: t.id }) });
+  else {
+    items.push({ label: 'Lado a lado com nova aba', icon: 'split', run: () => invoke('split_tab', { id: t.id, with: null }) });
+    const others = state.tabs.filter((o) => o.space === t.space && o.id !== t.id && !state.splits.some((p) => p.includes(o.id))).slice(0, 6);
+    if (others.length) items.push({ sub: 'Lado a lado com' });
+    for (const o of others) items.push({ label: tabTitle(o), icon: 'split', run: () => invoke('split_tab', { id: t.id, with: o.id }) });
+  }
+  items.push('-',
+    { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
+    { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
+    { label: 'Fechar', icon: 'x', run: () => invoke('close_tab', { id: t.id }) });
+  showMenu(e, items);
+}
+
+const FOLDER_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#a3a3a3', '#f5f5f4', '#78716c'];
+let folderEditing = null;
+let folderColor = '';
+function openFolderDialog(f) {
+  folderEditing = f;
+  folderColor = f.color || '';
+  const box = $('fd-colors');
+  box.replaceChildren();
+  for (const c of FOLDER_COLORS) {
+    const b = el('button', c === folderColor ? 'sel' : '');
+    b.type = 'button';
+    b.style.background = c;
+    b.onclick = () => { folderColor = c; [...box.children].forEach((x) => x.classList.toggle('sel', x === b)); };
+    box.append(b);
+  }
+  $('fd-icon').value = f.icon || '';
+  $('folder-dialog').showModal();
+}
+$('fd-reset').onclick = () => { invoke('update_folder', { id: folderEditing.id, color: '', icon: '' }); $('folder-dialog').close(); };
+$('folder-dialog').addEventListener('close', () => {
+  if ($('folder-dialog').returnValue !== 'save' || !folderEditing) return;
+  invoke('update_folder', { id: folderEditing.id, color: folderColor, icon: $('fd-icon').value.trim() });
+});
+
+function folderMenu(e, f) {
+  showMenu(e, [
+    { label: 'Cor e ícone…', icon: 'edit', run: () => openFolderDialog(f) },
+    { label: 'Renomear', icon: 'edit', run: () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); } },
+    { label: 'Excluir pasta (mantém as abas)', icon: 'x', run: () => invoke('delete_folder', { id: f.id }) },
+  ]);
+}
+
+$('scroll').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
+});
+
 function render() {
   const space = activeSpace();
   const current = activeTab();
-  document.documentElement.style.setProperty('--accent', space.color);
-  $('space-name').textContent = space.name;
-  document.title = current ? `${tabTitle(current)} — Crest` : 'Crest';
+  I18N.sync(state.settings.language);
+  applyLook(space);
+  applyAppearance(state.settings);
+  document.body.classList.toggle('right', !!state.settings.sidebar_right);
+  document.body.classList.toggle('native', !!state.settings.native_frame);
+  document.title = current ? `${tabTitle(current)} — Blazon` : 'Blazon';
+
+  const name = $('space-name');
+  const label = el('span', 'label', space.name);
+  if (space.private) label.append(el('span', 'tag', ' · privado'));
+  name.replaceChildren(emblem(space), label);
 
   const address = $('address');
   if (document.activeElement !== address) address.value = current?.url || '';
-  $('reload').textContent = current?.loading ? '✕' : '⟳';
-  $('reload').dataset.nav = current?.loading ? 'stop' : 'reload';
+  const site = host(current?.url || '').replace(/^www\./, '');
+  const paused = !state.settings.adblock || (state.settings.adblock_allow || []).includes(site);
+  setIcon($('shield'), paused ? 'shieldOff' : 'shield');
+  $('shield').title = !state.settings.adblock ? 'Bloqueador desligado (Configurações → Privacidade)'
+    : paused ? `Bloqueador pausado em ${site}. Clique para retomar.` : `Bloqueando anúncios${site ? ` em ${site}` : ''}. Clique para pausar neste site.`;
+  $('shield').disabled = !site || !state.settings.adblock;
+  const loading = !!current?.loading;
+  setIcon($('reload'), loading ? 'x' : 'reload');
+  $('reload').dataset.nav = loading ? 'stop' : 'reload';
+  $('reload').title = loading ? 'Parar' : 'Recarregar (F5)';
 
   const tabs = state.tabs.filter((t) => t.space === state.active_space);
   const pinned = $('pinned');
@@ -66,30 +270,77 @@ function render() {
   pinned.replaceChildren();
   list.replaceChildren();
 
+  const tabRow = (t, extra) => {
+    const active = current && t.id === current.id;
+    const li = el('li', 'tab' + extra + (active ? ' active' : '') + (t.loading ? ' loading' : '') + (t.awake ? '' : ' asleep'));
+    li.title = t.url || 'Nova aba';
+    const close = el('button', 'icon close');
+    close.append(icon('x'));
+    close.title = 'Fechar (Ctrl+W)';
+    close.onclick = (e) => { e.stopPropagation(); invoke('close_tab', { id: t.id }); };
+    li.append(favicon(t), el('span', 'title', tabTitle(t)));
+    if (t.audio || t.muted) {
+      const snd = el('button', 'icon sound');
+      snd.append(icon(t.muted ? 'muted' : 'sound'));
+      snd.title = t.muted ? 'Ativar som' : 'Silenciar aba';
+      snd.onclick = (e) => { e.stopPropagation(); invoke('toggle_mute', { id: t.id }); };
+      li.append(snd);
+    }
+    if (state.splits.some((p) => p.includes(t.id))) {
+      const mark = icon('split');
+      mark.classList.add('split-mark');
+      li.append(mark);
+    }
+    li.append(close);
+    tabEvents(li, t);
+    dragTarget(li, t, false);
+    return li;
+  };
+
+  const folders = $('folders');
+  folders.replaceChildren();
+  for (const f of state.folders.filter((x) => x.space === state.active_space)) {
+    const head = el('li', 'folder' + (f.open ? ' open' : ''));
+    const chev = icon('chev');
+    chev.classList.add('chev');
+    if (f.icon) head.append(el('span', 'emoji', f.icon));
+    else {
+      const fi = icon('folder');
+      if (f.color) fi.style.color = f.color;
+      head.append(fi);
+    }
+    head.append(el('span', 'title', f.name));
+    if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
+    head.append(chev);
+    head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
+    head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
+    head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
+    head.addEventListener('dragover', (e) => { e.preventDefault(); head.classList.add('drop-before'); });
+    head.addEventListener('dragleave', () => head.classList.remove('drop-before'));
+    head.addEventListener('drop', (e) => {
+      e.preventDefault();
+      head.classList.remove('drop-before');
+      if (dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: false, folder: f.id });
+      dragId = null;
+    });
+    folders.append(head);
+    if (!f.open) continue;
+    for (const t of tabs.filter((x) => x.folder === f.id)) folders.append(tabRow(t, ' in-folder'));
+  }
+
   for (const t of tabs) {
     const active = current && t.id === current.id;
+    if (t.folder != null) continue;
     if (t.pinned) {
-      const b = el('button', 'pin' + (active ? ' active' : ''));
+      const b = el('button', 'pin' + (active ? ' active' : '') + (t.awake ? '' : ' asleep'));
       b.title = tabTitle(t);
       b.append(favicon(t));
-      b.onclick = () => invoke('activate_tab', { id: t.id });
-      b.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
-      b.oncontextmenu = (e) => { e.preventDefault(); invoke('toggle_pin', { id: t.id }); };
+      tabEvents(b, t);
       dragTarget(b, t, true);
       pinned.append(b);
       continue;
     }
-    const li = el('li', 'tab' + (active ? ' active' : '') + (t.loading ? ' loading' : ''));
-    li.title = t.url || 'Nova aba';
-    const close = el('button', 'close', '✕');
-    close.title = 'Fechar (Ctrl+W)';
-    close.onclick = (e) => { e.stopPropagation(); invoke('close_tab', { id: t.id }); };
-    li.append(favicon(t), el('span', 'title', tabTitle(t)), close);
-    li.onclick = () => invoke('activate_tab', { id: t.id });
-    li.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
-    li.oncontextmenu = (e) => { e.preventDefault(); invoke('toggle_pin', { id: t.id }); };
-    dragTarget(li, t, false);
-    list.append(li);
+    list.append(tabRow(t, ''));
   }
 
   const spaces = $('spaces');
@@ -97,80 +348,227 @@ function render() {
   state.spaces.forEach((s, i) => {
     const b = el('button', 'dot' + (s.id === state.active_space ? ' active' : ''));
     b.title = `${s.name} (Ctrl+Shift+${i + 1})`;
-    const sw = el('span');
-    sw.style.background = s.color;
-    b.append(sw);
+    b.append(emblem(s));
+    if (s.locked && !(state.unlocked || []).includes(s.id)) {
+      const lock = icon('lock');
+      lock.classList.add('lock');
+      b.append(lock);
+    }
     b.onclick = () => invoke('switch_space', { id: s.id });
+    b.ondblclick = () => openStudio(s);
+    b.oncontextmenu = (ev) => {
+      ev.preventDefault();
+      showMenu(ev, [
+        { label: 'Abrir em nova janela', icon: 'plus', run: () => invoke('new_window', { space: s.id }) },
+        { label: 'Editar no Studio', icon: 'edit', run: () => openStudio(s) },
+      ]);
+    };
+    // Drag to reorder Spaces.
+    b.draggable = true;
+    b.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/space', s.id); });
+    b.addEventListener('dragover', (ev) => { if (ev.dataTransfer.types.includes('text/space')) { ev.preventDefault(); b.classList.add('drop-before'); } });
+    b.addEventListener('dragleave', () => b.classList.remove('drop-before'));
+    b.addEventListener('drop', (ev) => {
+      b.classList.remove('drop-before');
+      const id = ev.dataTransfer.getData('text/space');
+      if (!id || id === s.id) return;
+      ev.preventDefault();
+      const from = state.spaces.findIndex((x) => x.id === id);
+      invoke('move_space', { id, to: from < i ? i - 1 : i });
+    });
     spaces.append(b);
   });
 }
 
 listen('state', (e) => { state = e.payload; render(); });
-listen('focus-address', () => { $('address').focus(); $('address').select(); });
+listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
+// Window controls (borderless frame)
+$('win-min').onclick = () => appWindow.minimize();
+$('win-max').onclick = () => appWindow.toggleMaximize();
+$('win-close').onclick = () => appWindow.close();
+
+// Address bar with suggestions from open tabs and history.
+let suggestions = [];
+let sel = -1;
+let suggestSeq = 0;
+
+function showSuggestions() {
+  const ul = $('suggest');
+  ul.replaceChildren();
+  suggestions.forEach((s, i) => {
+    const li = el('li', i === sel ? 'sel' : '');
+    const text = el('span', 'text');
+    text.append(el('span', 'title', s.title || host(s.url)), el('span', 'url', s.url));
+    li.append(favicon(s), text);
+    if (s.kind === 'tab') li.append(el('span', 'kind', 'aba aberta'));
+    li.onmousedown = (e) => { e.preventDefault(); pick(s); };
+    ul.append(li);
+  });
+  ul.hidden = suggestions.length === 0;
+}
+
+function hideSuggestions() {
+  suggestions = [];
+  sel = -1;
+  suggestSeq++;
+  showSuggestions();
+}
+
+function pick(s) {
+  hideSuggestions();
+  $('address').blur();
+  if (s.tab != null) invoke('activate_tab', { id: s.tab });
+  else invoke('navigate', { input: s.url });
+}
+
+$('address').addEventListener('input', async () => {
+  const seq = ++suggestSeq;
+  const res = await invoke('suggest', { query: $('address').value });
+  if (seq !== suggestSeq) return;
+  suggestions = res;
+  sel = -1;
+  showSuggestions();
+});
 $('address-form').addEventListener('submit', (e) => {
   e.preventDefault();
+  if (sel >= 0 && suggestions[sel]) return pick(suggestions[sel]);
   const v = $('address').value.trim();
+  hideSuggestions();
   if (v) invoke('navigate', { input: v });
   $('address').blur();
 });
 $('address').addEventListener('focus', () => $('address').select());
+$('address').addEventListener('blur', hideSuggestions);
 $('address').addEventListener('keydown', (e) => {
-  if (e.key === 'Escape') { $('address').value = activeTab()?.url || ''; $('address').blur(); }
+  if (e.key === 'Escape') { hideSuggestions(); $('address').value = activeTab()?.url || ''; $('address').blur(); }
+  else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && suggestions.length) {
+    e.preventDefault();
+    const n = suggestions.length;
+    sel = e.key === 'ArrowDown' ? (sel + 1) % n : (sel <= 0 ? n - 1 : sel - 1);
+    $('address').value = suggestions[sel].url;
+    showSuggestions();
+  }
 });
+
 document.querySelectorAll('[data-nav]').forEach((b) => {
   b.onclick = () => invoke('nav', { action: b.dataset.nav });
 });
 $('new-tab').onclick = () => invoke('new_tab', {});
-dragTarget($('tabs'), null, false);
-$('tabs').draggable = false;
+$('shield').onclick = () => invoke('toggle_site_blocking');
+dragTarget($('new-tab'), null, false);
+$('new-tab').draggable = false;
 $('pinned').addEventListener('dragover', (e) => e.preventDefault());
 $('pinned').addEventListener('drop', (e) => {
-  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true });
+  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true, folder: null });
 });
 
-$('add-space').onclick = () => {
-  const name = prompt('Nome do novo Space:', 'Trabalho');
-  if (!name) return;
-  invoke('add_space', { name, color: COLORS[state.spaces.length % COLORS.length] });
-};
-$('space-name').ondblclick = () => openSettings();
-$('settings-btn').onclick = () => openSettings();
+// Archive and history dialog
+const DAY = new Intl.DateTimeFormat(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long' });
+let historySeq = 0;
+let historyTab = 'archive';
 
-function openSettings() {
-  const s = activeSpace();
-  $('set-right').checked = state.settings.sidebar_right;
-  $('set-search').value = state.settings.search;
-  $('space-edit-name').value = s.name;
-  $('space-edit-color').value = s.color;
-  $('space-delete').disabled = state.spaces.length <= 1;
-  $('settings').showModal();
+function dayList(ul, items, onPick) {
+  let lastDay = '';
+  for (const v of items) {
+    const day = DAY.format(new Date(v.time * 1000));
+    if (day !== lastDay) { ul.append(el('li', 'day', day)); lastDay = day; }
+    const li = el('li');
+    li.title = v.url;
+    li.append(el('span', 'title', v.title || host(v.url)), el('span', 'url', host(v.url)));
+    li.onclick = () => { $('history').close(); onPick(v); };
+    ul.append(li);
+  }
+  if (!items.length) ul.append(el('li', 'day', 'Nada por aqui.'));
 }
-$('settings').addEventListener('close', () => {
-  const s = activeSpace();
-  const settings = { sidebar_right: $('set-right').checked, search: $('set-search').value };
-  if (JSON.stringify(settings) !== JSON.stringify(state.settings)) invoke('set_settings', { settings });
-  const name = $('space-edit-name').value.trim() || s.name;
-  const color = $('space-edit-color').value;
-  if (name !== s.name || color !== s.color) invoke('update_space', { id: s.id, name, color });
-});
-$('space-delete').onclick = () => {
-  const s = activeSpace();
-  if (!confirm(`Excluir o Space "${s.name}"? As abas, cookies e logins dele serão apagados.`)) return;
-  $('settings').close();
-  invoke('delete_space', { id: s.id });
+
+async function loadHistory() {
+  const seq = ++historySeq;
+  const q = $('history-q').value.toLowerCase();
+  $('ht-archive').classList.toggle('sel', historyTab === 'archive');
+  $('ht-history').classList.toggle('sel', historyTab === 'history');
+  $('history-clear').textContent = historyTab === 'archive' ? 'Esvaziar' : 'Limpar';
+  const ul = $('history-list');
+  if (historyTab === 'archive') {
+    const items = state.archive
+      .filter((a) => a.space === state.active_space && (!q || a.url.toLowerCase().includes(q) || a.title.toLowerCase().includes(q)))
+      .reverse();
+    ul.replaceChildren();
+    dayList(ul, items, (a) => invoke('restore_archived', { url: a.url, space: a.space }));
+    return;
+  }
+  const items = await invoke('history_list', { query: $('history-q').value });
+  if (seq !== historySeq) return;
+  ul.replaceChildren();
+  dayList(ul, items, (v) => invoke('new_tab', { url: v.url }));
+}
+function openHistory(tab) {
+  if (typeof tab === 'string') historyTab = tab;
+  if ($('history').open) return loadHistory();
+  $('history-q').value = '';
+  loadHistory();
+  $('history').showModal();
+  $('history-q').focus();
+}
+$('history-btn').onclick = () => openHistory('archive');
+$('ht-archive').onclick = () => { historyTab = 'archive'; loadHistory(); };
+$('ht-history').onclick = () => { historyTab = 'history'; loadHistory(); };
+$('history-q').addEventListener('input', loadHistory);
+$('history-clear').onclick = async () => {
+  const what = historyTab === 'archive' ? 'o arquivo' : 'todo o histórico';
+  if (!confirm(`Limpar ${what} do Space "${activeSpace().name}"?`)) return;
+  await invoke(historyTab === 'archive' ? 'clear_archive' : 'clear_history');
+  if (historyTab === 'archive') state.archive = state.archive.filter((a) => a.space !== state.active_space);
+  loadHistory();
 };
+$('reader').onclick = () => invoke('reader_mode');
+listen('open-history', () => openHistory('history'));
+
+// Spaces are created and styled in Crest Studio (settings panel).
+async function newSpace() {
+  const houses = Object.keys(HOUSES);
+  const house = houses[state.spaces.length % houses.length];
+  const id = await invoke('add_space', { name: 'Novo Space', color: HOUSES[house].colors[2], private: false, house, look: null });
+  invoke('open_panel', { section: `spaces:${id}` });
+}
+const openStudio = (space) => invoke('open_panel', { section: `spaces:${space.id}` });
+$('add-space').onclick = newSpace;
+$('space-name').onclick = () => openStudio(activeSpace());
+$('space-menu').onclick = () => openStudio(activeSpace());
+
+// Settings panel (shown over the page card)
+$('settings-btn').onclick = () => invoke('open_panel', { section: 'look' });
+
+// Floating sidebar: hidden to an edge strip, revealed on hover.
+let peekTimer = null;
+function peek(on) {
+  clearTimeout(peekTimer);
+  if (!state?.settings.floating_sidebar) return;
+  document.body.classList.toggle('collapsed', !on);
+  invoke('sidebar_peek', { on });
+}
+$('edge').addEventListener('mouseenter', () => peek(true));
+$('sidebar').addEventListener('mouseenter', () => clearTimeout(peekTimer));
+$('sidebar').addEventListener('mouseleave', () => {
+  const busy = document.activeElement === $('address') || !$('ctx').hidden || document.querySelector('dialog[open]');
+  if (!busy) peekTimer = setTimeout(() => peek(false), 350);
+});
 
 // Shortcuts while the sidebar itself has focus.
 document.addEventListener('keydown', (e) => {
-  if (!e.ctrlKey || e.altKey) return;
+  if (!e.ctrlKey || e.altKey || !state) return;
   const k = e.key.toLowerCase();
-  const tabs = state ? state.tabs.filter((t) => t.space === state.active_space).sort((a, b) => b.pinned - a.pinned) : [];
+  const tabs = state.tabs.filter((t) => t.space === state.active_space).sort((a, b) => (b.pinned - a.pinned) || ((b.folder != null) - (a.folder != null)));
   const digit = /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
   if (e.shiftKey && digit) {
     const s = state.spaces[Number(digit) - 1];
     if (s) invoke('switch_space', { id: s.id });
-  } else if (k === 't') invoke('new_tab', {});
+  } else if (k === 't' && e.shiftKey) invoke('reopen_tab');
+  else if (k === 't') invoke('new_tab', {});
+  else if (k === 'h') openHistory('history');
+  else if (k === 'k') invoke('open_overlay', { mode: 'palette', url: null });
+  else if (k === 'n' && !e.shiftKey) invoke('new_window', { space: null });
+  else if (k === 's' && e.shiftKey) invoke('set_settings', { settings: { ...state.settings, floating_sidebar: !state.settings.floating_sidebar } });
   else if (k === 'w' && activeTab()) invoke('close_tab', { id: activeTab().id });
   else if (k === 'l') { $('address').focus(); $('address').select(); }
   else if (k === 'tab' && tabs.length) {
@@ -184,4 +582,77 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// Toasts: crash notices and other one-off messages.
+function toast(text, actions = []) {
+  $('toast-text').textContent = text;
+  const box = $('toast-actions');
+  box.replaceChildren();
+  for (const [label, run, primary] of [...actions, ['Fechar', () => {}]]) {
+    const b = el('button', primary ? 'primary' : '', label);
+    b.onclick = () => { $('toast').hidden = true; run(); };
+    box.append(b);
+  }
+  $('toast').hidden = false;
+}
+
+listen('tab-crashed', (e) => {
+  const t = state?.tabs.find((x) => x.id === e.payload);
+  toast(`A aba "${t ? tabTitle(t) : 'atual'}" travou.`, [
+    ['Recarregar', () => invoke('activate_tab', { id: e.payload }).then(() => invoke('nav', { action: 'reload' })), true],
+    ['Relatar', () => invoke('open_panel', { section: 'report' })],
+  ]);
+});
+
+// Downloads
+let downloads = [];
+const fmtBytes = (n) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(0, Math.round(n / 1e3))} KB`);
+function drawDownloads() {
+  const active = downloads.filter((d) => d.state === 'progress').length;
+  $('dl-badge').hidden = !active;
+  $('dl-badge').textContent = String(active);
+  const ul = $('dl-list');
+  ul.replaceChildren();
+  if (!downloads.length) ul.append(el('li', 'meta', 'Nenhum download nesta sessão.'));
+  for (const d of [...downloads].reverse()) {
+    const li = el('li');
+    li.append(el('span', 'name', d.name));
+    const pct = d.total > 0 ? Math.min(100, (d.received / d.total) * 100) : 0;
+    const status = d.state === 'done' ? `Concluído · ${fmtBytes(d.received)}` : d.state === 'failed' ? 'Falhou ou foi cancelado' : `${fmtBytes(d.received)}${d.total > 0 ? ` de ${fmtBytes(d.total)}` : ''}`;
+    li.append(el('span', 'meta', `${d.host} · ${status}`));
+    if (d.state === 'progress') {
+      const bar = el('div', 'bar');
+      const fill = el('i');
+      fill.style.width = `${pct}%`;
+      bar.append(fill);
+      li.append(bar);
+    }
+    const acts = el('div', 'acts');
+    const act = (label, action) => { const b = el('button', '', label); b.type = 'button'; b.onclick = () => invoke('download_action', { id: d.id, action }); acts.append(b); };
+    if (d.state === 'done') { act('Abrir', 'open'); act('Mostrar na pasta', 'folder'); }
+    if (d.state === 'progress') act('Cancelar', 'cancel');
+    else act('Remover', 'remove');
+    li.append(acts);
+    ul.append(li);
+  }
+}
+listen('downloads', (e) => {
+  const before = downloads.length;
+  downloads = e.payload;
+  drawDownloads();
+  if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
+});
+$('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };
+$('dl-clear').onclick = () => invoke('clear_downloads');
+invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
+
 invoke('get_state').then((s) => { state = s; render(); });
+listen('update-available', (e) => {
+  toast(`Blazon ${e.payload.version} disponível.`, [
+    ['Atualizar', () => { toast('Baixando a atualização…'); invoke('install_update').catch((err) => toast(String(err))); }, true],
+    ['Novidades', () => invoke('new_tab', { url: e.payload.page })],
+  ]);
+});
+
+invoke('take_crash_report').then((crash) => {
+  if (crash) toast('O Blazon fechou inesperadamente na última vez. O relatório foi salvo.', [['Relatar', () => invoke('open_panel', { section: 'report' }), true]]);
+});
