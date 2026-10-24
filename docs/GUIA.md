@@ -306,12 +306,14 @@ borda (lateral ou de cima) para a barra voltar.
 
 ### Texto
 
-Em **Configurações → Aparência → Texto → Fontes**:
-- **Mac** (padrão): a interface usa a Inter, a fonte livre mais parecida com a San Francisco do
-  macOS, com tamanhos ópticos, espaçamento e peso ajustados; e o texto de tudo, páginas incluídas,
-  é suavizado em tons de cinza, como no Mac, em vez do ClearType. A suavização muda depois de
-  reiniciar o Blazon.
-- **Windows**: Segoe UI e ClearType.
+Em **Configurações → Aparência → Texto**:
+- **Fonte da interface**: **Inter** (padrão; a fonte livre mais parecida com a San Francisco do
+  macOS, com tamanhos ópticos e espaçamento ajustado), **Geist**, **Figtree**, **Segoe UI** ou
+  **uma fonte instalada no Windows** (digite o nome ou escolha da lista). Uma prévia mostra como
+  fica. A SF Pro da Apple não pode vir com o Blazon: a licença dela só permite uso em
+  aparelhos Apple.
+- **Suavização**: **Mac** (padrão) suaviza o texto de tudo, páginas incluídas, em tons de cinza,
+  como no Mac, em vez do ClearType; **Windows** usa o ClearType. Muda depois de reiniciar o Blazon.
 
 ### Materiais e movimento
 

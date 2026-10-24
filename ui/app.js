@@ -93,9 +93,8 @@ function applyAppearance(settings) {
   applyLookVars(settings);
   b.toggle('mica', !!a.mica);
   b.toggle('horizontal', a.tabLayout === 'horizontal');
-  // Text: read by type.js before every interface page draws.
-  document.documentElement.classList.toggle('win-type', a.fontRendering === 'windows');
-  try { localStorage.setItem('blazon.type', a.fontRendering === 'windows' ? 'windows' : 'mac'); } catch {}
+  // Text: stored for type.js, which applies it before every interface page draws.
+  storeType(a);
   for (const k of ['sel-outline', 'sel-glow']) b.remove(k);
   if (a.selected !== 'fill') b.add(`sel-${a.selected}`);
   b.toggle('follow-accent', a.followAccent);

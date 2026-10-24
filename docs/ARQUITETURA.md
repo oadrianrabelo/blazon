@@ -75,6 +75,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `sidepanel.rs` | Painel lateral de extensões: página da extensão numa coluna ao lado do site |
 | `transition.rs` | Transição entre páginas: foto da página antiga numa camada (`fx.html`) acima do cartão, que esmaece ou desliza |
 | `keys.rs` | Atalhos personalizáveis: tabela de comandos e combinações padrão, trocas salvas em `settings.shortcuts`, mapa enviado às páginas abertas |
+| `fonts.rs` | Lista as famílias de fontes instaladas (DirectWrite) para Aparência → Texto |
 | `quick.rs` | Janela rápida: janela pequena para links de outros apps, com escolha de Space |
 | `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |

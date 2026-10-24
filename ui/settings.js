@@ -177,8 +177,7 @@ const SECTIONS = {
             if (on) off.delete(key); else off.add(key);
             saveLook({ hiddenButtons: [...off] });
           }))),
-        group('Texto',
-          segmented('Fontes', 'Mac: a fonte Inter, parecida com a San Francisco, e suavização em tons de cinza também nas páginas, como no macOS. A suavização muda depois de reiniciar o Blazon.', [['mac', 'Mac'], ['windows', 'Windows']], L('fontRendering'), (v) => { document.documentElement.classList.toggle('win-type', v === 'windows'); setL('fontRendering')(v); })),
+        textGroup(),
         group('Materiais e movimento',
           toggle('Liquid Glass', 'Menus, paleta, cartões e avisos de vidro que curva o que está atrás, como no macOS.', L('liquidGlass'), setL('liquidGlass')),
           segmented('Intensidade do vidro', null, [['light', 'Leve'], ['normal', 'Normal'], ['strong', 'Forte']], L('glassStrength'), setL('glassStrength')),
@@ -1057,6 +1056,46 @@ function memoryGroup() {
   return group('Memória', row('Uso por Space', 'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.', refresh), list);
 }
 
+// Appearance › Text: the interface font (bundled or installed), a live
+// sample, and the smoothing.
+let systemFonts = null;
+function textGroup() {
+  const a = appearance();
+  const t = typeOf(a);
+  const pick = (patch) => {
+    saveLook(patch);
+    storeType({ ...a, ...patch });
+    render();
+  };
+  const rows = [
+    select('Fonte da interface', 'A Inter é a fonte livre mais parecida com a San Francisco do Mac.', [
+      ['inter', 'Inter (parecida com a San Francisco)'], ['geist', 'Geist'], ['figtree', 'Figtree'], ['segoe', 'Segoe UI (Windows)'], ['installed', 'Uma fonte instalada no Windows…'],
+    ], () => t.font, (v) => pick({ uiFont: v })),
+  ];
+  if (t.font === 'installed') {
+    const input = el('input', 'font-input');
+    input.type = 'text';
+    input.placeholder = 'Nome da fonte';
+    input.value = t.installed;
+    input.setAttribute('list', 'system-fonts');
+    const list = el('datalist');
+    list.id = 'system-fonts';
+    const fill = (names) => list.replaceChildren(...names.map((n) => { const o = el('option'); o.value = n; return o; }));
+    if (systemFonts) fill(systemFonts);
+    else invoke('system_fonts').then((names) => { systemFonts = names; fill(names); });
+    input.onchange = () => pick({ installedFont: input.value.trim() });
+    const wrap = el('div', 'font-pick');
+    wrap.append(input, list);
+    rows.push(row('Fonte instalada', 'Digite ou escolha da lista das fontes deste computador.', wrap));
+  }
+  const sample = el('div', 'font-sample');
+  sample.append(el('b', '', 'Abas, Spaces e brasões'), el('span', '', 'A rápida raposa marrom pula sobre o cão preguiçoso · 0123456789'));
+  rows.push(sample);
+  rows.push(segmented('Suavização', 'Mac: tons de cinza em tudo, páginas incluídas, como no macOS. Windows: ClearType. Muda depois de reiniciar o Blazon.',
+    [['mac', 'Mac'], ['windows', 'Windows']], L('fontRendering'), (v) => pick({ fontRendering: v })));
+  return group('Texto', ...rows);
+}
+
 // A small window corner showing the chosen buttons where they will sit.
 function windowButtonsPreview() {
   const a = appearance();
@@ -1163,6 +1202,7 @@ function applySpaceLook() {
   const { colors } = look(space);
   colors.forEach((c, i) => document.documentElement.style.setProperty(`--c${i}`, c));
   applyLookVars(state.settings);
+  storeType(lookOf(state.settings));
 }
 
 function render() {

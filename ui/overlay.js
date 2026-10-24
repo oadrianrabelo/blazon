@@ -70,6 +70,7 @@ function applySpaceLook() {
   const accent = lookOf(state.settings).accent;
   if (accent) document.documentElement.style.setProperty('--c2', accent);
   applyLookVars(state.settings);
+  storeType(lookOf(state.settings));
 }
 
 // Command palette

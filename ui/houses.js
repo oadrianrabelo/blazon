@@ -86,7 +86,9 @@ const LOOK_DEFAULTS = {
   elastic: true, // sidebar stretches at the ends of its scroll
   pageTransitions: true, // pages cross-fade or slide when switching
   tabLayout: 'vertical', // vertical (sidebar) | horizontal (top bar, like Safari)
-  fontRendering: 'mac', // mac (Inter, grayscale smoothing) | windows (Segoe UI, ClearType)
+  fontRendering: 'mac', // text smoothing: mac (grayscale, a touch heavier) | windows (ClearType)
+  uiFont: '', // inter | geist | figtree | segoe | installed; '' = Inter (Segoe with Windows smoothing)
+  installedFont: '', // family name when uiFont is installed
 };
 
 const LOOK_PRESETS = {

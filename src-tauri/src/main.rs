@@ -4,6 +4,7 @@ mod backup;
 mod blocker;
 mod diag;
 mod downloads;
+mod fonts;
 #[cfg(windows)]
 mod hello;
 mod history;
@@ -427,6 +428,7 @@ fn main() {
             get_state,
             run_command,
             keys::shortcuts,
+            fonts::system_fonts,
             keys::set_shortcut,
             keys::reset_shortcuts,
             tabs::new_tab,

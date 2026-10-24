@@ -4,6 +4,19 @@
 
 const I18N = (() => {
   const EN = {
+    // Interface fonts
+    "Fonte da interface": "Interface font",
+    "A Inter é a fonte livre mais parecida com a San Francisco do Mac.": "Inter is the free font closest to the Mac's San Francisco.",
+    "Inter (parecida com a San Francisco)": "Inter (close to San Francisco)",
+    "Segoe UI (Windows)": "Segoe UI (Windows)",
+    "Uma fonte instalada no Windows…": "A font installed on Windows…",
+    "Fonte instalada": "Installed font",
+    "Digite ou escolha da lista das fontes deste computador.": "Type it or pick from this computer's fonts.",
+    "Nome da fonte": "Font name",
+    "Abas, Spaces e brasões": "Tabs, Spaces and crests",
+    "A rápida raposa marrom pula sobre o cão preguiçoso · 0123456789": "The quick brown fox jumps over the lazy dog · 0123456789",
+    "Suavização": "Smoothing",
+    "Mac: tons de cinza em tudo, páginas incluídas, como no macOS. Windows: ClearType. Muda depois de reiniciar o Blazon.": "Mac: grayscale everywhere, pages included, like macOS. Windows: ClearType. Changes after restarting Blazon.",
     // Window buttons, toolbar, corners, glass and speed
     "Cantos da página": "Page corners",
     "Arredondamento do cartão da página, do Peek e do painel.": "Rounding of the page card, Peek and the panel.",

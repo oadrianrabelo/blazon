@@ -140,6 +140,10 @@ try {
   await invoke('set_settings', { settings: { ...before.settings, appearance: { ...before.settings.appearance, windowControls: 'fluent', controlsSide: 'left', pageRadius: 4, hiddenButtons: ['shield'] } } });
   await sleep(1500);
   shot('botoes-blazon-a-esquerda');
+  // Installed fonts for Appearance › Text, read through DirectWrite.
+  const fonts = await invoke('system_fonts');
+  if (!fonts.includes('Segoe UI')) throw new Error(`system_fonts sem Segoe UI (${fonts.length} fontes)`);
+  console.log(`  ${fonts.length} fontes instaladas`);
   await invoke('set_settings', { settings: before.settings });
   await sleep(800);
 
