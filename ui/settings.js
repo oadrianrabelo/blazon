@@ -6,6 +6,7 @@ const ICONS = {
   look: '<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2Z"/>',
   general: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
@@ -206,6 +207,61 @@ const SECTIONS = {
       ];
     },
   },
+  links: {
+    title: 'Links',
+    icon: 'link',
+    render() {
+      const spaces = state.spaces.map((s) => [s.id, s.name]);
+      const routes = el('div');
+      const drawRoutes = () => {
+        routes.replaceChildren();
+        (state.settings.routes || []).forEach((r, i) => {
+          const pattern = el('input');
+          pattern.type = 'text';
+          pattern.placeholder = 'ex.: figma.com';
+          pattern.value = r.pattern;
+          const space = el('select');
+          for (const [id, name] of spaces) {
+            const o = el('option', '', name);
+            o.value = id;
+            space.append(o);
+          }
+          space.value = r.space;
+          const del = el('button', 'btn danger', 'Remover');
+          const save = () => {
+            const list = [...state.settings.routes];
+            list[i] = { pattern: pattern.value.trim(), space: space.value };
+            saveSettings({ routes: list });
+          };
+          pattern.onchange = save;
+          space.onchange = save;
+          del.onclick = () => { saveSettings({ routes: state.settings.routes.filter((_, j) => j !== i) }); drawRoutes(); };
+          const wrap = el('div', 'seg');
+          wrap.style.background = 'none';
+          wrap.append(space, del);
+          const r2 = el('div', 'opt');
+          r2.append(pattern, wrap);
+          pattern.style.flex = '1';
+          routes.append(r2);
+        });
+        if (!(state.settings.routes || []).length) routes.append(el('p', 'lead', 'Nenhuma rota ainda.'));
+      };
+      drawRoutes();
+      const add = el('button', 'btn', 'Nova rota');
+      add.onclick = () => { saveSettings({ routes: [...(state.settings.routes || []), { pattern: '', space: state.active_space }] }); drawRoutes(); };
+      const addRow = el('div', 'row-btns');
+      addRow.append(add);
+      const routesGroup = group('Rotas', routes, addRow);
+      return [
+        ...header('Links', 'Como o Crest abre links de outros apps e prévias rápidas.'),
+        group('Links de outros apps',
+          select('Abrir em', 'Quando nenhuma rota combina.', [['', 'Space atual'], ...spaces], S('external_space'), setS('external_space'))),
+        routesGroup,
+        group('Peek',
+          select('Abrir prévia com', 'Clique num link segurando a tecla para ver numa janela flutuante. Esc fecha.', [['shift', 'Shift + clique'], ['alt', 'Alt + clique'], ['off', 'Desligado']], S('peek_modifier'), setS('peek_modifier'))),
+      ];
+    },
+  },
   import: {
     title: 'Importar',
     icon: 'import',
@@ -235,7 +291,7 @@ const SECTIONS = {
       const keys = [
         ['Nova aba', 'Ctrl+T'], ['Fechar aba', 'Ctrl+W'], ['Reabrir aba fechada', 'Ctrl+Shift+T'], ['Focar o endereço', 'Ctrl+L'],
         ['Próxima / anterior', 'Ctrl+Tab / Ctrl+Shift+Tab'], ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'],
-        ['Histórico', 'Ctrl+H'], ['Mostrar ou esconder a barra', 'Ctrl+Shift+S'], ['Voltar / avançar', 'Alt+← / Alt+→'],
+        ['Histórico', 'Ctrl+H'], ['Paleta de comandos', 'Ctrl+K'], ['Peek (prévia do link)', 'Shift+clique'], ['Mostrar ou esconder a barra', 'Ctrl+Shift+S'], ['Voltar / avançar', 'Alt+← / Alt+→'],
         ['Recarregar', 'F5'], ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],
       ];
       const t = el('table', 'keys');

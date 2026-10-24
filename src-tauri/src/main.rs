@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod import;
+mod overlay;
 
 use std::{
     collections::HashMap,
@@ -36,9 +37,12 @@ const CARD_MARGIN: f64 = 8.0;
 const CMD_HOST: &str = "crest-cmd.invalid";
 const NEWTAB_PAGE: &str = "newtab.html";
 
-const SHORTCUTS_JS: &str = r#"(() => {
+/// Keyboard shortcuts inside pages, plus Peek on modifier+click of a link.
+fn shortcuts_js(peek_modifier: &str) -> String {
+    r#"(() => {
   if (window.top !== window) return;
-  const keys = { t: 'newtab', w: 'close', l: 'address' };
+  const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette' };
+  const send = (cmd) => window.open('https://crest-cmd.invalid/' + cmd);
   addEventListener('keydown', (e) => {
     if (!e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
@@ -53,9 +57,27 @@ const SHORTCUTS_JS: &str = r#"(() => {
     if (!cmd) return;
     e.preventDefault();
     e.stopImmediatePropagation();
-    window.open('https://crest-cmd.invalid/' + cmd);
+    send(cmd);
   }, true);
-})();"#;
+  const mod = 'MODIFIER';
+  addEventListener('click', (e) => {
+    if (mod === 'off' || !e[mod + 'Key'] || e.button !== 0) return;
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a || !/^https?:/.test(a.href)) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    send('peek?u=' + encodeURIComponent(a.href));
+  }, true);
+})();"#
+        .replace(
+            "MODIFIER",
+            if matches!(peek_modifier, "shift" | "alt" | "off") {
+                peek_modifier
+            } else {
+                "shift"
+            },
+        )
+}
 
 #[derive(Clone, Serialize, Deserialize)]
 struct Space {
@@ -137,6 +159,18 @@ struct Settings {
     default_zoom: f64,
     /// Look & feel options owned by the UI (tab shape, pins, folders, colors).
     appearance: serde_json::Value,
+    /// Modifier that opens a clicked link in Peek: shift, alt or off.
+    peek_modifier: String,
+    /// Space for links opened from other apps; empty means the current one.
+    external_space: String,
+    /// Links from other apps whose address contains `pattern` open in `space`.
+    routes: Vec<Route>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Route {
+    pattern: String,
+    space: String,
 }
 
 impl Default for Settings {
@@ -150,6 +184,9 @@ impl Default for Settings {
             sidebar_width: SIDEBAR_WIDTH,
             default_zoom: 1.0,
             appearance: serde_json::json!({}),
+            peek_modifier: "shift".into(),
+            external_space: String::new(),
+            routes: vec![],
         }
     }
 }
@@ -398,6 +435,24 @@ fn sleep_idle_tabs(app: &AppHandle) {
     }
 }
 
+/// The Space a link from another app opens in: a matching route, the
+/// configured Space, or the current one.
+fn route_space(d: &Data, url: &str) -> String {
+    let url = url.to_lowercase();
+    let exists = |id: &str| d.spaces.iter().any(|s| s.id == id);
+    d.settings
+        .routes
+        .iter()
+        .find(|r| {
+            !r.pattern.trim().is_empty()
+                && url.contains(&r.pattern.trim().to_lowercase())
+                && exists(&r.space)
+        })
+        .map(|r| r.space.clone())
+        .or_else(|| exists(&d.settings.external_space).then(|| d.settings.external_space.clone()))
+        .unwrap_or_else(|| d.active_space.clone())
+}
+
 /// Turns a command-line argument (URL or file path) into a URL.
 fn arg_to_url(arg: &str) -> Option<String> {
     if arg.starts_with('-') {
@@ -533,7 +588,9 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
     let builder = WebviewBuilder::new(label(id), url)
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&tab.space))
-        .initialization_script(SHORTCUTS_JS)
+        .initialization_script(shortcuts_js(&with_data(app, |d| {
+            d.settings.peek_modifier.clone()
+        })))
         .zoom_hotkeys_enabled(true)
         .devtools(true)
         .on_page_load(move |wv, payload| {
@@ -577,7 +634,11 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
             let app = app_nw.clone();
             if url.host_str() == Some(CMD_HOST) {
                 let cmd = url.path().trim_start_matches('/').to_string();
-                spawn(async move { run_cmd(&app, &cmd).await });
+                let arg = url
+                    .query_pairs()
+                    .find(|(k, _)| k == "u")
+                    .map(|(_, v)| v.into_owned());
+                spawn(async move { run_cmd(&app, &cmd, arg).await });
                 return NewWindowResponse::Deny;
             }
             // Sized popups (OAuth, payment flows) keep their opener; everything else becomes a tab.
@@ -673,6 +734,13 @@ fn layout(app: &AppHandle, create: bool) {
         } else if l == PANEL {
             let _ = wv.set_position(pos);
             let _ = wv.set_size(size);
+        } else if l == overlay::OVERLAY {
+            let _ = wv.set_position(rects[0].0);
+            let _ = wv.set_size(rects[0].1);
+        } else if l == overlay::PEEK {
+            let (p, s) = overlay::peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
+            let _ = wv.set_position(p);
+            let _ = wv.set_size(s);
         } else if panel.is_some() {
             let _ = wv.hide();
         } else if let Some((_, p)) = slots.iter().find(|(s, _)| *s == l) {
@@ -726,8 +794,10 @@ async fn open_tab(app: &AppHandle, url: String) {
     commit(app);
 }
 
-async fn run_cmd(app: &AppHandle, cmd: &str) {
+async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
     match cmd {
+        "palette" => overlay::open_palette(app),
+        "peek" => overlay::open_peek(app, arg.as_deref().unwrap_or("")),
         "newtab" => {
             open_tab(app, String::new()).await;
             focus_address(app);
@@ -795,6 +865,12 @@ async fn run_cmd(app: &AppHandle, cmd: &str) {
 }
 
 // Commands are async so webview creation never runs on the main thread (deadlocks on Windows).
+
+/// Runs a named command (the same ones pages send) from the UI.
+#[tauri::command]
+async fn run_command(app: AppHandle, cmd: String) {
+    run_cmd(&app, &cmd, None).await;
+}
 
 #[tauri::command]
 async fn get_state(app: AppHandle) -> Data {
@@ -1407,6 +1483,7 @@ fn main() {
             let urls: Vec<String> = args.iter().skip(1).filter_map(|a| arg_to_url(a)).collect();
             spawn(async move {
                 for url in urls {
+                    with_data(&app, |d| d.active_space = route_space(d, &url));
                     open_tab(&app, url).await;
                 }
                 if let Some(win) = window(&app) {
@@ -1418,6 +1495,7 @@ fn main() {
         }))
         .invoke_handler(tauri::generate_handler![
             get_state,
+            run_command,
             new_tab,
             activate_tab,
             close_tab,
@@ -1446,6 +1524,10 @@ fn main() {
             unsplit_tab,
             import_sources,
             import_browser,
+            overlay::open_overlay,
+            overlay::close_overlay,
+            overlay::peek_to_tab,
+            overlay::peek_url,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;
@@ -1474,7 +1556,8 @@ fn main() {
             }
             for url in std::env::args().skip(1).filter_map(|a| arg_to_url(&a)) {
                 let id = data.new_id();
-                let space = data.active_space.clone();
+                let space = route_space(&data, &url);
+                data.active_space = space.clone();
                 data.tabs.push(Tab {
                     id,
                     space: space.clone(),

@@ -3,7 +3,7 @@
   "identifier": "default",
   "description": "Sidebar UI and settings panel only; tab webviews get no IPC permissions.",
   "windows": ["main"],
-  "webviews": ["ui", "panel"],
+  "webviews": ["ui", "panel", "overlay"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",
