@@ -88,6 +88,8 @@ sincronização e o Crest Studio completo (aqui só dá para escolher a casa ou 
 
 ## Licença
 
-MPL-2.0, a mesma do Crest original. Os brasões em `ui/crests/` e as paletas
-das casas vêm do Crest (MPL-2.0); as figuras heráldicas são arte de Lorc
-(game-icons.net, CC BY 3.0). Veja `ui/crests/CREDITS.txt`.
+MPL-2.0, a mesma do Crest original. A geometria dos brasões, as casas e as
+paletas do Crest Studio vêm do Crest (MPL-2.0); as figuras heráldicas em
+`ui/charges.js` são arte de Lorc (game-icons.net, CC BY 3.0). Veja
+`ui/CREDITS-heraldry.txt`. O bloqueador usa o motor adblock do Brave (MPL-2.0)
+e as listas EasyList/EasyPrivacy.

@@ -6,6 +6,7 @@ const ICONS = {
   look: '<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2Z"/>',
   general: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  spaces: '<path d="M4 4h16v6c0 6-4 9-8 10-4-1-8-4-8-10Z"/>',
   privacy: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
@@ -28,7 +29,7 @@ function el(tag, cls, text) {
 }
 
 let state = null;
-let section = location.hash.slice(1) || 'look';
+let section = decodeURIComponent(location.hash.slice(1)) || 'look';
 
 // Saving
 
@@ -114,6 +115,11 @@ const setS = (k) => (v) => saveSettings({ [k]: v });
 const setL = (k) => (v) => saveLook({ [k]: v });
 
 const SECTIONS = {
+  spaces: {
+    title: 'Spaces e Studio',
+    icon: 'spaces',
+    render: () => renderStudio(),
+  },
   look: {
     title: 'Aparência',
     icon: 'look',
@@ -367,6 +373,256 @@ const SECTIONS = {
   },
 };
 
+// Crest Studio: each Space's arms and sidebar, step by step, with previews.
+
+let studioSpace = null;
+let studioStep = 'house';
+const undoStack = [];
+
+const STEPS = [
+  ['house', 'Modelo'], ['shape', 'Formato'], ['field', 'Campo'], ['band', 'Faixa'], ['emblem', 'Emblema'],
+  ['trim', 'Borda'], ['finish', 'Acabamento'], ['colors', 'Cores'], ['sidebar', 'Barra lateral'],
+];
+const CREST_COLOR_ROLES = ['Campo', 'Segundo campo', 'Faixa', 'Emblema', 'Borda', 'Contorno'];
+const SIDEBAR_COLOR_ROLES = ['Fundo da barra', 'Faixa do meio', 'Faixa de baixo'];
+
+function svgNode(markup) {
+  const t = document.createElement('template');
+  t.innerHTML = markup;
+  return t.content.firstChild;
+}
+
+function draftOf(space) {
+  return { crest: crestOf(space), sidebar: { ...look(space) } };
+}
+
+function saveStudio(space, draft, extra = {}) {
+  undoStack.push(JSON.stringify({ id: space.id, look: space.look, house: space.house }));
+  if (undoStack.length > 50) undoStack.shift();
+  space.look = { crest: draft.crest, sidebar: draft.sidebar };
+  Object.assign(space, extra);
+  invoke('update_space', { id: space.id, name: space.name, color: draft.sidebar.colors[2], house: space.house, look: space.look });
+  render();
+}
+
+function bannerNode(sidebar, tileSize) {
+  const wrap = el('div');
+  const b = el('div', `banner ${sidebar.pattern}` + (TILED.includes(sidebar.pattern) ? ' tiles' : ''));
+  b.append(el('div', 'p-mid'), el('div', 'p-low'));
+  sidebar.colors.forEach((c, i) => wrap.style.setProperty(`--c${i}`, c));
+  b.style.backgroundImage = tileImage(sidebar.pattern, sidebar.colors);
+  if (tileSize) b.style.backgroundSize = `${tileSize}px ${tileSize}px`;
+  wrap.append(b);
+  return wrap;
+}
+
+function tile(label, preview, selected, onPick) {
+  const b = el('button', 'tile' + (selected ? ' sel' : ''));
+  b.append(preview, el('span', '', label));
+  b.onclick = onPick;
+  return b;
+}
+
+function renderStudio() {
+  if (section.startsWith('spaces:')) { studioSpace = section.slice(7); section = 'spaces'; }
+  const space = state.spaces.find((s) => s.id === studioSpace) || state.spaces.find((s) => s.id === state.active_space);
+  studioSpace = space.id;
+  const draft = draftOf(space);
+
+  const list = el('div', 'space-list');
+  for (const s of state.spaces) {
+    const b = el('button', 'space-card' + (s.id === space.id ? ' sel' : ''));
+    const txt = el('div', '', s.name);
+    txt.append(el('small', '', s.private ? 'Privado' : (HOUSES[s.house]?.title || 'Personalizado')));
+    b.append(svgNode(renderCrest(crestOf(s))), txt);
+    b.onclick = () => { studioSpace = s.id; render(); };
+    list.append(b);
+  }
+  const addRow = el('div', 'row-btns');
+  for (const priv of [false, true]) {
+    const add = el('button', 'btn', priv ? 'Novo privado' : 'Novo Space');
+    add.onclick = async () => {
+      const houses = Object.keys(HOUSES);
+      const house = houses[state.spaces.length % houses.length];
+      studioSpace = await invoke('add_space', { name: priv ? 'Privado' : 'Novo Space', color: HOUSES[house].colors[2], private: priv, house, look: null });
+      state = await invoke('get_state');
+      render();
+    };
+    addRow.append(add);
+  }
+  list.append(addRow);
+
+  // Header: live preview of the crest and the sidebar, name and actions.
+  const head = el('div', 'studio-head');
+  const pc = el('div', 'preview-crest');
+  pc.append(svgNode(renderCrest(draft.crest)));
+  const mini = el('div', 'mini-sidebar');
+  mini.append(bannerNode(draft.sidebar, 18));
+  const hint = el('div', 'tabs-hint');
+  hint.append(el('i'), el('i'), el('i'));
+  mini.style.background = draft.sidebar.colors[0];
+  mini.append(hint);
+  const meta = el('div', 'studio-meta');
+  const name = el('input');
+  name.type = 'text';
+  name.value = space.name;
+  name.onchange = () => {
+    space.name = name.value.trim() || space.name;
+    invoke('update_space', { id: space.id, name: space.name, color: draft.sidebar.colors[2], house: space.house, look: null });
+  };
+  const actions = el('div', 'row-btns');
+  const shuffle = el('button', 'btn primary', 'Embaralhar');
+  shuffle.onclick = () => saveStudio(space, { ...draft, crest: shuffleCrest(draft.crest) });
+  const undo = el('button', 'btn', 'Desfazer');
+  undo.disabled = !undoStack.some((u) => JSON.parse(u).id === space.id);
+  undo.onclick = () => {
+    for (let i = undoStack.length - 1; i >= 0; i--) {
+      const u = JSON.parse(undoStack[i]);
+      if (u.id !== space.id) continue;
+      undoStack.splice(i, 1);
+      space.look = u.look;
+      space.house = u.house;
+      const d = draftOf(space);
+      invoke('update_space', { id: space.id, name: space.name, color: d.sidebar.colors[2], house: space.house, look: space.look || {} });
+      break;
+    }
+    render();
+  };
+  actions.append(shuffle, undo);
+  if (state.spaces.length > 1) {
+    const del = el('button', 'btn danger', 'Excluir Space');
+    del.onclick = () => {
+      if (!confirm(`Excluir o Space "${space.name}"? As abas, cookies e logins dele serão apagados.`)) return;
+      invoke('delete_space', { id: space.id });
+      state.spaces = state.spaces.filter((s) => s.id !== space.id);
+      studioSpace = null;
+      render();
+    };
+    actions.append(del);
+  }
+  meta.append(name, actions);
+  head.append(pc, mini, meta);
+
+  const steps = el('div', 'steps');
+  for (const [key, label] of STEPS) {
+    const b = el('button', key === studioStep ? 'sel' : '', label);
+    b.onclick = () => { studioStep = key; render(); };
+    steps.append(b);
+  }
+
+  const body = el('div');
+  const crestTile = (patch, label, selected) =>
+    tile(label, svgNode(renderCrest({ ...draft.crest, ...patch })), selected, () => saveStudio(space, { ...draft, crest: { ...draft.crest, ...patch } }));
+  const grid = (entries) => { const g = el('div', 'tiles'); g.append(...entries); return g; };
+  const c = draft.crest;
+  switch (studioStep) {
+    case 'house':
+      body.append(el('p', 'lead', 'Comece de uma das casas do Crest: brasão e barra lateral juntos.'), grid(Object.entries(HOUSES).map(([k, h]) =>
+        tile(h.title, svgNode(renderCrest(crestOf({ house: k }))), space.house === k, () =>
+          saveStudio(space, { crest: crestOf({ house: k }), sidebar: { colors: [...h.colors], pattern: h.pattern } }, { house: k })))));
+      break;
+    case 'shape':
+      body.append(grid(Object.entries(CREST_SHAPES).map(([k, l]) => crestTile({ shape: k }, l, c.shape === k))));
+      break;
+    case 'field': {
+      body.append(grid(Object.entries(CREST_DIVISIONS).map(([k, l]) => crestTile({ division: k }, l, c.division === k))));
+      if (COUNTED_DIVISIONS.includes(c.division)) {
+        const r = el('div', 'sub-row');
+        const n = el('input');
+        Object.assign(n, { type: 'range', min: 2, max: 10, step: 1, value: c.divisionCount });
+        n.onchange = () => saveStudio(space, { ...draft, crest: { ...c, divisionCount: Number(n.value) } });
+        r.append(el('span', '', 'Quantidade'), n);
+        body.append(r);
+      }
+      break;
+    }
+    case 'band':
+      body.append(grid(Object.entries(CREST_ORDINARIES).map(([k, l]) => crestTile({ ordinary: k }, l, c.ordinary === k))));
+      break;
+    case 'emblem': {
+      const r = el('div', 'sub-row');
+      const emoji = el('input');
+      emoji.type = 'text';
+      emoji.placeholder = 'Emoji 🦊';
+      emoji.value = c.chargeKind === 'emoji' ? c.text : '';
+      emoji.onchange = () => emoji.value.trim() && saveStudio(space, { ...draft, crest: { ...c, chargeKind: 'emoji', text: emoji.value.trim() } });
+      const mono = el('input');
+      mono.type = 'text';
+      mono.maxLength = 2;
+      mono.placeholder = 'Monograma AB';
+      mono.value = c.chargeKind === 'monogram' ? c.text : '';
+      mono.onchange = () => mono.value.trim() && saveStudio(space, { ...draft, crest: { ...c, chargeKind: 'monogram', text: mono.value.trim() } });
+      const scale = el('input');
+      Object.assign(scale, { type: 'range', min: 0.6, max: 1.6, step: 0.05, value: c.chargeScale });
+      scale.onchange = () => saveStudio(space, { ...draft, crest: { ...c, chargeScale: Number(scale.value) } });
+      r.append(emoji, mono, el('span', '', 'Tamanho'), scale);
+      body.append(r, grid([
+        crestTile({ chargeKind: 'none' }, 'Nenhum', c.chargeKind === 'none'),
+        ...Object.entries(CREST_FIGURES).map(([k, l]) => crestTile({ chargeKind: 'figure', charge: k }, l, c.chargeKind === 'figure' && c.charge === k)),
+      ]));
+      break;
+    }
+    case 'trim': {
+      body.append(grid(Object.entries(CREST_TRIMS).map(([k, l]) => crestTile({ trim: k }, l, c.trim === k))));
+      const r = el('div', 'sub-row');
+      const w = el('input');
+      Object.assign(w, { type: 'range', min: 0.3, max: 1.6, step: 0.05, value: c.trimWeight });
+      w.onchange = () => saveStudio(space, { ...draft, crest: { ...c, trimWeight: Number(w.value) } });
+      const det = el('input');
+      Object.assign(det, { type: 'range', min: 6, max: 24, step: 1, value: c.detail });
+      det.onchange = () => saveStudio(space, { ...draft, crest: { ...c, detail: Number(det.value) } });
+      r.append(el('span', '', 'Espessura'), w, el('span', '', 'Detalhes (raios, pérolas, selo)'), det);
+      body.append(r);
+      break;
+    }
+    case 'finish':
+      body.append(grid([
+        ...Object.entries(CREST_FINISHES).map(([k, l]) => crestTile({ finish: k }, l, c.finish === k)),
+        ...Object.entries(CREST_DEPTHS).map(([k, l]) => crestTile({ depth: k }, l, c.depth === k)),
+      ]));
+      break;
+    case 'colors': {
+      const colorInput = (label, value, onSave) => {
+        const box = el('label', 'color');
+        const i = el('input');
+        i.type = 'color';
+        i.value = value;
+        i.onchange = () => onSave(i.value);
+        box.append(i, document.createTextNode(label));
+        return box;
+      };
+      const g1 = el('div', 'colors');
+      CREST_COLOR_ROLES.forEach((label, idx) => g1.append(colorInput(label, c.colors[idx], (v) => {
+        const colors = [...c.colors];
+        colors[idx] = v;
+        saveStudio(space, { ...draft, crest: { ...c, colors } });
+      })));
+      const g2 = el('div', 'colors');
+      SIDEBAR_COLOR_ROLES.forEach((label, idx) => g2.append(colorInput(label, draft.sidebar.colors[idx], (v) => {
+        const colors = [...draft.sidebar.colors];
+        colors[idx] = v;
+        saveStudio(space, { ...draft, sidebar: { ...draft.sidebar, colors } });
+      })));
+      body.append(el('h3', 'lead', 'Brasão'), g1, el('h3', 'lead', 'Barra lateral'), g2);
+      break;
+    }
+    case 'sidebar':
+      body.append(el('p', 'lead', 'O padrão das faixas no fundo da barra lateral.'), grid(Object.entries(SIDEBAR_PATTERNS).map(([k, l]) => {
+        const sw = el('div', 'swatch');
+        sw.style.background = draft.sidebar.colors[0];
+        sw.append(bannerNode({ ...draft.sidebar, pattern: k }, 12));
+        return tile(l, sw, draft.sidebar.pattern === k, () => saveStudio(space, { ...draft, sidebar: { ...draft.sidebar, pattern: k } }));
+      })));
+      break;
+  }
+
+  const editor = el('div');
+  editor.append(head, steps, body);
+  const studio = el('div', 'studio');
+  studio.append(list, editor);
+  return [...header('Spaces e Crest Studio', 'Cada Space tem seu brasão, cores e fundo. Escolha um modelo ou monte peça por peça.'), studio];
+}
+
 function accentRow() {
   const wrap = el('div', 'seg');
   wrap.style.background = 'none';
@@ -398,14 +654,15 @@ function render() {
   const nav = $('nav');
   nav.querySelectorAll('button').forEach((b) => b.remove());
   for (const [id, s] of Object.entries(SECTIONS)) {
-    const b = el('button', id === section ? 'sel' : '');
+    const b = el('button', id === section || section.startsWith(`${id}:`) ? 'sel' : '');
     b.append(icon(s.icon), document.createTextNode(s.title));
     b.onclick = () => { section = id; render(); };
     nav.append(b);
   }
   const main = $('main');
   const top = main.scrollTop;
-  main.replaceChildren(...(SECTIONS[section] || SECTIONS.look).render());
+  const key = section.startsWith('spaces:') ? 'spaces' : section;
+  main.replaceChildren(...(SECTIONS[key] || SECTIONS.look).render());
   main.scrollTop = top;
 }
 

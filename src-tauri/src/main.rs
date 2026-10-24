@@ -96,6 +96,9 @@ struct Space {
     /// Download folder for this Space; empty means the Windows default.
     #[serde(default)]
     downloads: String,
+    /// Crest Studio arms and sidebar look, owned by the UI; null follows `house`.
+    #[serde(default)]
+    look: serde_json::Value,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -268,6 +271,7 @@ impl Data {
                 private: false,
                 house: "winter".into(),
                 downloads: String::new(),
+                look: serde_json::Value::Null,
             });
         }
         let spaces: Vec<String> = self
@@ -1284,6 +1288,7 @@ async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
                         private: false,
                         house: HOUSES[h].into(),
                         downloads: String::new(),
+                        look: serde_json::Value::Null,
                     });
                     for e in sp.pinned {
                         push_tab(d, &sid, e, true, None);
@@ -1360,8 +1365,15 @@ async fn duplicate_tab(app: AppHandle, id: u64) {
 }
 
 #[tauri::command]
-async fn add_space(app: AppHandle, name: String, color: String, private: bool, house: String) {
-    with_data(&app, |d| {
+async fn add_space(
+    app: AppHandle,
+    name: String,
+    color: String,
+    private: bool,
+    house: String,
+    look: Option<serde_json::Value>,
+) -> String {
+    let id = with_data(&app, |d| {
         let id = format!("space-{}", d.new_id());
         d.spaces.push(Space {
             id: id.clone(),
@@ -1370,11 +1382,13 @@ async fn add_space(app: AppHandle, name: String, color: String, private: bool, h
             private,
             house,
             downloads: String::new(),
+            look: look.unwrap_or_default(),
         });
-        d.active_space = id;
+        d.active_space = id.clone();
+        id
     });
     open_tab(&app, String::new()).await;
-    focus_address(&app);
+    id
 }
 
 #[tauri::command]
@@ -1406,12 +1420,22 @@ async fn switch_space(app: AppHandle, id: String) {
 }
 
 #[tauri::command]
-async fn update_space(app: AppHandle, id: String, name: String, color: String, house: String) {
+async fn update_space(
+    app: AppHandle,
+    id: String,
+    name: String,
+    color: String,
+    house: String,
+    look: Option<serde_json::Value>,
+) {
     with_data(&app, |d| {
         if let Some(s) = d.spaces.iter_mut().find(|s| s.id == id) {
             s.name = name;
             s.color = color;
             s.house = house;
+            if let Some(look) = look {
+                s.look = look;
+            }
         }
     });
     commit(&app);

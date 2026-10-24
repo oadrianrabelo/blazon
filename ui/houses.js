@@ -29,7 +29,15 @@ function mix(a, b, t) {
   return '#' + x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, '0')).join('');
 }
 
+const SIDEBAR_PATTERNS = {
+  diagonal: 'Diagonal', chevron: 'Chevron', bands: 'Faixas', split: 'Dividido', quartered: 'Quartelado',
+  stripes: 'Listras', checkered: 'Xadrez', lozenges: 'Losangos', gradient: 'Degradê', solid: 'Liso',
+};
+
+/// Sidebar colors (field, middle, lower) and banner pattern of a Space.
 function look(space) {
+  const sb = space.look && space.look.sidebar;
+  if (sb && Array.isArray(sb.colors) && sb.colors.length === 3) return { colors: sb.colors, pattern: sb.pattern || 'diagonal' };
   const h = HOUSES[space.house];
   if (h) return h;
   const c = /^#[0-9a-f]{6}$/i.test(space.color) ? space.color : '#3b82f6';

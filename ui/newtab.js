@@ -29,16 +29,7 @@ window.crestStart = ({ space, search, sites }) => {
     banner.className = `banner ${pattern}` + (TILED.includes(pattern) ? ' tiles' : '');
     banner.style.backgroundImage = tileImage(pattern, colors);
     $('name').textContent = space.name;
-    const emblem = $('emblem');
-    emblem.replaceChildren();
-    if (HOUSES[space.house]) {
-      const img = new Image();
-      img.src = `crests/${space.house}.svg`;
-      img.alt = '';
-      emblem.append(img);
-    } else {
-      emblem.innerHTML = `<svg viewBox="10 12 80 80"><path d="${SHIELD}" fill="${colors[2]}" stroke="${colors[0]}" stroke-width="3"/></svg>`;
-    }
+    $('emblem').innerHTML = renderCrest(crestOf(space));
   }
   // The search setting is a URL prefix ending in "q=" (or similar); split it into a GET form.
   try {

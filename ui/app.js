@@ -50,15 +50,8 @@ function setIcon(node, name) {
 }
 
 function emblem(space) {
-  if (HOUSES[space.house]) {
-    const img = new Image();
-    img.src = `crests/${space.house}.svg`;
-    img.alt = '';
-    return img;
-  }
   const t = document.createElement('template');
-  const c = look(space).colors;
-  t.innerHTML = `<svg viewBox="10 12 80 80"><path d="${SHIELD}" fill="${c[2]}" stroke="${c[0]}" stroke-width="3"/></svg>`;
+  t.innerHTML = renderCrest(crestOf(space));
   return t.content.firstChild;
 }
 
@@ -322,7 +315,7 @@ function render() {
     b.title = `${s.name} (Ctrl+Shift+${i + 1})`;
     b.append(emblem(s));
     b.onclick = () => invoke('switch_space', { id: s.id });
-    b.ondblclick = () => openSpaceDialog(s);
+    b.ondblclick = () => openStudio(s);
     spaces.append(b);
   });
 }
@@ -447,57 +440,17 @@ $('history-clear').onclick = async () => {
 };
 listen('open-history', openHistory);
 
-// Space dialog: create or edit a Space, Crest Studio style.
-let editing = null;
-let pickedHouse = 'winter';
-
-function renderHouses() {
-  const grid = $('sd-houses');
-  grid.replaceChildren();
-  const custom = { house: '', color: $('sd-color').value };
-  for (const key of [...Object.keys(HOUSES), '']) {
-    const b = el('button', 'house' + (key === pickedHouse ? ' sel' : ''));
-    b.type = 'button';
-    b.title = key ? HOUSES[key].title : 'Cor própria';
-    b.append(emblem(key ? { house: key } : custom));
-    b.onclick = () => { pickedHouse = key; renderHouses(); };
-    grid.append(b);
-  }
-  $('sd-custom-row').hidden = pickedHouse !== '';
+// Spaces are created and styled in Crest Studio (settings panel).
+async function newSpace() {
+  const houses = Object.keys(HOUSES);
+  const house = houses[state.spaces.length % houses.length];
+  const id = await invoke('add_space', { name: 'Novo Space', color: HOUSES[house].colors[2], private: false, house, look: null });
+  invoke('open_panel', { section: `spaces:${id}` });
 }
-
-function openSpaceDialog(space) {
-  editing = space || null;
-  $('sd-title').textContent = space ? 'Editar Space' : 'Novo Space';
-  $('sd-name').value = space ? space.name : '';
-  pickedHouse = space ? space.house : Object.keys(HOUSES)[state.spaces.length % 9];
-  $('sd-color').value = space && !space.house ? space.color : COLORS[state.spaces.length % COLORS.length];
-  $('sd-private').checked = false;
-  $('sd-private-row').hidden = !!space;
-  $('sd-delete').hidden = !space || state.spaces.length <= 1;
-  renderHouses();
-  $('space-dialog').showModal();
-  $('sd-name').focus();
-}
-$('sd-color').addEventListener('input', renderHouses);
-$('sd-cancel').onclick = () => $('space-dialog').close('cancel');
-$('space-dialog').addEventListener('close', () => {
-  const name = $('sd-name').value.trim();
-  if ($('space-dialog').returnValue !== 'save' || !name) return;
-  const house = pickedHouse;
-  const color = house ? HOUSES[house].colors[2] : $('sd-color').value;
-  if (editing) invoke('update_space', { id: editing.id, name, color, house });
-  else invoke('add_space', { name, color, house, private: $('sd-private').checked });
-});
-$('sd-delete').onclick = () => {
-  const s = editing;
-  if (!confirm(`Excluir o Space "${s.name}"? As abas, cookies e logins dele serão apagados.`)) return;
-  $('space-dialog').close('cancel');
-  invoke('delete_space', { id: s.id });
-};
-$('add-space').onclick = () => openSpaceDialog(null);
-$('space-name').onclick = () => openSpaceDialog(activeSpace());
-$('space-menu').onclick = () => openSpaceDialog(activeSpace());
+const openStudio = (space) => invoke('open_panel', { section: `spaces:${space.id}` });
+$('add-space').onclick = newSpace;
+$('space-name').onclick = () => openStudio(activeSpace());
+$('space-menu').onclick = () => openStudio(activeSpace());
 
 // Settings panel (shown over the page card)
 $('settings-btn').onclick = () => invoke('open_panel', { section: 'look' });
