@@ -232,6 +232,20 @@ Em Configurações → Aparência você ajusta:
 | Páginas | Zoom padrão, de 50% a 300% |
 | Restaurar tudo | Volta tudo ao padrão |
 
+### Animações
+
+As animações seguem as do Crest, com os mesmos tempos e molas:
+- as abas deslizam para o novo lugar ao reordenar, fixar, abrir ou fechar pastas;
+- a seleção desliza da aba anterior para a nova;
+- ao trocar de Space, o conteúdo entra pelo lado do Space escolhido e as cores mudam aos poucos;
+- num touchpad, deslize dois dedos para os lados sobre a barra lateral para trocar de Space;
+- a barra de endereço se preenche com a cor do Space enquanto a página carrega;
+- botões encolhem de leve ao apertar;
+- menus, paleta, avisos e a barra flutuante aparecem e somem com as transições do Crest.
+
+Se **Configurações do Windows → Acessibilidade → Efeitos visuais → Efeitos de animação** estiver
+desligado, o Blazon mantém só os esmaecimentos, sem movimento.
+
 ## Atalhos
 
 | Atalho | Ação |

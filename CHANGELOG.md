@@ -11,6 +11,10 @@
 - Rotas de links podem abrir no **Peek**.
 - **Acessibilidade**: navegação completa pelo teclado (F6, setas, Enter, Delete, Shift+F10),
   nomes para leitores de tela e contorno de foco.
+- **Animações do Crest**: os mesmos tempos e molas do Crest em abas, seleção, troca de Space
+  (com gesto de dois dedos no touchpad), pastas, carregamento na barra de endereço, menus,
+  paleta, Peek, configurações e página inicial; vidro nos menus. Respeita "Efeitos de animação"
+  do Windows.
 - Código do app dividido em módulos.
 
 ## 0.1.0

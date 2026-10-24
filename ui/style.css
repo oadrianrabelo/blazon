@@ -22,7 +22,7 @@ body {
 }
 
 /* Heraldic Space background, drawn across the whole window behind the page card. */
-.banner { position: fixed; inset: 0; background: var(--c0); transition: background .25s; }
+.banner { position: fixed; inset: 0; background: var(--c0); }
 .banner > * { position: absolute; inset: 0; }
 .banner .p-mid { background: var(--c1); clip-path: polygon(0 50%, 100% 34%, 100% 50%, 0 68%); }
 .banner .p-low { background: var(--c2); clip-path: polygon(0 68%, 100% 50%, 100% 100%, 0 100%); }
@@ -57,7 +57,13 @@ svg { display: block; }
 .native .winctl { display: none; }
 .winctl .close:hover { background: #c42b1c; color: #fff; }
 
-.address { position: relative; display: flex; align-items: center; background: var(--field); border-radius: 9px; border: 1px solid transparent; }
+.address { position: relative; display: flex; align-items: center; background: var(--field); border-radius: 9px; border: 1px solid transparent;
+  transition: border-color var(--selection) ease-in-out, background-color var(--selection) ease-in-out; }
+/* Loading fill: the Space color sweeps across the field (BrowserSidebarAddressFieldSurface). */
+.address::before { content: ""; position: absolute; inset: 0; border-radius: inherit; background: var(--c2); opacity: 0; transform: scaleX(0); transform-origin: left; pointer-events: none; }
+.address.loading::before { opacity: .2; transform: scaleX(.85); transition: transform 6s cubic-bezier(.08, .7, .2, 1), opacity var(--loading) ease-out; }
+.address.done::before { opacity: 0; transform: scaleX(1); transition: transform var(--loading) var(--smooth), opacity .3s ease-out .15s; }
+.address > .lead, #address { position: relative; }
 .address:focus-within { border-color: color-mix(in srgb, var(--c2) 70%, transparent); background: rgba(0, 0, 0, .34); }
 .address .lead { padding-left: 10px; color: var(--muted); }
 .address .lead svg { width: 14px; height: 14px; }
@@ -201,7 +207,7 @@ body.right .toast { left: auto; right: 8px; }
 .folder { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 9px; color: var(--fg); }
 .folder:hover { background: var(--hover); }
 .folder svg { width: 16px; height: 16px; flex: none; color: var(--c2); }
-.folder .chev { width: 12px; height: 12px; color: var(--muted); margin-left: auto; transition: transform .15s; }
+.folder .chev { width: 12px; height: 12px; color: var(--muted); margin-left: auto; transition: transform var(--disclosure) var(--snappy); }
 .folder.open .chev { transform: rotate(90deg); }
 .folder .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .in-folder { padding-left: 30px; }
@@ -241,6 +247,22 @@ body.right .toast { left: auto; right: 8px; }
 .edge { position: fixed; top: 0; bottom: 0; left: 0; width: 10px; z-index: 5; display: none; }
 body.right .edge { left: auto; right: 0; }
 .floating.collapsed .edge { display: block; }
-.floating.collapsed #sidebar { visibility: hidden; }
+.floating #sidebar { transition: transform var(--chrome) var(--smooth), opacity var(--chrome) ease-out; }
+.floating.collapsed #sidebar { visibility: hidden; opacity: 0; transform: translateX(calc(-24px * var(--move)));
+  transition: transform var(--sidebar-retreat) var(--smooth), opacity var(--sidebar-retreat) ease-in, visibility 0s var(--sidebar-retreat); }
+.floating.collapsed.right #sidebar { transform: translateX(calc(24px * var(--move))); }
 .space-name svg { width: 26px; height: 26px; margin: -3px; }
 .dot svg { width: 26px; height: 26px; }
+
+/* Motion (motion.css / motion.js) */
+.m-glide { position: absolute; z-index: -1; pointer-events: none; }
+dialog[open] { animation: m-pane-in var(--floating-pane) var(--smooth); }
+dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
+.tab .close, .tab .sound { transition: opacity var(--hover) ease-in-out, background-color var(--hover) ease-in-out; }
+
+/* Glass: floating surfaces blur the Space behind them (Crest's .glassEffect). */
+.ctx, .suggest, dialog, .toast {
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  backdrop-filter: blur(22px) saturate(1.6);
+}
+.now-playing { backdrop-filter: blur(16px) saturate(1.4); }

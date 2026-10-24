@@ -169,7 +169,7 @@ function showMenu(e, items) {
     b.onclick = () => { hideMenu(); it.run(); };
     m.append(b);
   }
-  m.hidden = false;
+  Motion.show(m);
   // Stay inside the sidebar: the page card covers the rest of the window.
   const bar = $('sidebar').getBoundingClientRect();
   const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
@@ -177,7 +177,7 @@ function showMenu(e, items) {
   m.style.left = `${x}px`;
   m.style.top = `${Math.max(6, y)}px`;
 }
-function hideMenu() { $('ctx').hidden = true; }
+function hideMenu() { Motion.hide($('ctx')); }
 addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
 addEventListener('blur', hideMenu);
 addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
@@ -252,9 +252,21 @@ $('scroll').addEventListener('contextmenu', (e) => {
   showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
 });
 
+// Motion: what was on screen before this render (see motion.js).
+let shownSpace = null;
+let shownActive = null;
+let shownLoading = null;
+
 function render() {
   const space = activeSpace();
   const current = activeTab();
+  const spaceChanged = shownSpace !== null && shownSpace !== state.active_space;
+  const listRoots = [$('pinned'), $('folders'), $('tabs'), $('now-playing'), $('spaces')];
+  const before = spaceChanged ? null : Motion.snapshot(...listRoots);
+  const activeNode = document.querySelector('#sidebar [aria-selected="true"]');
+  const activeChanged = shownActive !== (current?.id ?? null);
+  const fromActive = activeChanged && activeNode ? activeNode.getBoundingClientRect() : null;
+  const fromDot = spaceChanged ? document.querySelector('#spaces .dot.active')?.getBoundingClientRect() : null;
   I18N.sync(state.settings.language);
   applyLook(space);
   applyAppearance(state.settings);
@@ -276,6 +288,13 @@ function render() {
     : paused ? `Bloqueador pausado em ${site}. Clique para retomar.` : `Bloqueando anúncios${site ? ` em ${site}` : ''}. Clique para pausar neste site.`;
   $('shield').disabled = !site || !state.settings.adblock;
   const loading = !!current?.loading;
+  const form = $('address-form');
+  form.classList.toggle('loading', loading);
+  if (!loading && shownLoading === current?.id) {
+    form.classList.add('done');
+    setTimeout(() => form.classList.remove('done'), 600);
+  }
+  shownLoading = loading ? current.id : null;
   setIcon($('reload'), loading ? 'x' : 'reload');
   $('reload').dataset.nav = loading ? 'stop' : 'reload';
   $('reload').title = loading ? 'Parar' : 'Recarregar (F5)';
@@ -289,6 +308,7 @@ function render() {
   const tabRow = (t, extra) => {
     const active = current && t.id === current.id;
     const li = el('li', 'tab' + extra + (active ? ' active' : '') + (t.loading ? ' loading' : '') + (t.awake ? '' : ' asleep'));
+    li.dataset.key = `t${t.id}`;
     li.title = t.url || 'Nova aba';
     const close = el('button', 'icon close');
     close.append(icon('x'));
@@ -317,6 +337,7 @@ function render() {
   folders.replaceChildren();
   for (const f of state.folders.filter((x) => x.space === state.active_space)) {
     const head = el('li', 'folder' + (f.open ? ' open' : ''));
+    head.dataset.key = `f${f.id}`;
     const chev = icon('chev');
     chev.classList.add('chev');
     if (f.icon) head.append(el('span', 'emoji', f.icon));
@@ -359,6 +380,7 @@ function render() {
     if (t.folder != null) continue;
     if (t.pinned) {
       const b = el('button', 'pin' + (active ? ' active' : '') + (t.awake ? '' : ' asleep'));
+      b.dataset.key = `t${t.id}`;
       b.title = tabTitle(t);
       b.append(favicon(t));
       tabEvents(b, t);
@@ -375,6 +397,7 @@ function render() {
   spaces.replaceChildren();
   state.spaces.forEach((s, i) => {
     const b = el('button', 'dot' + (s.id === state.active_space ? ' active' : ''));
+    b.dataset.key = `s${s.id}`;
     b.title = `${s.name} (Ctrl+Shift+${i + 1})`;
     b.append(emblem(s));
     if (s.locked && !(state.unlocked || []).includes(s.id)) {
@@ -406,6 +429,34 @@ function render() {
     });
     spaces.append(b);
   });
+
+  // Motion: the new Space slides in from its side of the pager; otherwise rows
+  // move to their new places and the selection glides to the new tab.
+  const sidebar = $('sidebar');
+  if (spaceChanged) {
+    const from = state.spaces.findIndex((s) => s.id === shownSpace);
+    const to = state.spaces.findIndex((s) => s.id === state.active_space);
+    Motion.swipe([$('pinned'), document.querySelector('.space-head'), $('scroll')], to >= from ? 1 : -1);
+    const dot = document.querySelector('#spaces .dot.active');
+    if (dot) glideTo(fromDot, dot, sidebar);
+  } else if (before) {
+    Motion.play(before, listRoots, sidebar);
+    const node = document.querySelector('#sidebar [aria-selected="true"]');
+    if (fromActive && node) glideTo(fromActive, node, sidebar);
+  }
+  shownSpace = state.active_space;
+  shownActive = current?.id ?? null;
+}
+
+// Hands the selected look from one row to another (Crest's matched geometry).
+function glideTo(from, node, layer) {
+  if (!from || Motion.reduced.matches) return;
+  const to = node.getBoundingClientRect();
+  const look = getComputedStyle(node);
+  if (look.backgroundColor === 'rgba(0, 0, 0, 0)' && look.boxShadow === 'none') return;
+  const duration = Motion.ms('--feedback') * 1.2;
+  node.animate([{ backgroundColor: 'transparent', boxShadow: 'none' }, { backgroundColor: 'transparent', boxShadow: 'none', offset: 0.8 }, {}], { duration });
+  Motion.glide(from, to, layer, { background: look.backgroundColor, boxShadow: look.boxShadow, borderRadius: look.borderRadius });
 }
 
 listen('state', (e) => { state = e.payload; render(); });
@@ -433,7 +484,8 @@ function showSuggestions() {
     li.onmousedown = (e) => { e.preventDefault(); pick(s); };
     ul.append(li);
   });
-  ul.hidden = suggestions.length === 0;
+  if (!suggestions.length) ul.hidden = true;
+  else if (ul.hidden) Motion.show(ul);
 }
 
 function hideSuggestions() {
@@ -480,7 +532,10 @@ $('address').addEventListener('keydown', (e) => {
 });
 
 document.querySelectorAll('[data-nav]').forEach((b) => {
-  b.onclick = () => invoke('nav', { action: b.dataset.nav });
+  b.onclick = () => {
+    if (b.dataset.nav === 'reload') Motion.pulse(b, 'm-reload');
+    invoke('nav', { action: b.dataset.nav });
+  };
 });
 $('new-tab').onclick = () => invoke('new_tab', {});
 $('shield').onclick = () => invoke('toggle_site_blocking');
@@ -569,11 +624,16 @@ $('settings-btn').onclick = () => invoke('open_panel', { section: 'look' });
 
 // Floating sidebar: hidden to an edge strip, revealed on hover.
 let peekTimer = null;
+let retreatTimer = null;
 function peek(on) {
   clearTimeout(peekTimer);
+  clearTimeout(retreatTimer);
   if (!state?.settings.floating_sidebar) return;
   document.body.classList.toggle('collapsed', !on);
-  invoke('sidebar_peek', { on });
+  // The page is drawn above this view, so it reclaims the space only after
+  // the sidebar has retreated (CrestMotion.sidebarRetreat).
+  if (on) invoke('sidebar_peek', { on });
+  else retreatTimer = setTimeout(() => invoke('sidebar_peek', { on }), Motion.ms('--sidebar-retreat'));
 }
 $('edge').addEventListener('mouseenter', () => peek(true));
 $('sidebar').addEventListener('mouseenter', () => clearTimeout(peekTimer));
@@ -581,6 +641,28 @@ $('sidebar').addEventListener('mouseleave', () => {
   const busy = document.activeElement === $('address') || !$('ctx').hidden || document.querySelector('dialog[open]');
   if (!busy) peekTimer = setTimeout(() => peek(false), 350);
 });
+
+// A horizontal touchpad swipe over the sidebar pages between Spaces, like
+// Crest's Space pager; past the first or last Space the content shakes.
+let swipeX = 0;
+let swipeReset = null;
+let swipeLocked = false;
+$('sidebar').addEventListener('wheel', (e) => {
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  e.preventDefault();
+  if (swipeLocked) return;
+  swipeX += e.deltaX;
+  clearTimeout(swipeReset);
+  swipeReset = setTimeout(() => { swipeX = 0; }, 160);
+  if (Math.abs(swipeX) < 90) return;
+  const i = state.spaces.findIndex((s) => s.id === state.active_space) + Math.sign(swipeX);
+  swipeX = 0;
+  swipeLocked = true;
+  setTimeout(() => { swipeLocked = false; }, 450);
+  if (i < 0 || i >= state.spaces.length) {
+    for (const node of [$('pinned'), document.querySelector('.space-head'), $('scroll')]) Motion.pulse(node, 'm-shake');
+  } else invoke('switch_space', { id: state.spaces[i].id });
+}, { passive: false });
 
 // Accessibility: icon buttons get spoken names, arrows move between tabs,
 // F6 cycles address bar → tab list → page.
@@ -651,10 +733,13 @@ document.addEventListener('keydown', (e) => {
 function renderNowPlaying() {
   const box = $('now-playing');
   const playing = state.tabs.filter((t) => t.audio || (t.muted && t.awake));
-  box.hidden = !playing.length;
+  if (!playing.length) Motion.hide(box);
+  else if (box.hidden || box.classList.contains('m-leaving')) Motion.show(box, 'rise');
+  if (!playing.length) return;
   box.replaceChildren();
   for (const t of playing.slice(0, 3)) {
     const item = el('div', 'np-item');
+    item.dataset.key = `np${t.id}`;
     const go = el('button', 'np-title');
     const space = state.spaces.find((s) => s.id === t.space);
     go.append(favicon(t), el('span', 'title', tabTitle(t)));
@@ -676,10 +761,10 @@ function toast(text, actions = []) {
   box.replaceChildren();
   for (const [label, run, primary] of [...actions, ['Fechar', () => {}]]) {
     const b = el('button', primary ? 'primary' : '', label);
-    b.onclick = () => { $('toast').hidden = true; run(); };
+    b.onclick = () => { Motion.hide($('toast')); run(); };
     box.append(b);
   }
-  $('toast').hidden = false;
+  Motion.show($('toast'), 'rise');
 }
 
 listen('tab-crashed', (e) => {
@@ -726,6 +811,7 @@ listen('downloads', (e) => {
   const before = downloads.length;
   downloads = e.payload;
   drawDownloads();
+  if (downloads.length > before) Motion.pulse($('downloads-btn'), 'm-bounce');
   if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
 });
 $('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };

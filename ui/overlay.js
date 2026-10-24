@@ -3,7 +3,16 @@ const $ = (id) => document.getElementById(id);
 const mode = location.hash.slice(1) || 'palette';
 let state = null;
 
-const close = () => invoke('close_overlay');
+const shut = () => invoke('close_overlay');
+// The palette folds back before the overlay goes away (CrestMotion.dismissal).
+let closing = false;
+const close = () => {
+  if (mode !== 'palette' || Motion.reduced.matches) return shut();
+  if (closing) return;
+  closing = true;
+  document.body.classList.add('closing');
+  setTimeout(shut, Motion.ms('--dismissal'));
+};
 addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } });
 $('backdrop').onclick = close;
 
@@ -157,7 +166,7 @@ function draw() {
 }
 
 async function runItem(it) {
-  await close();
+  await shut();
   it.run();
 }
 

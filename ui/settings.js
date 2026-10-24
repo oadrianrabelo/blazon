@@ -981,7 +981,12 @@ function render() {
   const key = section.startsWith('spaces:') ? 'spaces' : section;
   main.replaceChildren(...(SECTIONS[key] || SECTIONS.look).render());
   main.scrollTop = top;
+  // A new page or Studio step settles in; edits on the same page stay still.
+  const view = key === 'spaces' ? `spaces:${studioSpace}:${studioStep}` : key;
+  if (shownView !== null && shownView !== view) Motion.enter(main);
+  shownView = view;
 }
+let shownView = null;
 
 $('close').append(icon('x'));
 $('close').onclick = () => invoke('close_panel');

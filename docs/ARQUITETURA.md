@@ -91,6 +91,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `settings.*` | Painel de configurações e Studio |
 | `overlay.*` | Paleta de comandos e barra do Peek |
 | `newtab.*` | Página inicial |
+| `motion.css`, `motion.js` | Animações do Crest: os tempos do `CrestMotion`, molas do SwiftUI convertidas em curvas `linear()`, reordenação estilo FLIP, seleção que desliza, troca de Space, painéis flutuantes e o modo de movimento reduzido do Windows |
 | `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
 | `diag.js` | Envia erros de JavaScript da interface para o log |
 | `houses.js` | Paletas e padrões da barra das 9 casas, opções de aparência e presets |
