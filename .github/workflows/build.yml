@@ -123,3 +123,18 @@ jobs:
         with:
           name: blazon-screenshots
           path: screenshots
+      # Also kept in the ci-screenshots branch, easy to browse and fetch with git.
+      - name: Save screenshots to the ci-screenshots branch
+        if: always() && github.event_name == 'push'
+        shell: bash
+        run: |
+          [ -d screenshots ] || exit 0
+          cd screenshots
+          git init -q -b ci-screenshots
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          printf '# Prints do teste no Windows\n\nCommit %s (%s).\n\n' "$GITHUB_SHA" "$GITHUB_REF_NAME" > README.md
+          for f in *.png; do printf '![%s](%s)\n\n' "$f" "$f" >> README.md; done
+          git add -A
+          git commit -qm "Prints de $GITHUB_SHA"
+          git push -qf "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" ci-screenshots

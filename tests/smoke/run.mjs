@@ -44,7 +44,15 @@ try {
   await waitFor(() => fetch('http://127.0.0.1:9222/json/version').then((r) => r.ok), 'DevTools', 60000);
   browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
   const context = browser.contexts()[0];
-  const page = (part) => waitFor(() => context.pages().find((p) => p.url().includes(part)), part);
+  // Pages are found by what they contain: Tauri may serve index.html as "/".
+  const has = async (p, sel) => p.evaluate((s) => !!document.querySelector(s), sel).catch(() => false);
+  const page = (sel) => waitFor(async () => {
+    for (const p of context.pages()) if (await has(p, sel)) return p;
+    return null;
+  }, sel).catch((e) => {
+    console.log('Páginas abertas:', context.pages().map((p) => p.url()));
+    throw e;
+  });
   const watch = (p) => {
     p.on('pageerror', (e) => problems.push(`${p.url()}: ${e.message}`));
     p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) problems.push(`${p.url()}: ${m.text()}`); });
@@ -52,13 +60,13 @@ try {
   context.on('page', watch);
   context.pages().forEach(watch);
 
-  const ui = await page('index.html');
+  const ui = await page('#sidebar');
   const invoke = (cmd, args = {}) => ui.evaluate(([c, a]) => window.__TAURI__.core.invoke(c, a), [cmd, args]);
   await ui.evaluate(() => window.__TAURI__.window.getCurrentWindow().toggleMaximize()).catch(() => {});
   await sleep(3000);
 
   // First run: the welcome flow.
-  const welcome = await page('overlay.html#welcome');
+  const welcome = await page('#welcome:not([hidden])');
   await welcome.waitForSelector('.w-btn.primary');
   shot('boas-vindas');
   const next = async (wait = 900) => { await welcome.click('.w-btn.primary'); await sleep(wait); };
