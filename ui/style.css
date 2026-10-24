@@ -382,7 +382,8 @@ body.horizontal .topbar > .grow { order: 3; flex: 1 1 0; min-width: 8px; height:
 body.horizontal .topbar > .winctl { order: 9; }
 body.horizontal.wc-left .topbar > .winctl { order: 0; }
 body.horizontal.mac-controls .topbar > .winctl { height: 30px; }
-body.horizontal .address { order: 4; flex: 0 1 640px; min-width: 220px; }
+/* Basis 0 so the row never wraps on the address's width; it grows up to 640px. */
+body.horizontal .address { order: 4; flex: 8 1 0; max-width: 640px; min-width: 200px; }
 body.horizontal .address #address { padding-top: 7px; padding-bottom: 7px; text-align: center; }
 body.horizontal .address:focus-within #address { text-align: left; }
 body.horizontal footer { order: 6; gap: 2px; }

@@ -92,7 +92,7 @@ kbd { font: 12px ui-monospace, Consolas, monospace; background: var(--field); bo
 #pw-search { width: 100%; margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--faint); background: var(--field); color: var(--fg); font: inherit; }
 
 /* Settings › Shortcuts */
-.keys-edit { padding: 0; align-items: center; justify-content: flex-end; }
+.keys-edit { padding: 0; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
 .keys-edit kbd { min-width: 92px; text-align: center; padding: 4px 8px; }
 .keys-edit kbd.off { opacity: .55; }
 .keys-edit kbd.rec { outline: 2px solid var(--c2); animation: m-fade-in .6s ease-in-out infinite alternate; }

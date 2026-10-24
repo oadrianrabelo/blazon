@@ -386,7 +386,8 @@ function hideMenu() {
   if (menuHeld) { menuHeld = false; menuSeq++; setTimeout(() => Cover.release(), Motion.ms('--dismissal')); }
   if (!$('ctx').hidden) Motion.hide($('ctx'));
 }
-addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
+// Capture: drag regions (the window's empty bar) swallow the event before it bubbles.
+addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); }, true);
 addEventListener('blur', hideMenu);
 addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
 
