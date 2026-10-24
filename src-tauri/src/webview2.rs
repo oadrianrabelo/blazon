@@ -650,3 +650,28 @@ pub async fn capture_jpeg(wv: &Webview) -> Option<Vec<u8>> {
     .await
     .flatten()
 }
+
+/// Rounds a page card's corners (Crest's 13pt page radius) by clipping the
+/// window that hosts the webview. Called after every resize.
+pub fn round_corners(wv: &Webview, radius: f64) {
+    use windows::Win32::{
+        Foundation::{HWND, RECT},
+        Graphics::Gdi::{CreateRoundRectRgn, SetWindowRgn},
+        UI::WindowsAndMessaging::GetClientRect,
+    };
+    let scale = wv.window().scale_factor().unwrap_or(1.0);
+    let d = (radius * 2.0 * scale).round() as i32;
+    let _ = wv.with_webview(move |pv| unsafe {
+        let mut host = HWND::default();
+        if pv.controller().ParentWindow(&mut host).is_err() || host.is_invalid() {
+            return;
+        }
+        let mut r = RECT::default();
+        if GetClientRect(host, &mut r).is_err() {
+            return;
+        }
+        // The window owns the region from here on.
+        let rgn = CreateRoundRectRgn(0, 0, r.right + 1, r.bottom + 1, d, d);
+        let _ = SetWindowRgn(host, Some(rgn), true);
+    });
+}

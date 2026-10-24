@@ -42,6 +42,8 @@ fn layout_quick(app: &AppHandle) {
     if let (Some(page), Some((pos, size))) = (app.get_webview(QUICK_PAGE), page_rect(&win)) {
         let _ = page.set_position(pos);
         let _ = page.set_size(size);
+        #[cfg(windows)]
+        webview2::round_corners(&page, windowing::PAGE_RADIUS);
     }
 }
 
@@ -102,7 +104,10 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
         let (pos, psize) = page_rect(&win).unwrap_or((PhysicalPosition::new(0, 0), size));
         let page = win.add_child(builder, pos, psize)?;
         #[cfg(windows)]
-        webview2::install(app, &page, None, None, passwords);
+        {
+            webview2::install(app, &page, None, None, passwords);
+            webview2::round_corners(&page, windowing::PAGE_RADIUS);
+        }
         let _ = page.set_focus();
         let handle = app.clone();
         win.on_window_event(move |e| {
