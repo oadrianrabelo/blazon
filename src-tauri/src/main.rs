@@ -11,8 +11,10 @@ mod import;
 mod importer;
 mod model;
 mod overlay;
+mod passwords;
 mod profile;
 mod quick;
+mod sidepanel;
 mod spaces;
 #[cfg(windows)]
 mod sqlite;
@@ -180,6 +182,22 @@ fn commit(app: &AppHandle) {
         view.active_space = space;
         let _ = app.emit_to(ui_of(&win), "state", view.clone());
         let _ = app.emit_to(panel_of(&win), "state", view);
+    }
+}
+
+/// Builder for Blazon's own interface webviews (sidebar, panel, overlays).
+/// When BLAZON_DEVTOOLS_PORT is set, as in the CI smoke test, they expose
+/// WebView2's DevTools protocol on that port; site pages never do.
+pub(crate) fn interface_webview(
+    label: impl Into<String>,
+    url: WebviewUrl,
+) -> WebviewBuilder<tauri::Wry> {
+    let builder = WebviewBuilder::new(label, url);
+    match std::env::var("BLAZON_DEVTOOLS_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        Some(port) => builder.additional_browser_args(&format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
+        )),
+        None => builder,
     }
 }
 
@@ -414,6 +432,18 @@ fn main() {
             overlay::page_snapshot,
             overlay::peek_geometry,
             overlay::peek_show,
+            passwords::password_sources,
+            passwords::import_passwords,
+            passwords::import_passwords_csv,
+            passwords::list_logins,
+            passwords::reveal_login,
+            passwords::delete_login,
+            passwords::clear_logins,
+            passwords::logins_for_tab,
+            passwords::fill_login,
+            sidepanel::extension_panels,
+            sidepanel::open_side_panel,
+            sidepanel::close_side_panel,
             quick::quick_state,
             quick::quick_to_tab,
             quick::quick_close,

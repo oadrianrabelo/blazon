@@ -311,3 +311,12 @@ dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
 .dl-flight { position: fixed; left: -14px; top: -14px; z-index: 70; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; pointer-events: none;
   background: var(--c2); color: var(--c0); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
 .dl-flight svg { width: 16px; height: 16px; }
+#logins svg { width: 15px; height: 15px; }
+#logins { color: var(--c2); }
+.topbar .icon { width: 27px; }
+
+/* Header above the extension side panel (the panel itself is a webview below it). */
+.side-head { position: fixed; z-index: 4; height: 40px; display: flex; align-items: center; gap: 8px; padding: 0 4px 0 12px; color: var(--fg); }
+.side-head > span:first-child svg { width: 15px; height: 15px; color: var(--c2); }
+.side-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.switcher { min-width: 0; flex: 0 1 auto; }

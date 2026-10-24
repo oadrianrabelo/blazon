@@ -10,6 +10,7 @@ const ICONS = {
   privacy: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
+  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5M14.5 8.5 17 11"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   puzzle: '<path d="M10 3a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6Z"/>',
   backup: '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M12 10v6M9 13l3 3 3-3"/>',
@@ -269,6 +270,78 @@ const SECTIONS = {
           toggle('Oferecer para salvar senhas e preencher formulários', 'Guardado pelo próprio WebView2, separado por Space. Vale para abas novas.', S('passwords'), setS('passwords'))),
         downloads,
         permissionsGroup(),
+      ];
+    },
+  },
+  passwords: {
+    title: 'Senhas',
+    icon: 'key',
+    render() {
+      const status = el('p', 'lead');
+      const run = async (button, call) => {
+        button.disabled = true;
+        status.textContent = 'Importando…';
+        try { status.textContent = await call(); } catch (err) { status.textContent = /Nenhum arquivo/.test(String(err)) ? '' : String(err); }
+        button.disabled = false;
+        drawList();
+      };
+      const sources = el('div', 'seg');
+      sources.style.background = 'none';
+      sources.style.flexWrap = 'wrap';
+      invoke('password_sources').then((list) => {
+        if (!list.length) sources.append(el('span', 'lead', 'Nenhum navegador com senhas encontrado.'));
+        for (const src of list) {
+          const b = el('button', 'btn', src.name);
+          b.onclick = () => run(b, () => invoke('import_passwords', { id: src.id }));
+          sources.append(b);
+        }
+      });
+      const csv = el('button', 'btn', 'Importar arquivo CSV…');
+      csv.onclick = () => run(csv, () => invoke('import_passwords_csv'));
+
+      const search = el('input');
+      search.type = 'search';
+      search.id = 'pw-search';
+      search.placeholder = 'Pesquisar site ou usuário';
+      const list = el('div');
+      let logins = [];
+      const draw = () => {
+        list.replaceChildren();
+        const q = search.value.trim().toLowerCase();
+        const shown = logins.filter((l) => !q || l.host.includes(q) || l.username.toLowerCase().includes(q));
+        if (!shown.length) list.append(el('p', 'lead', logins.length ? 'Nada encontrado.' : 'Nenhuma senha importada ainda.'));
+        for (const l of shown.slice(0, 300)) {
+          const acts = el('div', 'seg');
+          acts.style.background = 'none';
+          const secret = el('code', 'pw-secret', '••••••••');
+          const show = el('button', 'btn', 'Mostrar');
+          show.onclick = async () => {
+            try {
+              const p = await invoke('reveal_login', { id: l.id });
+              secret.textContent = p;
+              show.textContent = 'Copiar';
+              show.onclick = () => navigator.clipboard.writeText(p);
+            } catch (err) { status.textContent = String(err); }
+          };
+          const del = el('button', 'btn danger', 'Apagar');
+          del.onclick = async () => { if (confirm(`Apagar a senha de ${l.username || 'sem usuário'} em ${l.host}?`)) { await invoke('delete_login', { id: l.id }); drawList(); } };
+          acts.append(secret, show, del);
+          list.append(row(l.host, `${l.username || 'sem usuário'} · ${l.source}`, acts));
+        }
+        if (shown.length > 300) list.append(el('p', 'lead', `Mostrando 300 de ${shown.length}. Pesquise para achar as outras.`));
+      };
+      const drawList = async () => { logins = await invoke('list_logins'); draw(); };
+      search.oninput = draw;
+      drawList();
+      const clear = el('button', 'btn danger', 'Apagar todas');
+      clear.onclick = async () => { if (confirm('Apagar todas as senhas importadas no Blazon?')) { await invoke('clear_logins'); drawList(); } };
+      return [
+        ...header('Senhas', 'Senhas trazidas de outros navegadores ficam num cofre criptografado pelo Windows, que só a sua conta abre. Num site com senha salva, a chave na barra lateral preenche o login.'),
+        group('Importar',
+          row('De um navegador', 'Chrome, Edge, Brave, Vivaldi e Opera. Versões novas do Chrome protegem as senhas: nesse caso, exporte em CSV.', sources),
+          row('De um arquivo', 'CSV exportado pelo Chrome, Edge, Firefox, Safari ou Bitwarden.', csv),
+          status),
+        group('Salvas', search, list, row('Limpar o cofre', null, clear)),
       ];
     },
   },

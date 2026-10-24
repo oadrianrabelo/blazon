@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.3
+
+- **Senhas**: importa do Chrome, Edge, Brave, Vivaldi e Opera e de CSV (Chrome, Edge, Firefox,
+  Safari, Bitwarden) para um cofre criptografado pelo Windows. Configurações → Senhas lista,
+  mostra (com Windows Hello) e apaga; a chave na barra lateral preenche o login no site certo.
+- **Painel lateral de extensões**: o botão de peça no rodapé abre o painel, a janela ou as opções
+  de uma extensão numa coluna ao lado da página.
+- **Teste no Windows no CI**: cada build é instalado numa máquina Windows limpa, que abre o
+  Blazon, percorre as telas e guarda prints.
+- **Landing page** de download em `site/`, publicada no GitHub Pages.
+- Correções vistas nos prints: Studio em janelas menores e Spaces sugeridos com casas repetidas.
+
 ## 0.1.2
 
 Mais perto do Crest do Mac:

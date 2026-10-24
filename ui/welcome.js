@@ -108,7 +108,10 @@ function startWelcome() {
           const add = el('button', 'w-space add');
           add.append(el('span', 'plus', '+'), el('span', '', label));
           add.onclick = async () => {
-            await invoke('add_space', { name: label, color: HOUSES[house].colors[2], private: false, house, look: houseLook(house) });
+            // Each Space gets its own house: skip ones already taken.
+            const used = new Set(state.spaces.map((x) => x.house));
+            const pick = used.has(house) ? Object.keys(HOUSES).find((k) => !used.has(k)) || house : house;
+            await invoke('add_space', { name: label, color: HOUSES[pick].colors[2], private: false, house: pick, look: houseLook(pick) });
             await refresh();
             // Adding a Space switches to it; stay on the first one here.
             await invoke('switch_space', { id: s.id }).catch(() => {});

@@ -51,7 +51,7 @@ fn close_existing(app: &AppHandle) {
 fn add_overlay(win: &Window, mode: &str) -> tauri::Result<()> {
     let size = win.inner_size()?;
     let wv = win.add_child(
-        WebviewBuilder::new(
+        interface_webview(
             overlay_of(win.label()),
             WebviewUrl::App(format!("overlay.html#{mode}").into()),
         )

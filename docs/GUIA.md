@@ -155,6 +155,22 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Permissões** (câmera, microfone, localização, notificações): cada site pede na primeira vez
   e a escolha fica salva no Space.
 
+## Senhas
+
+Em **Configurações → Senhas**:
+- **Importar de um navegador**: Chrome, Edge, Brave, Vivaldi e Opera, todos os perfis. Versões
+  novas do Chrome protegem as senhas com uma chave que só o próprio Chrome abre; nesse caso o
+  Blazon avisa quantas ficaram de fora, e você exporta em CSV pelo gerenciador de senhas do
+  Chrome.
+- **Importar arquivo CSV**: exportado pelo Chrome, Edge, Firefox, Safari ou Bitwarden. Depois de
+  importar, apague o CSV: ele guarda as senhas sem proteção.
+- As senhas ficam num cofre criptografado pelo Windows (DPAPI), que só a sua conta do Windows
+  abre. **Mostrar** pede o Windows Hello quando ele está configurado.
+- **Preencher**: num site com senha salva, aparece uma **chave** na barra lateral. Clique nela
+  (e escolha a conta, se houver mais de uma) para preencher usuário e senha. O Blazon só preenche
+  se a aba ainda estiver no site da senha.
+- Senhas novas continuam sendo salvas pelo WebView2 de cada Space, como antes.
+
 ## Downloads
 
 O botão de seta no rodapé abre a lista de downloads da sessão. Ali você vê o progresso e pode
@@ -175,6 +191,10 @@ Em Configurações → **Extensões**:
 - O WebView2 não acessa a Chrome Web Store e suporta só parte das APIs de extensão: extensões
   simples (tema, leitura, produtividade) costumam funcionar, as mais complexas podem não funcionar.
 - Para extensões que vêm como `.crx`: renomeie para `.zip`, extraia e escolha a pasta.
+- **Painel lateral**: o botão de peça no rodapé lista as extensões do Space que têm painel,
+  janela própria (popup) ou página de opções. Escolha uma e ela abre numa coluna ao lado da
+  página, com um ✕ para fechar. Funciona com extensões instaladas a partir desta versão (o
+  Blazon precisa lembrar a pasta para ler o `manifest.json`).
 
 ## Site fora do ar
 

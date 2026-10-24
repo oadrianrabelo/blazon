@@ -17,6 +17,7 @@
       <button class="icon" id="reload" data-nav="reload" data-i="reload" title="Recarregar (F5)"></button>
       <button class="icon" id="shield" data-i="shield" title="Bloqueador de anúncios"></button>
       <button class="icon" id="reader" data-i="book" title="Modo leitura"></button>
+      <button class="icon" id="logins" data-i="key" title="Preencher senha salva" hidden></button>
       <div class="grow" data-tauri-drag-region></div>
       <div id="winctl" class="winctl">
         <button class="icon" id="win-min" data-i="min" title="Minimizar"></button>
@@ -52,6 +53,7 @@
         <button id="add-space" class="icon" data-i="plus" title="Novo Space"></button>
       </div>
       <div class="foot-right">
+        <button id="ext-btn" class="icon" data-i="puzzle" title="Extensões"></button>
         <button id="downloads-btn" class="icon" data-i="download" title="Downloads"><span id="dl-badge" class="badge" hidden></span></button>
         <button id="history-btn" class="icon" data-i="archive" title="Arquivo e histórico (Ctrl+H)"></button>
       </div>
@@ -86,6 +88,7 @@
       <menu><button type="button" id="fd-reset">Padrão</button><button value="save" class="primary">Salvar</button></menu>
     </form>
   </dialog>
+  <div id="side-head" class="side-head" hidden><span data-i="puzzle"></span><span id="side-name" class="side-name"></span><button id="side-close" class="icon" data-i="x" title="Fechar painel"></button></div>
   <div id="ctx" class="ctx" hidden></div>
   <div id="toast" class="toast" hidden><span id="toast-text"></span><span class="toast-actions" id="toast-actions"></span></div>
   <script src="i18n.js"></script>

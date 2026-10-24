@@ -8,7 +8,8 @@
 //!   profile: bookmarks and history.
 //! - **Bookmarks HTML** exported by any browser.
 //!
-//! Passwords can't be imported: WebView2 has no API to add saved passwords.
+//! Passwords are imported separately into Blazon's own vault (passwords.rs),
+//! since WebView2 has no API to add saved passwords.
 
 use std::{collections::HashMap, fs, path::PathBuf};
 
@@ -64,7 +65,7 @@ pub struct Imported {
 
 /// Chromium-based browsers: key, name, base folder, and whether profiles
 /// live directly in it (Opera) instead of in Default / Profile N folders.
-const CHROMIUM: &[(&str, &str, Base, &str, bool)] = &[
+pub(crate) const CHROMIUM: &[(&str, &str, Base, &str, bool)] = &[
     (
         "chrome",
         "Google Chrome",
@@ -125,12 +126,12 @@ const FIREFOX: &[(&str, &str, &str)] = &[
 ];
 
 #[derive(Clone, Copy)]
-enum Base {
+pub(crate) enum Base {
     Local,
     Roaming,
 }
 
-fn base_dir(base: Base) -> Option<PathBuf> {
+pub(crate) fn base_dir(base: Base) -> Option<PathBuf> {
     let var = match base {
         Base::Local => "LOCALAPPDATA",
         Base::Roaming => "APPDATA",
@@ -151,7 +152,7 @@ fn arc_dir() -> Option<PathBuf> {
 }
 
 /// Profile folders of a Chromium browser with their display names.
-fn chromium_profiles(root: &std::path::Path, flat: bool) -> Vec<(String, String)> {
+pub(crate) fn chromium_profiles(root: &std::path::Path, flat: bool) -> Vec<(String, String)> {
     if flat {
         return if root.join("Bookmarks").is_file() || root.join("History").is_file() {
             vec![(String::new(), String::new())]

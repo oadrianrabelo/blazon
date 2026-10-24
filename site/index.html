@@ -1,0 +1,350 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Blazon — o navegador nas suas cores, para Windows</title>
+  <meta name="description" content="Blazon é um navegador leve para Windows com Spaces, abas verticais e brasões. Inspirado no Crest do Mac. Grátis e de código aberto.">
+  <meta property="og:title" content="Blazon — a internet nas suas cores">
+  <meta property="og:description" content="Navegador leve para Windows com Spaces, abas verticais e brasões. Grátis e de código aberto.">
+  <meta property="og:image" content="img/hero-winter.webp">
+  <meta name="theme-color" content="#1e2833">
+  <link rel="icon" href="img/blazon.svg" type="image/svg+xml">
+  <style>
+    /* Layout: Apple-style product page. Centered 980px column, full-bleed sections
+       that alternate light and dark; the hero takes its colors from the chosen house. */
+    @property --c0 { syntax: '<color>'; inherits: true; initial-value: #1e2833; }
+    @property --c1 { syntax: '<color>'; inherits: true; initial-value: #3e4e5e; }
+    @property --c2 { syntax: '<color>'; inherits: true; initial-value: #86adc4; }
+    :root {
+      --paper: #fbfbfd; --paper-2: #f5f5f7; --ink: #1d1d1f; --ink-2: #6e6e73; --line: #d2d2d7;
+      --night: #000; --night-2: #161617; --night-ink: #f5f5f7; --night-ink-2: #a1a1a6;
+      --link: #0066cc;
+      --sys: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+      --mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+      --ease: cubic-bezier(.25, .1, .25, 1);
+      --spring: linear(0, 0.156, 0.426, 0.661, 0.825, 0.922, 0.974, 0.997, 1.005, 1.006, 1.004, 1);
+      transition: --c0 .6s var(--ease), --c1 .6s var(--ease), --c2 .6s var(--ease);
+      color-scheme: light;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --paper: #000; --paper-2: #101012; --ink: #f5f5f7; --ink-2: #a1a1a6; --line: #2d2d30; --link: #2997ff; color-scheme: dark; }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
+    body { margin: 0; background: var(--paper); color: var(--ink); font: 17px/1.47 var(--sys); letter-spacing: -0.022em; -webkit-font-smoothing: antialiased; }
+    img { max-width: 100%; display: block; }
+    a { color: var(--link); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    :focus-visible { outline: 3px solid color-mix(in srgb, var(--c2) 80%, var(--link)); outline-offset: 3px; border-radius: 8px; }
+    .wrap { max-width: 1024px; margin: 0 auto; padding-left: max(22px, env(safe-area-inset-left, 0px)); padding-right: max(22px, env(safe-area-inset-right, 0px)); }
+    h1, h2, h3 { text-wrap: balance; margin: 0; letter-spacing: -0.03em; }
+    .eyebrow { font-size: 17px; font-weight: 600; color: var(--ink-2); letter-spacing: -0.01em; margin: 0 0 6px; }
+
+    /* Nav: frosted glass, like apple.com's global nav. */
+    nav { position: sticky; top: 0; z-index: 50; padding-top: env(safe-area-inset-top, 0px);
+      background: color-mix(in srgb, var(--paper) 72%, transparent); backdrop-filter: saturate(180%) blur(20px); -webkit-backdrop-filter: saturate(180%) blur(20px);
+      border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); }
+    nav .wrap { display: flex; align-items: center; gap: 22px; height: 52px; }
+    .brand { display: flex; align-items: center; gap: 8px; color: var(--ink); font-weight: 600; font-size: 19px; letter-spacing: -0.02em; margin-right: auto; }
+    .brand:hover { text-decoration: none; }
+    .brand img { width: 26px; height: 26px; }
+    nav .links { display: flex; gap: 22px; font-size: 13px; }
+    nav .links a { color: var(--ink); opacity: .8; }
+    nav .links a:hover { opacity: 1; text-decoration: none; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; border-radius: 980px; padding: 6px 14px; font-size: 13px; font-weight: 500; background: var(--link); color: #fff; }
+    .pill:hover { text-decoration: none; filter: brightness(1.08); }
+    @media (max-width: 640px) { nav .links { display: none; } }
+
+    /* Hero */
+    .hero { position: relative; overflow: hidden; text-align: center; padding-top: 72px; }
+    .hero h1 { font-size: clamp(44px, 8vw, 88px); line-height: 1.04; font-weight: 700; }
+    .hero h1 .ink { background: linear-gradient(100deg, var(--c1), var(--c2) 70%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    @media (prefers-color-scheme: dark) { .hero h1 .ink { background-image: linear-gradient(100deg, var(--c2), color-mix(in srgb, var(--c2) 45%, #fff) 80%); } }
+    .hero .lede { font-size: clamp(19px, 2.4vw, 24px); line-height: 1.35; color: var(--ink-2); max-width: 40ch; margin: 18px auto 0; letter-spacing: -0.015em; }
+    .cta { display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 14px 28px; margin-top: 30px; }
+    .btn { display: inline-flex; align-items: center; gap: 10px; border-radius: 980px; padding: 13px 26px; font-size: 17px; font-weight: 500; letter-spacing: -0.01em;
+      background: var(--ink); color: var(--paper); transition: transform .2s var(--ease), filter .2s; }
+    .btn:hover { text-decoration: none; filter: brightness(1.15); }
+    .btn:active { transform: scale(.975); }
+    .btn svg { width: 18px; height: 18px; }
+    .more { font-size: 17px; }
+    .more::after { content: " ›"; }
+    .meta { margin-top: 14px; font-size: 13px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+
+    .houses { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 46px auto 0; }
+    .house { display: grid; justify-items: center; gap: 4px; width: 74px; padding: 8px 4px 6px; border: 0; border-radius: 14px; background: transparent; color: var(--ink-2); font: 12px var(--sys); cursor: pointer;
+      transition: background-color .2s var(--ease), color .2s; }
+    .house svg { width: 40px; height: 40px; transition: transform .35s var(--spring); }
+    .house:hover svg { transform: translateY(-3px) scale(1.06); }
+    .house[aria-pressed="true"] { background: color-mix(in srgb, var(--c2) 18%, transparent); color: var(--ink); }
+    .hint { font-size: 13px; color: var(--ink-2); margin-top: 6px; }
+
+    .stage { position: relative; margin: 34px auto 0; max-width: 1180px; padding: 0 22px; }
+    .glow { position: absolute; inset: 12% 4% -6%; border-radius: 40px; filter: blur(70px); opacity: .55;
+      background: linear-gradient(120deg, var(--c0), var(--c1) 45%, var(--c2)); pointer-events: none; }
+    .window { position: relative; border-radius: 14px; overflow: hidden; background: var(--c0);
+      box-shadow: 0 0 0 1px rgba(0, 0, 0, .14), 0 30px 80px -20px rgba(0, 0, 0, .45), 0 12px 30px -12px rgba(0, 0, 0, .3); }
+    .window img { width: 100%; aspect-ratio: 1280 / 800; transition: opacity .45s var(--ease); }
+    .window img.fading { opacity: 0; }
+    .hero-foot { height: 80px; }
+
+    /* Sections */
+    section { padding: 110px 0; }
+    .center { text-align: center; }
+    .big { font-size: clamp(36px, 5.6vw, 64px); line-height: 1.06; font-weight: 700; }
+    .sub { font-size: clamp(19px, 2.2vw, 24px); line-height: 1.38; color: var(--ink-2); max-width: 36ch; margin: 16px auto 0; letter-spacing: -0.015em; }
+    .left .sub { margin-left: 0; }
+    .tile-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 56px; }
+    @media (max-width: 760px) { .tile-row { grid-template-columns: 1fr; } }
+    .space-card { border-radius: 28px; padding: 30px 28px 34px; color: #f5f5f7; position: relative; overflow: hidden; min-height: 300px; display: flex; flex-direction: column; gap: 10px; }
+    .space-card::before { content: ""; position: absolute; inset: 0; background: var(--k1); clip-path: polygon(0 66%, 100% 48%, 100% 70%, 0 88%); }
+    .space-card::after { content: ""; position: absolute; inset: 0; background: var(--k2); clip-path: polygon(0 88%, 100% 70%, 100% 100%, 0 100%); }
+    .space-card > * { position: relative; z-index: 1; }
+    .space-card svg { width: 64px; height: 64px; }
+    .space-card h3 { font-size: 28px; font-weight: 700; margin-top: 8px; }
+    .space-card p { margin: 0; color: rgba(245, 245, 247, .78); font-size: 16px; max-width: 26ch; }
+
+    .dark { background: var(--night); color: var(--night-ink); }
+    .dark .sub, .dark .eyebrow { color: var(--night-ink-2); }
+    .dark a { color: #2997ff; }
+    .split { display: grid; grid-template-columns: 1fr 1.25fr; gap: 56px; align-items: center; }
+    @media (max-width: 860px) { .split { grid-template-columns: 1fr; } }
+    .shot { border-radius: 18px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 30px 70px -20px rgba(0, 0, 0, .7); }
+    .crest-row { display: grid; grid-template-columns: repeat(9, 1fr); gap: 6px; margin-top: 64px; }
+    .crest-row svg { width: 100%; height: auto; transition: transform .5s var(--spring); }
+    .crest-row svg:hover { transform: translateY(-6px) rotate(-3deg); }
+    @media (max-width: 640px) { .crest-row { grid-template-columns: repeat(5, 1fr); } }
+    .facts { display: flex; flex-wrap: wrap; gap: 28px 48px; margin-top: 34px; }
+    .fact b { display: block; font-size: 40px; line-height: 1; font-weight: 700; letter-spacing: -0.03em; }
+    .fact span { color: var(--night-ink-2); font-size: 15px; }
+
+    .palette-wrap { margin-top: 56px; display: grid; justify-items: center; }
+    .palette-wrap img { width: min(720px, 100%); filter: drop-shadow(0 30px 50px rgba(0, 0, 0, .35)); }
+    .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 48px; }
+    @media (max-width: 760px) { .keys { grid-template-columns: 1fr; } }
+    .key-card { text-align: center; }
+    .keycaps { display: flex; justify-content: center; gap: 6px; margin-bottom: 10px; }
+    kbd { min-width: 44px; height: 44px; padding: 0 12px; display: inline-grid; place-items: center; border-radius: 10px; font: 600 15px var(--sys);
+      background: var(--paper); color: var(--ink); box-shadow: inset 0 -2px 0 var(--line), 0 0 0 1px var(--line); }
+    .key-card h3 { font-size: 21px; font-weight: 600; }
+    .key-card p { color: var(--ink-2); margin: 6px auto 0; max-width: 28ch; font-size: 16px; }
+
+    /* Bento grid */
+    .bento { display: grid; grid-template-columns: repeat(6, 1fr); gap: 16px; margin-top: 56px; }
+    .cell { grid-column: span 2; background: var(--paper-2); border-radius: 26px; padding: 30px 28px; display: flex; flex-direction: column; gap: 8px; min-height: 220px; }
+    .cell.wide { grid-column: span 3; }
+    .cell .glyph { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; color: #fff; margin-bottom: 8px; }
+    .cell .glyph svg { width: 22px; height: 22px; }
+    .cell h3 { font-size: 22px; font-weight: 600; letter-spacing: -0.02em; }
+    .cell p { margin: 0; color: var(--ink-2); font-size: 16px; }
+    .cell .num { font-size: 52px; font-weight: 700; letter-spacing: -0.04em; line-height: 1; margin-top: auto; }
+    @media (max-width: 860px) { .cell, .cell.wide { grid-column: span 3; } }
+    @media (max-width: 560px) { .bento { grid-template-columns: 1fr; } .cell, .cell.wide { grid-column: auto; min-height: 0; } }
+
+    /* Download */
+    .download { text-align: center; background: linear-gradient(180deg, var(--paper) 0%, color-mix(in srgb, var(--c2) 14%, var(--paper)) 100%); }
+    .download .crest { width: 120px; height: 120px; margin: 0 auto 18px; filter: drop-shadow(0 18px 30px rgba(0, 0, 0, .25)); }
+    .download .btn { font-size: 19px; padding: 16px 32px; margin-top: 30px; }
+    .req { display: flex; justify-content: center; flex-wrap: wrap; gap: 8px 22px; margin-top: 22px; font-size: 14px; color: var(--ink-2); }
+    .note { max-width: 560px; margin: 34px auto 0; font-size: 14px; color: var(--ink-2); background: var(--paper); border-radius: 16px; padding: 16px 20px; text-align: left; box-shadow: 0 0 0 1px var(--line); }
+    .note b { color: var(--ink); }
+
+    footer { padding: 34px 0 calc(34px + env(safe-area-inset-bottom, 0px)); font-size: 12px; color: var(--ink-2); background: var(--paper-2); }
+    footer .wrap { display: grid; gap: 8px; }
+    footer p { margin: 0; }
+
+    /* Reveal on scroll; content stays visible without JS or with reduced motion. */
+    .js .reveal { opacity: 0; transform: translateY(28px); transition: opacity .9s var(--ease), transform .9s var(--ease); }
+    .js .reveal.in { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      .js .reveal { opacity: 1; transform: none; transition: none; }
+      :root { transition: none; }
+      .house svg, .crest-row svg { transition: none; }
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="wrap">
+      <a class="brand" href="#top"><img src="img/blazon.svg" alt="">Blazon</a>
+      <div class="links"><a href="#spaces">Spaces</a><a href="#studio">Studio</a><a href="#rapido">Atalhos</a><a href="#recursos">Recursos</a></div>
+      <a class="pill" href="#baixar">Baixar</a>
+    </div>
+  </nav>
+
+  <header class="hero" id="top">
+    <div class="wrap">
+      <p class="eyebrow">Para Windows 10 e 11</p>
+      <h1>A internet<br><span class="ink">nas suas cores.</span></h1>
+      <p class="lede">Um navegador leve com Spaces, abas verticais e um brasão para cada parte da sua vida.</p>
+      <div class="cta">
+        <a class="btn dl" href="https://github.com/oadrianrabelo/crest-windows-vibe-coded/releases/latest">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3Zm0 13.8 7.4 1.1v-7.1H3ZM11.3 3.9 21 2.5v8.7h-9.7Zm0 16.2 9.7 1.4v-8.6h-9.7Z"/></svg>
+          Baixar para Windows
+        </a>
+        <a class="more" href="https://github.com/oadrianrabelo/crest-windows-vibe-coded">Ver o código no GitHub</a>
+      </div>
+      <p class="meta" id="meta">Grátis · código aberto · cerca de 3 MB</p>
+      <div class="houses" id="houses" role="group" aria-label="Escolha uma casa"></div>
+      <p class="hint">Escolha uma casa e veja o Blazon mudar de cor.</p>
+    </div>
+    <div class="stage">
+      <div class="glow"></div>
+      <div class="window"><img id="hero-shot" src="img/hero-winter.webp" width="1280" height="800" alt="O Blazon no Windows: barra lateral com abas fixadas, pastas e Spaces, e a página inicial com o brasão do Space"></div>
+    </div>
+    <div class="hero-foot"></div>
+  </header>
+
+  <section id="spaces">
+    <div class="wrap center reveal">
+      <p class="eyebrow">Spaces</p>
+      <h2 class="big">Um Space para cada<br>parte da sua vida.</h2>
+      <p class="sub">Cada Space tem as próprias abas, logins, cookies e histórico. Trabalho fica no trabalho. O resto, em casa.</p>
+    </div>
+    <div class="wrap">
+      <div class="tile-row" id="space-cards"></div>
+    </div>
+  </section>
+
+  <section class="dark" id="studio">
+    <div class="wrap split">
+      <div class="reveal">
+        <p class="eyebrow">Studio de brasões</p>
+        <h2 class="big">Monte o seu brasão.</h2>
+        <p class="sub">Comece de uma das nove casas e troque formato, campo, faixa, emblema, borda e acabamento. A barra lateral ganha as mesmas cores.</p>
+        <div class="facts">
+          <div class="fact"><b>12</b><span>formatos</span></div>
+          <div class="fact"><b>34</b><span>figuras</span></div>
+          <div class="fact"><b>9</b><span>casas</span></div>
+        </div>
+      </div>
+      <div class="shot reveal"><img src="img/studio.webp" width="1280" height="800" alt="Studio de brasões nas configurações do Blazon" loading="lazy"></div>
+    </div>
+    <div class="wrap"><div class="crest-row reveal" id="crest-row" aria-hidden="true"></div></div>
+  </section>
+
+  <section id="rapido">
+    <div class="wrap center reveal">
+      <p class="eyebrow">Rápido no teclado</p>
+      <h2 class="big">Tudo a um Ctrl+K.</h2>
+      <p class="sub">A paleta encontra abas de todos os Spaces, histórico e comandos enquanto você digita.</p>
+    </div>
+    <div class="wrap palette-wrap reveal"><img src="img/palette.webp" width="1280" height="504" alt="Paleta de comandos do Blazon buscando por Lisboa" loading="lazy"></div>
+    <div class="wrap keys">
+      <div class="key-card reveal"><div class="keycaps"><kbd>Ctrl</kbd><kbd>K</kbd></div><h3>Paleta</h3><p>Abas, comandos, Spaces e histórico num só lugar.</p></div>
+      <div class="key-card reveal"><div class="keycaps"><kbd>Shift</kbd><kbd>clique</kbd></div><h3>Peek</h3><p>Abre um link num cartão flutuante, sem criar aba.</p></div>
+      <div class="key-card reveal"><div class="keycaps"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>1–9</kbd></div><h3>Spaces</h3><p>Troque de Space, ou deslize dois dedos no touchpad.</p></div>
+    </div>
+  </section>
+
+  <section id="recursos" style="padding-top: 40px">
+    <div class="wrap center reveal">
+      <p class="eyebrow">Recursos</p>
+      <h2 class="big">Leve por dentro.<br>Completo por fora.</h2>
+    </div>
+    <div class="wrap bento">
+      <div class="cell wide reveal"><span class="glyph" style="background:#34c759"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/></svg></span><h3>Bloqueador embutido</h3><p>Anúncios e rastreadores barrados com o motor do Brave e as listas EasyList e EasyPrivacy. Pause por site com um clique.</p></div>
+      <div class="cell wide reveal"><span class="glyph" style="background:#5e5ce6"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span><h3>Traz tudo com você</h3><p>Favoritos, histórico e senhas do Chrome, Edge, Brave, Firefox e Opera. Do Arc, vêm até os Spaces e as pastas.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#ff9f0a"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z"/></svg></span><h3>Abas que dormem</h3><p>Abas paradas e Spaces fechados liberam memória sozinhos.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#ff375f"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5"/></svg></span><h3>Senhas no cofre</h3><p>Criptografadas pelo Windows; preenchidas só no site certo.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#0a84ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5M20 3.5v5h-5"/></svg></span><h3>Atualiza sozinho</h3><p>Versões novas chegam conferidas pelo SHA-256.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#64d2ff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/></svg></span><h3>Backup</h3><p>Em arquivo ou numa pasta do OneDrive, para levar tudo a outro PC.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#bf5af2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></span><h3>Lado a lado</h3><p>Duas páginas no mesmo cartão, e uma janela rápida para links de outros apps.</p></div>
+      <div class="cell reveal"><span class="glyph" style="background:#30d158"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Instalador de</h3><p class="num" id="size-num">3 MB</p><p>Usa o motor do Edge que já vem no Windows.</p></div>
+    </div>
+  </section>
+
+  <section class="download" id="baixar">
+    <div class="wrap reveal">
+      <img class="crest" src="img/blazon.svg" alt="">
+      <h2 class="big">Baixe o Blazon.</h2>
+      <p class="sub">Grátis e de código aberto. Instala sem pedir administrador.</p>
+      <a class="btn dl" href="https://github.com/oadrianrabelo/crest-windows-vibe-coded/releases/latest">
+        <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.1 10.4 4v7.2H3Zm0 13.8 7.4 1.1v-7.1H3ZM11.3 3.9 21 2.5v8.7h-9.7Zm0 16.2 9.7 1.4v-8.6h-9.7Z"/></svg>
+        <span id="dl-label">Baixar para Windows</span>
+      </a>
+      <div class="req"><span>Windows 10 ou 11, 64 bits</span><span id="msi">Também em <a href="https://github.com/oadrianrabelo/crest-windows-vibe-coded/releases/latest">.msi</a> para empresas</span><a href="https://github.com/oadrianrabelo/crest-windows-vibe-coded/releases">Todas as versões</a></div>
+      <p class="note"><b>Primeira instalação:</b> se o Windows mostrar "O Windows protegeu o computador", clique em <b>Mais informações</b> e depois em <b>Executar assim mesmo</b>. O aviso aparece porque o instalador ainda não tem assinatura digital paga.</p>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      <p>Blazon é inspirado no <a href="https://github.com/pauljoda/Crest">Crest</a>, de Paul Joda, licença MPL-2.0. Figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.</p>
+      <p>Código-fonte em <a href="https://github.com/oadrianrabelo/crest-windows-vibe-coded">GitHub</a> · licença MPL-2.0.</p>
+    </div>
+  </footer>
+
+  <script src="assets/houses.js"></script>
+  <script src="assets/charges.js"></script>
+  <script src="assets/crest.js"></script>
+  <script>
+    document.documentElement.classList.add('js');
+    const REPO = 'oadrianrabelo/crest-windows-vibe-coded';
+    const SHOTS = { winter: 'hero-winter', lion: 'hero-lion', river: 'hero-river', sun: 'hero-sun' };
+    const crest = (house) => renderCrest(crestOf({ house }));
+    const root = document.documentElement.style;
+    const setColors = (house) => HOUSES[house].colors.forEach((c, i) => root.setProperty(`--c${i}`, c));
+
+    // Hero: pick a house; the page and the screenshot take its colors.
+    const houses = document.getElementById('houses');
+    const shot = document.getElementById('hero-shot');
+    for (const house of Object.keys(SHOTS)) {
+      const b = document.createElement('button');
+      b.className = 'house';
+      b.type = 'button';
+      b.setAttribute('aria-pressed', String(house === 'winter'));
+      b.innerHTML = `${crest(house)}<span>${HOUSES[house].title}</span>`;
+      b.onclick = () => {
+        houses.querySelectorAll('.house').forEach((x) => x.setAttribute('aria-pressed', String(x === b)));
+        setColors(house);
+        const next = `img/${SHOTS[house]}.webp`;
+        if (shot.getAttribute('src') === next) return;
+        const img = new Image();
+        img.src = next;
+        shot.classList.add('fading');
+        const swap = () => { shot.src = next; shot.classList.remove('fading'); };
+        img.decode().then(() => setTimeout(swap, 220), swap);
+      };
+      houses.append(b);
+    }
+    Object.values(SHOTS).forEach((s) => { const i = new Image(); i.src = `img/${s}.webp`; });
+
+    // Spaces: three example Spaces in their own houses.
+    const cards = document.getElementById('space-cards');
+    [['Pessoal', 'winter', 'Gmail, WhatsApp e a viagem a Lisboa.'], ['Trabalho', 'lion', 'Outra conta do Google, outros cookies, outro foco.'], ['Estudos', 'river', 'Artigos, aulas e a playlist de concentração.']]
+      .forEach(([name, house, text]) => {
+        const [c0, c1, c2] = HOUSES[house].colors;
+        const card = document.createElement('div');
+        card.className = 'space-card reveal';
+        card.style.cssText = `background:${c0};--k1:${c1};--k2:${c2}`;
+        card.innerHTML = `${crest(house)}<h3>${name}</h3><p>${text}</p>`;
+        cards.append(card);
+      });
+
+    // Studio: all nine houses.
+    document.getElementById('crest-row').innerHTML = Object.keys(HOUSES).map(crest).join('');
+
+    // Download: the latest release's installer, version and size.
+    fetch(`https://api.github.com/repos/${REPO}/releases/latest`).then((r) => r.ok ? r.json() : null).then((rel) => {
+      if (!rel) return;
+      const exe = rel.assets.find((a) => a.name.endsWith('-setup.exe'));
+      const msi = rel.assets.find((a) => a.name.endsWith('.msi'));
+      const v = rel.tag_name.replace(/^v/, '');
+      if (exe) {
+        const mb = (exe.size / 1048576).toFixed(1).replace('.', ',');
+        document.querySelectorAll('a.dl').forEach((a) => { a.href = exe.browser_download_url; });
+        document.getElementById('dl-label').textContent = `Baixar o Blazon ${v}`;
+        document.getElementById('meta').textContent = `Versão ${v} · ${mb} MB · grátis e de código aberto`;
+        document.getElementById('size-num').textContent = `${mb} MB`;
+      }
+      if (msi) document.querySelector('#msi a').href = msi.browser_download_url;
+    }).catch(() => {});
+
+    // Reveal on scroll.
+    const io = new IntersectionObserver((entries) => entries.forEach((e) => { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } }), { rootMargin: '0px 0px -8% 0px' });
+    document.querySelectorAll('.reveal').forEach((el) => io.observe(el));
+  </script>
+</body>
+</html>

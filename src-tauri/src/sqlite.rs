@@ -31,18 +31,22 @@ extern "system" {
     fn sqlite3_column_type(stmt: *mut c_void, col: c_int) -> c_int;
     fn sqlite3_column_int64(stmt: *mut c_void, col: c_int) -> i64;
     fn sqlite3_column_text(stmt: *mut c_void, col: c_int) -> *const u8;
+    fn sqlite3_column_blob(stmt: *mut c_void, col: c_int) -> *const c_void;
+    fn sqlite3_column_bytes(stmt: *mut c_void, col: c_int) -> c_int;
 }
 
 const SQLITE_OK: c_int = 0;
 const SQLITE_ROW: c_int = 100;
 const SQLITE_OPEN_READONLY: c_int = 0x1;
 const SQLITE_INTEGER: c_int = 1;
+const SQLITE_BLOB: c_int = 4;
 const SQLITE_NULL: c_int = 5;
 
 #[derive(Debug, Clone)]
 pub enum Cell {
     Int(i64),
     Text(String),
+    Blob(Vec<u8>),
     Null,
 }
 
@@ -51,7 +55,16 @@ impl Cell {
         match self {
             Cell::Text(s) => s.clone(),
             Cell::Int(i) => i.to_string(),
+            Cell::Blob(b) => String::from_utf8_lossy(b).into_owned(),
             Cell::Null => String::new(),
+        }
+    }
+
+    pub fn bytes(&self) -> Vec<u8> {
+        match self {
+            Cell::Blob(b) => b.clone(),
+            Cell::Text(s) => s.as_bytes().to_vec(),
+            _ => vec![],
         }
     }
 
@@ -59,7 +72,7 @@ impl Cell {
         match self {
             Cell::Int(i) => *i,
             Cell::Text(s) => s.parse().unwrap_or(0),
-            Cell::Null => 0,
+            Cell::Blob(_) | Cell::Null => 0,
         }
     }
 }
@@ -112,6 +125,15 @@ fn run(path: &Path, sql: &str) -> Result<Vec<Vec<Cell>>, String> {
                 row.push(match sqlite3_column_type(stmt, c) {
                     SQLITE_NULL => Cell::Null,
                     SQLITE_INTEGER => Cell::Int(sqlite3_column_int64(stmt, c)),
+                    SQLITE_BLOB => {
+                        let p = sqlite3_column_blob(stmt, c) as *const u8;
+                        let n = sqlite3_column_bytes(stmt, c).max(0) as usize;
+                        if p.is_null() {
+                            Cell::Blob(vec![])
+                        } else {
+                            Cell::Blob(std::slice::from_raw_parts(p, n).to_vec())
+                        }
+                    }
                     _ => {
                         let p = sqlite3_column_text(stmt, c);
                         if p.is_null() {

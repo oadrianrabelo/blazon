@@ -58,9 +58,13 @@ pub(crate) async fn add_extension(app: AppHandle, space: String) -> Result<Strin
     let Some(folder) = app.dialog().file().blocking_pick_folder() else {
         return Err("Nenhuma pasta escolhida.".into());
     };
-    let name = webview2::add_extension(&wv, folder.to_string()).await?;
-    diag::info(&format!("extensão instalada: {name}"));
-    Ok(name)
+    let ext = webview2::add_extension(&wv, folder.to_string()).await?;
+    with_data(&app, |d| {
+        d.extension_dirs.insert(ext.id.clone(), folder.to_string())
+    });
+    commit(&app);
+    diag::info(&format!("extensão instalada: {}", ext.name));
+    Ok(ext.name)
 }
 
 #[cfg(windows)]
