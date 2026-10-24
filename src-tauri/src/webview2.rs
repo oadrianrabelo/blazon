@@ -3,10 +3,11 @@
 
 use std::path::PathBuf;
 
-use tauri::{AppHandle, Webview};
+use tauri::{AppHandle, Emitter, Webview};
 use webview2_com::{
     take_pwstr, DownloadStartingEventHandler, IsDocumentPlayingAudioChangedEventHandler,
-    Microsoft::Web::WebView2::Win32::*, WebResourceRequestedEventHandler,
+    Microsoft::Web::WebView2::Win32::*, ProcessFailedEventHandler,
+    WebResourceRequestedEventHandler,
 };
 use windows_core::{w, Interface, BOOL, HSTRING, PWSTR};
 
@@ -105,6 +106,26 @@ pub fn install(
                 &mut token,
             );
         }
+
+        // A crashed page process leaves a blank tab: log it and tell the sidebar.
+        let app_pf = app.clone();
+        let _ = core.add_ProcessFailed(
+            &ProcessFailedEventHandler::create(Box::new(move |_, args| {
+                let mut kind = COREWEBVIEW2_PROCESS_FAILED_KIND::default();
+                if let Some(args) = args {
+                    args.ProcessFailedKind(&mut kind)?;
+                }
+                crate::diag::error(&format!(
+                    "processo do WebView2 falhou (tipo {}) na aba {:?}",
+                    kind.0, tab
+                ));
+                if let Some(id) = tab {
+                    let _ = app_pf.emit_to("ui", "tab-crashed", id);
+                }
+                Ok(())
+            })),
+            &mut token,
+        );
 
         if let (Some(dir), Ok(c4)) = (downloads, core.cast::<ICoreWebView2_4>()) {
             let _ = c4.add_DownloadStarting(

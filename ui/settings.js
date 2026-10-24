@@ -11,6 +11,7 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  bug: '<path d="M8 6a4 4 0 0 1 8 0v1H8Z"/><rect x="6" y="7" width="12" height="13" rx="6"/><path d="M12 11v9M3 13h3M18 13h3M4 7l2.5 2M20 7l-2.5 2M4 20l2.5-2.5M20 20l-2.5-2.5"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
 };
@@ -28,6 +29,9 @@ function el(tag, cls, text) {
   return e;
 }
 
+// Repository for problem reports (GitHub redirects it if the repository is renamed).
+const REPO_URL = 'https://github.com/oadrianrabelo/crest-windows-vibe-coded';
+let reportDraft = '';
 let state = null;
 let section = decodeURIComponent(location.hash.slice(1)) || 'look';
 
@@ -411,6 +415,48 @@ const SECTIONS = {
       const g = el('section', 'group');
       g.append(t);
       return [...header('Atalhos', 'Funcionam na barra lateral e dentro das páginas.'), g];
+    },
+  },
+  report: {
+    title: 'Relatar problema',
+    icon: 'bug',
+    render() {
+      const desc = el('textarea', 'report-desc');
+      desc.placeholder = 'O que você estava fazendo e o que aconteceu? (ex.: cliquei em Importar do Chrome e nada aconteceu)';
+      desc.value = reportDraft;
+      desc.oninput = () => { reportDraft = desc.value; };
+      const out = el('pre', 'report-out');
+      out.hidden = true;
+      const actions = el('div', 'row-btns');
+      const gen = el('button', 'btn primary', 'Gerar relatório');
+      const copy = el('button', 'btn', 'Copiar');
+      const issue = el('button', 'btn', 'Abrir issue no GitHub');
+      const logs = el('button', 'btn', 'Abrir pasta de logs');
+      copy.disabled = issue.disabled = true;
+      gen.onclick = async () => {
+        out.textContent = await invoke('bug_report', { description: desc.value });
+        out.hidden = false;
+        copy.disabled = issue.disabled = false;
+      };
+      copy.onclick = async () => {
+        await navigator.clipboard.writeText(out.textContent);
+        copy.textContent = 'Copiado!';
+        setTimeout(() => { copy.textContent = 'Copiar'; }, 1500);
+      };
+      issue.onclick = () => {
+        const title = `Bug: ${(desc.value.trim().split('\n')[0] || 'problema no Blazon').slice(0, 80)}`;
+        const body = out.textContent.length > 6000 ? `${out.textContent.slice(0, 6000)}\n\n(cortado; anexe o arquivo da pasta de logs)` : out.textContent;
+        const url = `${REPO_URL}/issues/new?labels=bug&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+        invoke('close_panel').then(() => invoke('new_tab', { url }));
+      };
+      logs.onclick = () => invoke('open_logs_folder');
+      actions.append(gen, copy, issue, logs);
+      return [
+        ...header('Relatar problema', 'Gera um relatório com o que aconteceu, a versão, o sistema e o log recente. Para mandar ao desenvolvimento, copie e cole na conversa ou abra uma issue no GitHub.'),
+        group('Descrição', desc, actions, out),
+        group('Privacidade',
+          row('O que vai no relatório', 'Versão, Windows, WebView2, quantidades (Spaces, abas) e configurações, e o log recente. O log só registra domínios, nunca endereços completos, títulos ou senhas.', el('span'))),
+      ];
     },
   },
   about: {

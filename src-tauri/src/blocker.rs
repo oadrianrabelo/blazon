@@ -89,6 +89,7 @@ pub fn load(bundled: Option<PathBuf>, cache: PathBuf) {
             }
         };
         let paths: Vec<PathBuf> = LISTS.iter().filter_map(|(n, _)| pick(n)).collect();
+        crate::diag::info(&format!("bloqueador: {} listas encontradas", paths.len()));
         if let Some(engine) = build(&paths) {
             *blocker().engine.write().unwrap() = Some(engine);
         }

@@ -151,6 +151,12 @@ dialog menu .danger { margin-right: auto; }
 .history-list .day::first-letter { text-transform: uppercase; }
 .history-list .day:hover { background: none; }
 [hidden] { display: none !important; }
+.toast { position: fixed; left: 8px; bottom: 54px; width: calc(var(--sidebar-w) - 16px); z-index: 40; padding: 10px 12px; border-radius: 10px;
+  background: var(--panel); box-shadow: 0 10px 30px rgba(0, 0, 0, .45), 0 0 0 1px var(--faint); font-size: 12px; line-height: 1.4; }
+body.right .toast { left: auto; right: 8px; }
+.toast-actions { display: flex; gap: 6px; margin-top: 8px; justify-content: flex-end; }
+.toast-actions button { padding: 4px 10px; background: var(--faint); }
+.toast-actions button.primary { background: var(--c2); color: var(--c0); font-weight: 600; }
 .seg-tabs { display: flex; gap: 2px; background: var(--field); border-radius: 8px; padding: 2px; margin-bottom: 10px; }
 .seg-tabs button { flex: 1; padding: 5px; border-radius: 6px; color: var(--muted); }
 .seg-tabs button.sel { background: var(--active); color: var(--fg); }

@@ -528,4 +528,28 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// Toasts: crash notices and other one-off messages.
+function toast(text, actions = []) {
+  $('toast-text').textContent = text;
+  const box = $('toast-actions');
+  box.replaceChildren();
+  for (const [label, run, primary] of [...actions, ['Fechar', () => {}]]) {
+    const b = el('button', primary ? 'primary' : '', label);
+    b.onclick = () => { $('toast').hidden = true; run(); };
+    box.append(b);
+  }
+  $('toast').hidden = false;
+}
+
+listen('tab-crashed', (e) => {
+  const t = state?.tabs.find((x) => x.id === e.payload);
+  toast(`A aba "${t ? tabTitle(t) : 'atual'}" travou.`, [
+    ['Recarregar', () => invoke('activate_tab', { id: e.payload }).then(() => invoke('nav', { action: 'reload' })), true],
+    ['Relatar', () => invoke('open_panel', { section: 'report' })],
+  ]);
+});
+
 invoke('get_state').then((s) => { state = s; render(); });
+invoke('take_crash_report').then((crash) => {
+  if (crash) toast('O Blazon fechou inesperadamente na última vez. O relatório foi salvo.', [['Relatar', () => invoke('open_panel', { section: 'report' }), true]]);
+});

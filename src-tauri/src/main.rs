@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod blocker;
+mod diag;
 #[cfg(windows)]
 mod hello;
 mod import;
@@ -817,7 +818,13 @@ fn layout(app: &AppHandle, create: bool) {
         .collect();
     for tab in visible.iter().filter(|_| create && panel.is_none()) {
         if app.get_webview(&label(tab.id)).is_none() {
-            let _ = create_tab_webview(app, &win, tab);
+            if let Err(e) = create_tab_webview(app, &win, tab) {
+                diag::error(&format!(
+                    "falha ao criar a aba {} ({}): {e}",
+                    tab.id,
+                    diag::host(&tab.url)
+                ));
+            }
         }
     }
     if create && panel.is_some() && app.get_webview(PANEL).is_none() {
@@ -1492,8 +1499,11 @@ async fn import_browser(
     let imported =
         tauri::async_runtime::spawn_blocking(move || import::read(&id, bookmarks, history))
             .await
-            .map_err(|e| e.to_string())??;
-    Ok(apply_import(&app, imported, new_space))
+            .map_err(|e| e.to_string())?
+            .inspect_err(|e| diag::warn(&format!("importação falhou: {e}")))?;
+    let summary = apply_import(&app, imported, new_space);
+    diag::info(&summary);
+    Ok(summary)
 }
 
 /// Imports a bookmarks HTML file exported by any browser.
@@ -1926,6 +1936,69 @@ fn archive_idle_tabs(app: &AppHandle) {
     }
 }
 
+/// Errors from the UI's own pages (sidebar, settings, overlay).
+#[tauri::command]
+async fn report_js_error(page: String, message: String, stack: Option<String>) {
+    let stack = stack.unwrap_or_default();
+    let stack: String = stack.lines().take(6).collect::<Vec<_>>().join(" | ");
+    diag::error(&format!("JS [{page}] {message} {stack}"));
+}
+
+/// Last crash report, shown once after a crash.
+#[tauri::command]
+async fn take_crash_report() -> Option<String> {
+    diag::take_crash()
+}
+
+#[tauri::command]
+async fn open_logs_folder() {
+    #[cfg(windows)]
+    if let Some(dir) = diag::logs_dir() {
+        let _ = std::process::Command::new("explorer").arg(dir).spawn();
+    }
+}
+
+/// The text of a problem report: what happened, system, setup and recent log.
+#[tauri::command]
+async fn bug_report(app: AppHandle, description: String) -> String {
+    let summary = with_data(&app, |d| {
+        let s = &d.settings;
+        format!(
+            "- Spaces: {} ({} privados, {} bloqueados) · Abas: {} ({} acordadas) · Pastas: {}\n\
+             - Barra: {}{}{} · Bloqueador: {} · Senhas: {} · Dormir: {} min · Arquivar: {} h · Zoom: {}%",
+            d.spaces.len(),
+            d.spaces.iter().filter(|x| x.private).count(),
+            d.spaces.iter().filter(|x| x.locked).count(),
+            d.tabs.len(),
+            d.tabs.iter().filter(|t| t.awake).count(),
+            d.folders.len(),
+            if s.sidebar_right { "direita" } else { "esquerda" },
+            if s.floating_sidebar { ", flutuante" } else { "" },
+            if s.native_frame { ", moldura do Windows" } else { "" },
+            if s.adblock { "ligado" } else { "desligado" },
+            if s.passwords { "sim" } else { "não" },
+            s.sleep_minutes,
+            s.archive_hours,
+            (s.default_zoom * 100.0).round(),
+        )
+    });
+    let description = if description.trim().is_empty() {
+        "(não descrito)".to_string()
+    } else {
+        description.trim().to_string()
+    };
+    let windows = tauri::async_runtime::spawn_blocking(diag::os_version)
+        .await
+        .unwrap_or_default();
+    format!(
+        "## Relatório de problema · Blazon {}\n\n**O que aconteceu:** {description}\n\n\
+         - Sistema: {windows}\n- WebView2: {}\n{summary}\n\n## Log recente\n\n```\n{}\n```\n",
+        env!("CARGO_PKG_VERSION"),
+        diag::webview2_version(),
+        diag::recent_lines(120).join("\n"),
+    )
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -2004,6 +2077,10 @@ fn main() {
             open_panel,
             close_panel,
             open_default_apps,
+            report_js_error,
+            take_crash_report,
+            open_logs_folder,
+            bug_report,
             toggle_mute,
             toggle_site_blocking,
             pick_folder,
@@ -2042,11 +2119,21 @@ fn main() {
                 }
             }
             fs::create_dir_all(&root)?;
+            diag::init(&root);
             let file = root.join("state.json");
-            let mut data: Data = fs::read_to_string(&file)
-                .ok()
-                .and_then(|s| serde_json::from_str(&s).ok())
-                .unwrap_or_default();
+            let mut data: Data = match fs::read_to_string(&file) {
+                Err(_) => Data::default(),
+                Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
+                    // Never overwrite unreadable data: keep a copy for recovery.
+                    let backup = root.join(format!("state.broken-{}.json", now()));
+                    let _ = fs::copy(&file, &backup);
+                    diag::error(&format!(
+                        "state.json ilegível ({e}); cópia salva em {}",
+                        backup.display()
+                    ));
+                    Data::default()
+                }),
+            };
             data.repair();
             if data.active_tab_id().is_none() {
                 let id = data.new_id();

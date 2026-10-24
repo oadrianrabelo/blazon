@@ -75,6 +75,7 @@ const COMMANDS = [
   ['Modo leitura', '', () => invoke('reader_mode')],
   ['Arquivo de abas', '', () => invoke('run_command', { cmd: 'history' })],
   ['Bloquear Spaces agora', '', () => invoke('lock_now')],
+  ['Relatar problema', '', () => invoke('open_panel', { section: 'report' })],
   ['Recarregar', 'F5', () => invoke('nav', { action: 'reload' })],
   ['Histórico', 'Ctrl+H', () => invoke('run_command', { cmd: 'history' })],
   ['Mostrar ou esconder a barra lateral', 'Ctrl+Shift+S', () => invoke('run_command', { cmd: 'sidebar' })],
