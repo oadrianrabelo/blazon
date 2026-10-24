@@ -68,6 +68,34 @@ function applyLook(space) {
   if (!banner.children.length) banner.append(el('div', 'p-mid'), el('div', 'p-low'));
 }
 
+// Look & feel options (settings.appearance)
+function applyAppearance(settings) {
+  const a = lookOf(settings);
+  const root = document.documentElement.style;
+  root.setProperty('--tab-scale', a.tabScale);
+  root.setProperty('--radius', { square: '3px', rounded: '9px', pill: '999px' }[a.tabShape] || '9px');
+  root.setProperty('--sidebar-w', `${Math.min(420, Math.max(200, settings.sidebar_width || 264))}px`);
+  if (a.accent) root.setProperty('--c2', a.accent);
+  const b = document.body.classList;
+  for (const k of ['sel-outline', 'sel-glow']) b.remove(k);
+  if (a.selected !== 'fill') b.add(`sel-${a.selected}`);
+  b.toggle('follow-accent', a.followAccent);
+  b.toggle('no-dim', !a.dimUnloaded);
+  b.toggle('no-pin-fill', !a.pinFill);
+  b.toggle('no-stretch', !a.stretchPins);
+  b.toggle('folder-plain', !a.folderAccent);
+  b.toggle('no-address-outline', !a.addressOutline);
+  b.toggle('no-banner', !a.banner);
+  b.toggle('floating', !!settings.floating_sidebar);
+  if (!settings.floating_sidebar) b.remove('collapsed');
+  else if (!b.contains('collapsed') && !$('sidebar').matches(':hover') && document.activeElement !== $('address')) b.add('collapsed');
+  const pins = state.tabs.filter((t) => t.space === state.active_space && t.pinned && t.folder == null).length;
+  let cols = a.pinsPerRow;
+  if (!cols) cols = Math.ceil(pins / Math.ceil(pins / 4 || 1)) || 4;
+  root.setProperty('--pin-cols', a.stretchPins ? `repeat(${cols}, 1fr)` : `repeat(${cols}, 52px)`);
+  window.folderCounts = a.folderCounts;
+}
+
 // Rendering
 
 function host(url) {
@@ -187,6 +215,7 @@ function render() {
   const space = activeSpace();
   const current = activeTab();
   applyLook(space);
+  applyAppearance(state.settings);
   document.body.classList.toggle('right', state.settings.sidebar_right);
   document.body.classList.toggle('native', state.settings.native_frame);
   document.title = current ? `${tabTitle(current)} — Crest` : 'Crest';
@@ -235,7 +264,9 @@ function render() {
     const head = el('li', 'folder' + (f.open ? ' open' : ''));
     const chev = icon('chev');
     chev.classList.add('chev');
-    head.append(icon('folder'), el('span', 'title', f.name), chev);
+    head.append(icon('folder'), el('span', 'title', f.name));
+    if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
+    head.append(chev);
     head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
     head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
     head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
@@ -280,7 +311,7 @@ function render() {
 }
 
 listen('state', (e) => { state = e.payload; render(); });
-listen('focus-address', () => { $('address').focus(); $('address').select(); });
+listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
 // Window controls (borderless frame)
 $('win-min').onclick = () => appWindow.minimize();
@@ -450,46 +481,22 @@ $('add-space').onclick = () => openSpaceDialog(null);
 $('space-name').onclick = () => openSpaceDialog(activeSpace());
 $('space-menu').onclick = () => openSpaceDialog(activeSpace());
 
-// Settings dialog
-$('settings-btn').onclick = () => {
-  $('set-right').checked = state.settings.sidebar_right;
-  $('set-frame').checked = state.settings.native_frame;
-  $('set-search').value = state.settings.search;
-  $('set-sleep').value = String(state.settings.sleep_minutes);
-  loadImportSources();
-  $('settings').showModal();
-};
+// Settings panel (shown over the page card)
+$('settings-btn').onclick = () => invoke('open_panel', { section: 'look' });
 
-async function loadImportSources() {
-  const list = $('import-list');
-  list.replaceChildren();
-  const sources = await invoke('import_sources');
-  if (!sources.length) list.append(el('p', 'hint', 'Nenhum navegador compatível encontrado (Arc, Chrome, Edge, Brave, Vivaldi).'));
-  for (const s of sources) {
-    const b = el('button', '', s.name);
-    b.type = 'button';
-    b.onclick = async () => {
-      const what = s.id === 'arc' ? 'Cada Space do Arc vira um Space novo.' : 'Os favoritos entram como pastas no Space atual.';
-      if (!confirm(`Importar de ${s.name}? ${what}`)) return;
-      b.disabled = true;
-      try {
-        alert(await invoke('import_browser', { id: s.id }));
-      } catch (err) {
-        alert(`Não deu para importar: ${err}`);
-      }
-      b.disabled = false;
-    };
-    list.append(b);
-  }
+// Floating sidebar: hidden to an edge strip, revealed on hover.
+let peekTimer = null;
+function peek(on) {
+  clearTimeout(peekTimer);
+  if (!state?.settings.floating_sidebar) return;
+  document.body.classList.toggle('collapsed', !on);
+  invoke('sidebar_peek', { on });
 }
-$('settings').addEventListener('close', () => {
-  const settings = {
-    sidebar_right: $('set-right').checked,
-    native_frame: $('set-frame').checked,
-    search: $('set-search').value,
-    sleep_minutes: Number($('set-sleep').value),
-  };
-  if (JSON.stringify(settings) !== JSON.stringify(state.settings)) invoke('set_settings', { settings });
+$('edge').addEventListener('mouseenter', () => peek(true));
+$('sidebar').addEventListener('mouseenter', () => clearTimeout(peekTimer));
+$('sidebar').addEventListener('mouseleave', () => {
+  const busy = document.activeElement === $('address') || !$('ctx').hidden || document.querySelector('dialog[open]');
+  if (!busy) peekTimer = setTimeout(() => peek(false), 350);
 });
 
 // Shortcuts while the sidebar itself has focus.
@@ -504,6 +511,7 @@ document.addEventListener('keydown', (e) => {
   } else if (k === 't' && e.shiftKey) invoke('reopen_tab');
   else if (k === 't') invoke('new_tab', {});
   else if (k === 'h') openHistory();
+  else if (k === 's' && e.shiftKey) invoke('set_settings', { settings: { ...state.settings, floating_sidebar: !state.settings.floating_sidebar } });
   else if (k === 'w' && activeTab()) invoke('close_tab', { id: activeTab().id });
   else if (k === 'l') { $('address').focus(); $('address').select(); }
   else if (k === 'tab' && tabs.length) {

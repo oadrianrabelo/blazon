@@ -24,6 +24,10 @@ use url::Url;
 
 const WINDOW: &str = "main";
 const UI: &str = "ui";
+/// Settings and Crest Studio, shown over the page card.
+const PANEL: &str = "panel";
+/// Width of the edge left for a hidden floating sidebar.
+const FLOAT_EDGE: f64 = 8.0;
 const SIDEBAR_WIDTH: f64 = 264.0;
 /// Gap around the page card, in logical pixels.
 const CARD_MARGIN: f64 = 8.0;
@@ -43,6 +47,7 @@ const SHORTCUTS_JS: &str = r#"(() => {
     if (k === 'tab') cmd = e.shiftKey ? 'prev' : 'next';
     else if (digit) cmd = (e.shiftKey ? 'space' : 'tab') + digit;
     else if (!e.shiftKey && keys[k]) cmd = keys[k];
+    else if (e.shiftKey && k === 's') cmd = 'sidebar';
     else if (e.shiftKey && k === 't') cmd = 'reopen';
     else if (!e.shiftKey && k === 'h') cmd = 'history';
     if (!cmd) return;
@@ -125,6 +130,13 @@ struct Settings {
     sleep_minutes: u64,
     /// Use the standard Windows title bar instead of Crest's borderless frame.
     native_frame: bool,
+    /// Sidebar hides to a thin edge and slides back when the pointer reaches it.
+    floating_sidebar: bool,
+    sidebar_width: f64,
+    /// Page zoom for new tab webviews (1.0 = 100%).
+    default_zoom: f64,
+    /// Look & feel options owned by the UI (tab shape, pins, folders, colors).
+    appearance: serde_json::Value,
 }
 
 impl Default for Settings {
@@ -134,6 +146,10 @@ impl Default for Settings {
             search: "https://duckduckgo.com/?q=".into(),
             sleep_minutes: 30,
             native_frame: false,
+            floating_sidebar: false,
+            sidebar_width: SIDEBAR_WIDTH,
+            default_zoom: 1.0,
+            appearance: serde_json::json!({}),
         }
     }
 }
@@ -238,6 +254,10 @@ struct AppState {
     history_dirty: AtomicBool,
     /// Recently closed tabs as (space, url), newest last.
     closed: Mutex<Vec<(String, String)>>,
+    /// Floating sidebar currently revealed.
+    peek: AtomicBool,
+    /// Section shown in the settings panel, when open.
+    panel: Mutex<Option<String>>,
 }
 
 fn now() -> u64 {
@@ -415,7 +435,8 @@ fn commit(app: &AppHandle) {
             let _ = fs::rename(&tmp, &s.file);
         }
     }
-    let _ = app.emit_to(UI, "state", data);
+    let _ = app.emit_to(UI, "state", data.clone());
+    let _ = app.emit_to(PANEL, "state", data);
 }
 
 fn label(id: u64) -> String {
@@ -464,11 +485,18 @@ fn to_url(input: &str, search: &str) -> String {
 /// (sidebar plus the Space background); the page sits on it as an inset card.
 fn layout_rects(
     win: &Window,
-    right: bool,
+    settings: &Settings,
+    collapsed: bool,
 ) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
+    let right = settings.sidebar_right;
     let size = win.inner_size().ok()?;
     let scale = win.scale_factor().ok()?;
-    let sw = ((SIDEBAR_WIDTH * scale) as u32).min(size.width);
+    let width = if collapsed {
+        FLOAT_EDGE
+    } else {
+        settings.sidebar_width.clamp(200.0, 420.0)
+    };
+    let sw = ((width * scale) as u32).min(size.width);
     let m = (CARD_MARGIN * scale) as u32;
     let cw = size.width.saturating_sub(sw + m);
     let ch = size.height.saturating_sub(2 * m);
@@ -491,7 +519,8 @@ fn update_tab(app: &AppHandle, id: u64, f: impl FnOnce(&mut Tab)) {
     }
 }
 
-fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> tauri::Result<()> {
+/// Creates a tab's webview; `layout` positions it right after.
+fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result<()> {
     let id = tab.id;
     let url = match Url::parse(&tab.url) {
         Ok(u) if !tab.url.is_empty() => WebviewUrl::External(u),
@@ -559,8 +588,15 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
             spawn(async move { open_tab(&app, url).await });
             NewWindowResponse::Deny
         });
-    let [_, (pos, size)] = layout_rects(win, right).unwrap_or_default();
-    win.add_child(builder, pos, size)?;
+    let zoom = with_data(app, |d| d.settings.default_zoom);
+    let wv = win.add_child(
+        builder,
+        PhysicalPosition::new(0, 0),
+        PhysicalSize::new(1, 1),
+    )?;
+    if (zoom - 1.0).abs() > f64::EPSILON {
+        let _ = wv.set_zoom(zoom);
+    }
     with_data(app, |d| {
         if let Some(t) = d.tabs.iter_mut().find(|t| t.id == id) {
             t.awake = true;
@@ -577,7 +613,7 @@ fn apply_layout(app: &AppHandle) {
 /// `create` must be false on the main thread: creating a webview there deadlocks on Windows.
 fn layout(app: &AppHandle, create: bool) {
     let Some(win) = window(app) else { return };
-    let (visible, right) = with_data(app, |d| {
+    let (visible, settings) = with_data(app, |d| {
         let ids = d.visible();
         let tabs: Vec<Tab> = d
             .tabs
@@ -592,11 +628,14 @@ fn layout(app: &AppHandle, create: bool) {
             .iter()
             .filter_map(|id| tabs.iter().find(|t| t.id == *id).cloned())
             .collect();
-        (ordered, d.settings.sidebar_right)
+        (ordered, d.settings.clone())
     });
-    let Some(rects) = layout_rects(&win, right) else {
+    let s = state(app);
+    let collapsed = settings.floating_sidebar && !s.peek.load(Ordering::Relaxed);
+    let Some(rects) = layout_rects(&win, &settings, collapsed) else {
         return;
     };
+    let panel = s.panel.lock().unwrap().clone();
     let (pos, size) = rects[1];
     // Split View: equal halves with a card gap between them.
     let n = visible.len().max(1) as u32;
@@ -612,16 +651,30 @@ fn layout(app: &AppHandle, create: bool) {
             )
         })
         .collect();
-    for tab in visible.iter().filter(|_| create) {
+    for tab in visible.iter().filter(|_| create && panel.is_none()) {
         if app.get_webview(&label(tab.id)).is_none() {
-            let _ = create_tab_webview(app, &win, tab, right);
+            let _ = create_tab_webview(app, &win, tab);
         }
+    }
+    if create && panel.is_some() && app.get_webview(PANEL).is_none() {
+        let section = panel.clone().unwrap_or_default();
+        let url = WebviewUrl::App(format!("settings.html#{section}").into());
+        let _ = win.add_child(
+            WebviewBuilder::new(PANEL, url).disable_drag_drop_handler(),
+            pos,
+            size,
+        );
     }
     for wv in win.webviews() {
         let l = wv.label().to_string();
         if l == UI {
             let _ = wv.set_position(rects[0].0);
             let _ = wv.set_size(rects[0].1);
+        } else if l == PANEL {
+            let _ = wv.set_position(pos);
+            let _ = wv.set_size(size);
+        } else if panel.is_some() {
+            let _ = wv.hide();
         } else if let Some((_, p)) = slots.iter().find(|(s, _)| *s == l) {
             let _ = wv.set_position(*p);
             let _ = wv.set_size(PhysicalSize::new(w, size.height));
@@ -633,6 +686,11 @@ fn layout(app: &AppHandle, create: bool) {
 }
 
 fn focus_address(app: &AppHandle) {
+    if with_data(app, |d| d.settings.floating_sidebar)
+        && !state(app).peek.swap(true, Ordering::Relaxed)
+    {
+        layout(app, false);
+    }
     if let Some(ui) = app.get_webview(UI) {
         let _ = ui.set_focus();
         let _ = app.emit_to(UI, "focus-address", ());
@@ -680,6 +738,14 @@ async fn run_cmd(app: &AppHandle, cmd: &str) {
             }
         }
         "address" => focus_address(app),
+        "sidebar" => {
+            with_data(app, |d| {
+                d.settings.floating_sidebar = !d.settings.floating_sidebar
+            });
+            state(app).peek.store(false, Ordering::Relaxed);
+            apply_layout(app);
+            commit(app);
+        }
         "reopen" => reopen_tab(app.clone()).await,
         "history" => {
             if let Some(ui) = app.get_webview(UI) {
@@ -1269,7 +1335,62 @@ async fn delete_space(app: AppHandle, id: String) {
 }
 
 #[tauri::command]
+async fn sidebar_peek(app: AppHandle, on: bool) {
+    let s = state(&app);
+    if s.peek.swap(on, Ordering::Relaxed) != on && with_data(&app, |d| d.settings.floating_sidebar)
+    {
+        apply_layout(&app);
+    }
+}
+
+#[tauri::command]
+async fn open_panel(app: AppHandle, section: String) {
+    let previous = state(&app).panel.lock().unwrap().replace(section.clone());
+    match app.get_webview(PANEL) {
+        Some(panel) if previous.is_some() => {
+            let _ = app.emit_to(PANEL, "section", section);
+            let _ = panel.set_focus();
+        }
+        _ => {
+            apply_layout(&app);
+            if let Some(panel) = app.get_webview(PANEL) {
+                let _ = panel.set_focus();
+            }
+        }
+    }
+}
+
+/// Opens Windows' default apps page so Crest can be picked as the browser.
+#[tauri::command]
+async fn open_default_apps() {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("explorer")
+        .arg("ms-settings:defaultapps")
+        .spawn();
+}
+
+#[tauri::command]
+async fn close_panel(app: AppHandle) {
+    state(&app).panel.lock().unwrap().take();
+    if let Some(panel) = app.get_webview(PANEL) {
+        let _ = panel.close();
+    }
+    apply_layout(&app);
+    focus_active(&app);
+}
+
+#[tauri::command]
 async fn set_settings(app: AppHandle, settings: Settings) {
+    let zoom_changed = with_data(&app, |d| {
+        (d.settings.default_zoom - settings.default_zoom).abs() > f64::EPSILON
+    });
+    if zoom_changed {
+        for wv in window(&app).map(|w| w.webviews()).unwrap_or_default() {
+            if wv.label().starts_with("tab-") {
+                let _ = wv.set_zoom(settings.default_zoom);
+            }
+        }
+    }
     if let Some(win) = window(&app) {
         let _ = win.set_decorations(settings.native_frame);
     }
@@ -1309,6 +1430,10 @@ fn main() {
             update_space,
             delete_space,
             set_settings,
+            sidebar_peek,
+            open_panel,
+            close_panel,
+            open_default_apps,
             reopen_tab,
             suggest,
             history_list,
@@ -1367,7 +1492,6 @@ fn main() {
                 .ok()
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
-            let right = data.settings.sidebar_right;
             let native_frame = data.settings.native_frame;
             app.manage(AppState {
                 data: Mutex::new(data),
@@ -1376,6 +1500,8 @@ fn main() {
                 history: Mutex::new(history),
                 history_dirty: AtomicBool::new(false),
                 closed: Mutex::new(vec![]),
+                peek: AtomicBool::new(false),
+                panel: Mutex::new(None),
             });
 
             let win = tauri::window::WindowBuilder::new(app, WINDOW)
@@ -1386,12 +1512,12 @@ fn main() {
                 .decorations(native_frame)
                 .build()?;
             let _ = win.set_size(LogicalSize::new(1280.0, 820.0));
-            let [(pos, size), _] = layout_rects(&win, right).unwrap_or_default();
+            let size = win.inner_size()?;
             win.add_child(
                 WebviewBuilder::new(UI, WebviewUrl::App("index.html".into()))
                     // HTML5 drag and drop for tab reordering.
                     .disable_drag_drop_handler(),
-                pos,
+                PhysicalPosition::new(0, 0),
                 size,
             )?;
 

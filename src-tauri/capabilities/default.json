@@ -1,9 +1,9 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Sidebar UI only; tab webviews get no IPC permissions.",
+  "description": "Sidebar UI and settings panel only; tab webviews get no IPC permissions.",
   "windows": ["main"],
-  "webviews": ["ui"],
+  "webviews": ["ui", "panel"],
   "permissions": [
     "core:default",
     "core:window:allow-start-dragging",

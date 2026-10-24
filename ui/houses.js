@@ -51,3 +51,31 @@ function tileImage(pattern, [, c1, c2]) {
   return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
+
+// Look & feel options stored in settings.appearance, with Crest's defaults.
+const LOOK_DEFAULTS = {
+  tabScale: 1, // 0.9 compact … 1.2 large
+  tabShape: 'rounded', // square | rounded | pill
+  selected: 'fill', // fill | outline | glow
+  followAccent: false, // tint the selected tab with the Space accent
+  dimUnloaded: true,
+  pinsPerRow: 0, // 0 = balanced rows
+  stretchPins: true,
+  pinFill: true,
+  folderCounts: false,
+  folderAccent: true,
+  addressOutline: true,
+  banner: true, // heraldic banner behind the sidebar
+  accent: '', // custom accent overriding the Space's
+};
+
+const LOOK_PRESETS = {
+  crest: { title: 'Crest', hint: 'O padrão, como no Mac', look: {} },
+  compact: { title: 'Compacto', hint: 'Mais abas na tela', look: { tabScale: 0.9, tabShape: 'square', pinsPerRow: 6 } },
+  soft: { title: 'Suave', hint: 'Abas em pílula com brilho', look: { tabShape: 'pill', selected: 'glow', followAccent: true } },
+  minimal: { title: 'Mínimo', hint: 'Sem faixas nem fundos', look: { banner: false, pinFill: false, selected: 'outline', dimUnloaded: false } },
+};
+
+function lookOf(settings) {
+  return { ...LOOK_DEFAULTS, ...(settings && settings.appearance) };
+}
