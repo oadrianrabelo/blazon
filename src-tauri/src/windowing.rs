@@ -98,6 +98,22 @@ pub(crate) fn peek_radius(settings: &Settings) -> f64 {
 /// the toolbar row and the tab row, as in Safari.
 pub(crate) const TOPBAR_HEIGHT: f64 = 84.0;
 
+/// Height of the title bar along the top of the window when the window
+/// buttons sit in its corner (Appearance › Window buttons › Side: corner).
+pub(crate) const TITLEBAR_HEIGHT: f64 = 36.0;
+
+/// Window buttons in the window's top-right corner, on a title bar across the
+/// whole window, as Windows does (tabs on the side and Blazon's own frame).
+pub(crate) fn corner_controls(settings: &Settings) -> bool {
+    !settings.native_frame
+        && !horizontal(settings)
+        && settings
+            .appearance
+            .get("controlsSide")
+            .and_then(|v| v.as_str())
+            == Some("corner")
+}
+
 /// Appearance › Tabs: on the side (Crest's sidebar) or along the top.
 pub(crate) fn horizontal(settings: &Settings) -> bool {
     settings
@@ -140,12 +156,17 @@ pub(crate) fn layout_rects(
     };
     let sw = ((width * scale) as u32).min(size.width);
     let cw = size.width.saturating_sub(sw + m);
-    let ch = size.height.saturating_sub(2 * m);
+    let top = if corner_controls(settings) {
+        ((TITLEBAR_HEIGHT * scale) as u32).min(size.height)
+    } else {
+        m
+    };
+    let ch = size.height.saturating_sub(top + m);
     let content_x = if right { m } else { sw };
     Some([
         (PhysicalPosition::new(0, 0), size),
         (
-            PhysicalPosition::new(content_x as i32, m as i32),
+            PhysicalPosition::new(content_x as i32, top as i32),
             PhysicalSize::new(cw, ch),
         ),
     ])
@@ -374,6 +395,22 @@ pub(crate) fn mica_on(settings: &Settings) -> bool {
 
 /// Puts Windows 11's Mica material (Acrylic on Windows 10) behind the window,
 /// which the sidebar shows through when it is translucent.
+/// After the sidebar changes sides or layout, WebView2 can leave the old page
+/// area unpainted in the interface view until something else redraws it.
+/// Shrinking the view by a pixel and restoring it makes it repaint at once.
+pub(crate) fn repaint_interface(app: &AppHandle) {
+    for win in app.windows().into_values() {
+        if let (Some(ui), Ok(size)) = (app.get_webview(&ui_of(win.label())), win.inner_size()) {
+            let _ = ui.set_size(PhysicalSize::new(size.width, size.height.saturating_sub(1)));
+        }
+    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        std::thread::sleep(std::time::Duration::from_millis(60));
+        layout(&app, false);
+    });
+}
+
 pub(crate) fn apply_material(win: &Window, on: bool) {
     use tauri::window::{Effect, EffectsBuilder};
     let _ = if on {
@@ -404,8 +441,14 @@ pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
     let size = win.inner_size()?;
     win.add_child(
         interface_webview(ui_of(wl), WebviewUrl::App("index.html".into()))
-            // Transparent so the Mica material can show through the sidebar.
-            .background_color(tauri::window::Color(0, 0, 0, 0))
+            // Transparent only for Mica, so the material shows through the sidebar.
+            // Otherwise opaque: a region WebView2 has not repainted yet (after
+            // the sidebar changes sides) must never show the white window behind.
+            .background_color(if mica {
+                tauri::window::Color(0, 0, 0, 0)
+            } else {
+                tauri::window::Color(30, 40, 51, 255)
+            })
             // HTML5 drag and drop for tab reordering.
             .disable_drag_drop_handler(),
         PhysicalPosition::new(0, 0),

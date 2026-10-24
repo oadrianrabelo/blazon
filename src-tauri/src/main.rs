@@ -377,14 +377,34 @@ async fn set_settings(app: AppHandle, settings: Settings) {
         }
     }
     let mica = windowing::mica_on(&settings);
+    let (frame_changed, mica_changed, moved) = with_data(&app, |d| {
+        let old = &d.settings;
+        let look = |s: &Settings, k: &str| s.appearance.get(k).cloned();
+        (
+            old.native_frame != settings.native_frame,
+            windowing::mica_on(old) != mica,
+            old.sidebar_right != settings.sidebar_right
+                || old.floating_sidebar != settings.floating_sidebar
+                || (old.sidebar_width - settings.sidebar_width).abs() > f64::EPSILON
+                || look(old, "tabLayout") != look(&settings, "tabLayout")
+                || look(old, "controlsSide") != look(&settings, "controlsSide"),
+        )
+    });
     for win in app.windows().into_values() {
-        let _ = win.set_decorations(settings.native_frame);
-        windowing::apply_material(&win, mica);
+        if frame_changed {
+            let _ = win.set_decorations(settings.native_frame);
+        }
+        if mica_changed {
+            windowing::apply_material(&win, mica);
+        }
     }
     blocker::configure(settings.adblock, &settings.adblock_allow);
     with_data(&app, |d| d.settings = settings);
     commit(&app);
     apply_layout(&app);
+    if moved {
+        windowing::repaint_interface(&app);
+    }
 }
 
 fn main() {
@@ -485,6 +505,7 @@ fn main() {
             tabs::add_folder,
             tabs::update_folder,
             tabs::delete_folder,
+            tabs::move_folder,
             tabs::duplicate_tab,
             tabs::split_tab,
             spaces::set_space_search,

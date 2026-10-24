@@ -166,11 +166,12 @@ const SECTIONS = {
           toggle('Esconder a barra de abas', 'A página ocupa a janela toda; a barra volta ao encostar o mouse na borda (Ctrl+Shift+S).', S('floating_sidebar'), setS('floating_sidebar')),
           toggle('Barra de título do Windows', 'Usa a moldura padrão em vez da janela sem bordas.', S('native_frame'), setS('native_frame')),
           toggle('Faixas heráldicas', 'Mostra o padrão do brasão no fundo da barra.', L('banner'), setL('banner')),
+          segmented('Tamanho dos ícones', 'Botões da barra, ícones dos sites, pastas e brasões.', [['small', 'Pequeno'], ['normal', 'Normal'], ['large', 'Grande'], ['huge', 'Enorme']], L('iconSize'), setL('iconSize')),
           range('Cantos da página', 'Arredondamento do cartão da página, do Peek e do painel.', 0, 24, 1, (v) => (v ? `${v}px` : 'Retos'), L('pageRadius'), setL('pageRadius'))),
         group('Botões da janela',
           windowButtonsPreview(),
           segmented('Estilo', 'Windows clássico, o Windows redesenhado do Blazon, as bolinhas do Mac ou as bolinhas em grafite (coloridas ao passar o mouse).', [['windows', 'Windows'], ['fluent', 'Blazon'], ['mac', 'Mac'], ['graphite', 'Grafite']], L('windowControls'), (v) => { setL('windowControls')(v); render(); }),
-          segmented('Lado', 'Automático: Mac à esquerda, Windows à direita.', [['auto', 'Automático'], ['left', 'Esquerda'], ['right', 'Direita']], L('controlsSide'), (v) => { setL('controlsSide')(v); render(); })),
+          segmented('Lado', 'Automático: Mac à esquerda, Windows à direita. Canto da janela: numa barra de título por cima de tudo, no canto direito, como no Windows.', [['auto', 'Automático'], ['left', 'Esquerda'], ['right', 'Direita'], ['corner', 'Canto da janela']], L('controlsSide'), (v) => { setL('controlsSide')(v); render(); })),
         group('Barra de ferramentas',
           ...TOOLBAR_BUTTONS.map(([key, name]) => toggle(name, key === 'settings' ? 'Sem o botão, abra com Ctrl+, ou pela paleta.' : null, () => !(appearance().hiddenButtons || []).includes(key), (on) => {
             const off = new Set(appearance().hiddenButtons || []);
@@ -1101,7 +1102,7 @@ function windowButtonsPreview() {
   const a = appearance();
   const style = a.windowControls || 'windows';
   const mac = style === 'mac' || style === 'graphite';
-  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : mac ? 'left' : 'right';
+  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : a.controlsSide === 'corner' ? 'right corner' : mac ? 'left' : 'right';
   const box = el('div', `wb-preview ${style} ${side}`);
   const bar = el('div', 'wb-bar');
   const keys = el('div', 'wb-keys');

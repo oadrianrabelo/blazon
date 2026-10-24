@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.5
+
+- **Pastas dentro de pastas**: favoritos importados viram uma árvore. A Barra de favoritos é uma
+  pasta só, fechada, com as subpastas dentro, em vez de dezenas de pastas "Barra de favoritos / …".
+  Pastas já importadas se reorganizam sozinhas ao abrir o Blazon.
+- No menu da pasta: **Nova subpasta**, **Mover para outra pasta…** (com busca), **Tirar da pasta** e
+  **Recolher todas as pastas**. "Mover para" das abas usa a mesma busca quando há muitas pastas.
+- **Tamanho dos ícones** (pequeno, normal, grande, enorme) em Aparência.
+- **Botões da janela no canto**: uma barra de título por cima de tudo, com o título da página e os
+  botões no canto direito, como no Windows (Botões da janela → Lado → Canto da janela).
+- Corrigido: a barra lateral podia ficar branca depois de mudar o lado da barra.
+
 ## 0.1.4
 
 Mais Mac:

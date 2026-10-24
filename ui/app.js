@@ -76,6 +76,7 @@ function applyAppearance(settings) {
   const a = lookOf(settings);
   const root = document.documentElement.style;
   root.setProperty('--tab-scale', a.tabScale);
+  root.setProperty('--icon-scale', { small: 0.88, large: 1.18, huge: 1.36 }[a.iconSize] || 1);
   root.setProperty('--radius', { square: '3px', rounded: '9px', pill: '999px' }[a.tabShape] || '9px');
   root.setProperty('--sidebar-w', `${Math.min(420, Math.max(200, settings.sidebar_width || 264))}px`);
   if (a.accent) root.setProperty('--c2', a.accent);
@@ -85,9 +86,17 @@ function applyAppearance(settings) {
   b.toggle('mac-controls', mac);
   b.toggle('graphite', a.windowControls === 'graphite');
   b.toggle('wc-fluent', a.windowControls === 'fluent');
-  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : mac ? 'left' : 'right';
+  // Corner: a title bar across the whole window holds them, as on Windows
+  // (with tabs on top they already sit in the window's corner).
+  const corner = a.controlsSide === 'corner' && a.tabLayout !== 'horizontal' && !settings.native_frame;
+  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : a.controlsSide === 'corner' ? 'right' : mac ? 'left' : 'right';
   b.toggle('wc-left', side === 'left');
   b.toggle('wc-right', side === 'right');
+  b.toggle('wc-corner', corner);
+  $('titlebar').hidden = !corner;
+  const ctl = $('winctl');
+  const home = corner ? $('titlebar') : document.querySelector('#sidebar .topbar');
+  if (ctl.parentNode !== home) home.append(ctl);
   const off = a.hiddenButtons || [];
   for (const [key, , sel] of TOOLBAR_BUTTONS) document.querySelectorAll(sel).forEach((n) => n.classList.toggle('btn-off', off.includes(key)));
   applyLookVars(settings);
@@ -399,12 +408,16 @@ function tabMenu(e, t) {
   const folders = state.folders.filter((f) => f.space === state.active_space);
   const items = [
     { label: t.pinned ? 'Desafixar' : 'Fixar', icon: 'pin', run: () => invoke('toggle_pin', { id: t.id }) },
-    { label: 'Nova pasta com esta aba', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: t.id }); } },
+    { label: 'Nova pasta com esta aba', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: t.id, parent: t.folder ?? null }); } },
   ];
   if (folders.length || t.folder != null) items.push('-', { sub: 'Mover para' });
-  for (const f of folders) {
-    if (f.id !== t.folder) items.push({ label: f.name, icon: 'folder', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: f.id }) });
+  const moveTo = (f) => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: f.id });
+  const choices = folders.filter((f) => f.id !== t.folder);
+  // A long list (imported bookmarks) goes into a searchable picker.
+  for (const f of choices.length > 6 ? choices.filter((f) => (f.parent ?? null) === null).slice(0, 4) : choices) {
+    items.push({ label: folderPath(f), icon: 'folder', run: () => moveTo(f) });
   }
+  if (choices.length > 6) items.push({ label: 'Escolher pasta…', icon: 'search', run: () => pickFolder('Mover a aba para', choices, moveTo) });
   if (t.folder != null) items.push({ label: 'Fora da pasta', icon: 'chev', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: null }) });
   const pair = state.splits.find((p) => p.includes(t.id));
   items.push('-');
@@ -448,16 +461,64 @@ $('folder-dialog').addEventListener('close', () => {
 });
 
 function folderMenu(e, f) {
-  showMenu(e, [
+  const inSpace = state.folders.filter((x) => x.space === f.space);
+  // Never into itself or one of its own subfolders.
+  const inside = (x) => { for (let p = x; p; p = inSpace.find((y) => y.id === p.parent)) if (p.id === f.id) return true; return false; };
+  const targets = inSpace.filter((x) => !inside(x) && x.id !== f.parent);
+  const items = [
+    { label: 'Nova subpasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null, parent: f.id }); } },
     { label: 'Cor e ícone…', icon: 'edit', run: () => openFolderDialog(f) },
     { label: 'Renomear', icon: 'edit', run: () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); } },
-    { label: 'Excluir pasta (mantém as abas)', icon: 'x', run: () => invoke('delete_folder', { id: f.id }) },
-  ]);
+    '-',
+  ];
+  if (targets.length) items.push({ label: 'Mover para outra pasta…', icon: 'folder', run: () => pickFolder('Mover a pasta para', targets, (x) => invoke('move_folder', { id: f.id, parent: x.id })) });
+  if (f.parent != null) items.push({ label: 'Tirar da pasta', icon: 'chev', run: () => invoke('move_folder', { id: f.id, parent: null }) });
+  items.push({ label: 'Recolher todas as pastas', icon: 'chev', run: collapseFolders },
+    '-',
+    { label: 'Excluir pasta (mantém as abas)', icon: 'x', run: () => invoke('delete_folder', { id: f.id }) });
+  showMenu(e, items);
+}
+
+// "Barra de favoritos › dev › frontend", for lists where names can repeat.
+function folderPath(f) {
+  const names = [];
+  for (let p = f, i = 0; p && i < 32; p = state.folders.find((x) => x.id === p.parent), i++) names.unshift(p.name);
+  return names.join(' › ');
+}
+
+function collapseFolders() {
+  for (const f of state.folders.filter((x) => x.space === state.active_space && x.open)) invoke('update_folder', { id: f.id, open: false });
+}
+
+// A searchable list of folders (Move to…), for Spaces with many of them.
+function pickFolder(title, folders, onPick) {
+  const d = $('folder-pick');
+  $('fp-title').textContent = title;
+  const q = $('fp-q');
+  q.value = '';
+  const list = $('fp-list');
+  const draw = () => {
+    const words = q.value.toLowerCase().split(/\s+/).filter(Boolean);
+    list.replaceChildren();
+    for (const f of folders.map((x) => [x, folderPath(x)]).filter(([, p]) => words.every((w) => p.toLowerCase().includes(w))).sort((a, b) => a[1].localeCompare(b[1])).slice(0, 80)) {
+      const li = el('li');
+      li.append(icon('folder'), el('span', 'title', f[1]));
+      li.onclick = () => { d.close(); onPick(f[0]); };
+      list.append(li);
+    }
+  };
+  q.oninput = draw;
+  q.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); list.firstElementChild?.click(); } };
+  draw();
+  d.showModal();
+  q.focus();
 }
 
 $('scroll').addEventListener('contextmenu', (e) => {
   e.preventDefault();
-  showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
+  const items = [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null, parent: null }); } }];
+  if (state.folders.some((x) => x.space === state.active_space && x.open)) items.push({ label: 'Recolher todas as pastas', icon: 'chev', run: collapseFolders });
+  showMenu(e, items);
 });
 
 // Saved logins (Settings › Passwords) for the site in the active tab: the key
@@ -496,7 +557,10 @@ function render() {
   const current = activeTab();
   const spaceChanged = shownSpace !== null && shownSpace !== state.active_space;
   const listRoots = [$('pinned'), $('folders'), $('tabs'), $('spaces')];
-  const before = spaceChanged ? null : Motion.snapshot(...listRoots);
+  // A side or layout change moves everything: no point animating rows across the window.
+  const moved = document.body.classList.contains('right') !== !!state.settings.sidebar_right
+    || document.body.classList.contains('horizontal') !== (lookOf(state.settings).tabLayout === 'horizontal');
+  const before = spaceChanged || moved ? null : Motion.snapshot(...listRoots);
   const activeNode = document.querySelector('#sidebar [aria-selected="true"]');
   const activeChanged = shownActive !== (current?.id ?? null);
   const fromActive = activeChanged && activeNode ? activeNode.getBoundingClientRect() : null;
@@ -507,6 +571,7 @@ function render() {
   document.body.classList.toggle('right', !!state.settings.sidebar_right);
   document.body.classList.toggle('native', !!state.settings.native_frame);
   document.title = current ? `${tabTitle(current)} — Blazon` : 'Blazon';
+  $('page-title').textContent = current ? tabTitle(current) : 'Blazon';
 
   const name = $('space-name');
   const label = el('span', 'label', space.name);
@@ -572,8 +637,13 @@ function render() {
 
   const folders = $('folders');
   folders.replaceChildren();
-  for (const f of state.folders.filter((x) => x.space === state.active_space)) {
+  // Folders nest (imported bookmark trees): subfolders first, then tabs.
+  const spaceFolders = state.folders.filter((x) => x.space === state.active_space);
+  const kids = (pid) => spaceFolders.filter((x) => (x.parent ?? null) === pid);
+  const countIn = (f) => tabs.filter((x) => x.folder === f.id).length + kids(f.id).reduce((n, c) => n + countIn(c), 0);
+  const drawFolder = (f, depth) => {
     const head = el('li', 'folder' + (f.open ? ' open' : ''));
+    head.style.setProperty('--depth', depth);
     head.dataset.key = `f${f.id}`;
     const chev = icon('chev');
     chev.classList.add('chev');
@@ -584,7 +654,7 @@ function render() {
       head.append(fi);
     }
     head.append(el('span', 'title', f.name));
-    if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
+    if (window.folderCounts) head.append(el('span', 'count', String(countIn(f))));
     head.append(chev);
     head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
     head.tabIndex = -1;
@@ -600,9 +670,15 @@ function render() {
     head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
     head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
     folders.append(head);
-    if (!f.open) continue;
-    for (const t of tabs.filter((x) => x.folder === f.id)) folders.append(tabRow(t, ' in-folder'));
-  }
+    if (!f.open) return;
+    for (const c of kids(f.id)) drawFolder(c, depth + 1);
+    for (const t of tabs.filter((x) => x.folder === f.id)) {
+      const row = tabRow(t, ' in-folder');
+      row.style.setProperty('--depth', depth);
+      folders.append(row);
+    }
+  };
+  for (const f of kids(null)) drawFolder(f, 0);
 
   for (const t of tabs) {
     const active = current && t.id === current.id;

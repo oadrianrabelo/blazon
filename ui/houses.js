@@ -81,6 +81,7 @@ const LOOK_DEFAULTS = {
   controlsSide: 'auto', // auto (Mac left, Windows right) | left | right
   hiddenButtons: [], // toolbar and footer buttons turned off (see TOOLBAR_BUTTONS)
   pageRadius: 13, // page card corners, 0 = square
+  iconSize: 'normal', // small | normal | large | huge (toolbar icons, favicons, folders, crests)
   glassStrength: 'normal', // light | normal | strong
   motionSpeed: 'normal', // calm | normal | fast | instant
   elastic: true, // sidebar stretches at the ends of its scroll

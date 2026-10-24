@@ -170,6 +170,11 @@ fn merge(app: &AppHandle, other: Data) -> (usize, usize, HashMap<String, String>
             f.space = space.clone();
             d.folders.push(f);
         }
+        for f in d.folders.iter_mut() {
+            if folders.values().any(|v| *v == f.id) {
+                f.parent = f.parent.and_then(|p| folders.get(&p).copied());
+            }
+        }
         let mut tabs = 0;
         for mut t in other.tabs.into_iter() {
             let Some(space) = ids.get(&t.space) else {
