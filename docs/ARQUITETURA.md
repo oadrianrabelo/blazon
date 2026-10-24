@@ -71,6 +71,8 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `importer.rs` | Aplica importações no estado (o parsing fica em `import.rs`) |
 | `downloads.rs` | Lista de downloads |
 | `profile.rs` | Permissões de sites, extensões e uso de memória por Space |
+| `passwords.rs` | Cofre de senhas (DPAPI), importação do Chromium (AES-GCM pelo CNG do Windows) e de CSV, preenchimento |
+| `sidepanel.rs` | Painel lateral de extensões: página da extensão numa coluna ao lado do site |
 | `quick.rs` | Janela rápida: janela pequena para links de outros apps, com escolha de Space |
 | `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |

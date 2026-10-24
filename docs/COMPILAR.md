@@ -50,7 +50,22 @@ npm test         # testes da interface (node --test) e do Rust (cargo test)
 1. instala Node e Rust (com cache);
 2. baixa as listas de bloqueio;
 3. roda `tauri build`;
-4. publica o artefato **`blazon-windows`** (`.exe` NSIS e `.msi`).
+4. publica o artefato **`blazon-windows`** (`.exe` NSIS e `.msi`);
+5. num segundo job (**smoke**), instala o `.exe` numa máquina Windows limpa, abre o Blazon e
+   percorre as telas principais com `tests/smoke/run.mjs`, salvando um print da tela inteira em
+   cada passo no artefato **`blazon-screenshots`**, junto com o log do app e erros da interface.
+
+### Teste no Windows (smoke)
+
+O Blazon abre o protocolo de DevTools do WebView2 nas webviews da própria interface quando a
+variável `BLAZON_DEVTOOLS_PORT` está definida (as páginas de sites nunca). O teste usa isso com o
+`playwright-core` para clicar e chamar comandos, e o PowerShell para tirar os prints. Para rodar
+num Windows:
+
+```sh
+npm install --no-save playwright-core@1.56.1
+node tests/smoke/run.mjs "%LOCALAPPDATA%\Blazon\blazon.exe" prints
+```
 
 Numa tag `v*`, cria também uma **Release** com os instaladores.
 
