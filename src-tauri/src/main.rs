@@ -2643,12 +2643,12 @@ async fn new_window(app: AppHandle, space: Option<String>) -> Result<(), String>
     *state(&app).focused.lock().unwrap() = wl;
     let empty = with_data(&app, |d| {
         d.active_space = space.clone();
-        if d.active_tab.get(&space).is_none() {
+        if !d.active_tab.contains_key(&space) {
             if let Some(first) = d.space_tabs(&space).first() {
                 d.active_tab.insert(space.clone(), *first);
             }
         }
-        d.active_tab.get(&space).is_none()
+        !d.active_tab.contains_key(&space)
     });
     if empty {
         open_tab(&app, String::new()).await;
