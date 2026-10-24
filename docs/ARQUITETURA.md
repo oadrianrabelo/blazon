@@ -71,6 +71,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `importer.rs` | Aplica importações no estado (o parsing fica em `import.rs`) |
 | `downloads.rs` | Lista de downloads |
 | `profile.rs` | Permissões de sites, extensões e uso de memória por Space |
+| `quick.rs` | Janela rápida: janela pequena para links de outros apps, com escolha de Space |
 | `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
 | `overlay.rs` | Paleta e Peek; fotos da página (`CapturePreview`) para o vidro da paleta e a animação do Peek |
@@ -93,6 +94,8 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `overlay.*` | Paleta de comandos e barra do Peek |
 | `newtab.*` | Página inicial |
 | `motion.css`, `motion.js` | Animações do Crest: os tempos do `CrestMotion`, molas do SwiftUI convertidas em curvas `linear()`, reordenação estilo FLIP, seleção que desliza, troca de Space, painéis flutuantes e o modo de movimento reduzido do Windows |
+| `guide.html`, `guide.js` | Primeiros passos: lições com uma barra de prática própria |
+| `quick.html`, `quick.js` | Barra da janela rápida |
 | `welcome.js` | Boas-vindas da primeira abertura (no overlay, sobre a janela inteira) |
 | `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
 | `diag.js` | Envia erros de JavaScript da interface para o log |

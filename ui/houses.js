@@ -87,3 +87,9 @@ const LOOK_PRESETS = {
 function lookOf(settings) {
   return { ...LOOK_DEFAULTS, ...(settings && settings.appearance) };
 }
+
+// Address of the Getting Started guide, in the Space's colors and the interface language.
+function guideUrl(space, lang) {
+  const { colors, pattern } = look(space || {});
+  return `${location.origin}/guide.html?lang=${lang}&p=${encodeURIComponent(pattern)}&c=${encodeURIComponent(colors.join(','))}`;
+}

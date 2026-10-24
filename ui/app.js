@@ -387,7 +387,7 @@ function render() {
   const space = activeSpace();
   const current = activeTab();
   const spaceChanged = shownSpace !== null && shownSpace !== state.active_space;
-  const listRoots = [$('pinned'), $('folders'), $('tabs'), $('now-playing'), $('spaces')];
+  const listRoots = [$('pinned'), $('folders'), $('tabs'), $('spaces')];
   const before = spaceChanged ? null : Motion.snapshot(...listRoots);
   const activeNode = document.querySelector('#sidebar [aria-selected="true"]');
   const activeChanged = shownActive !== (current?.id ?? null);
@@ -510,7 +510,7 @@ function render() {
     list.append(tabRow(t, ''));
   }
 
-  renderNowPlaying();
+  renderDeck();
 
   const spaces = $('spaces');
   spaces.replaceChildren();
@@ -843,29 +843,162 @@ document.addEventListener('keydown', (e) => {
 });
 
 // "Now playing": tabs making sound in any Space, with mute and go-to.
-function renderNowPlaying() {
-  const box = $('now-playing');
-  const playing = state.tabs.filter((t) => t.audio || (t.muted && t.awake));
-  if (!playing.length) Motion.hide(box);
-  else if (box.hidden || box.classList.contains('m-leaving')) Motion.show(box, 'rise');
-  if (!playing.length) return;
-  box.replaceChildren();
-  for (const t of playing.slice(0, 3)) {
-    const item = el('div', 'np-item');
-    item.dataset.key = `np${t.id}`;
-    const go = el('button', 'np-title');
-    const space = state.spaces.find((s) => s.id === t.space);
-    go.append(favicon(t), el('span', 'title', tabTitle(t)));
-    go.title = `${tabTitle(t)} · ${space ? space.name : ''}`;
-    go.onclick = () => invoke('activate_tab', { id: t.id });
-    const mute = el('button', 'icon');
+// Widget deck (BrowserSidebarWidgetDeck): stacked cards above the footer,
+// one per tab playing sound plus the update notice. Swipe sideways, use the
+// dots or the arrow keys to flip through them.
+const DECK = { scales: [1, 0.965, 0.93], opacities: [1, 0.9, 0.75], content: [1, 0.45, 0], peek: 6, depth: 3 };
+let deckSelected = null;
+let deckUpdate = null;
+const deckCards = new Map();
+
+function deckItems() {
+  const items = state.tabs.filter((t) => t.audio || (t.muted && t.awake)).slice(0, 5).map((t) => ({ id: `np${t.id}`, tab: t }));
+  if (deckUpdate) items.push({ id: 'update', update: deckUpdate });
+  return items;
+}
+
+function deckCard(item) {
+  const card = el('div', 'deck-card');
+  const body = el('div', 'deck-body');
+  if (item.tab) {
+    const t = item.tab;
+    const space = state.spaces.find((x) => x.id === t.space);
+    const art = el('div', 'deck-art');
+    art.append(favicon(t));
+    const text = el('button', 'deck-text');
+    text.append(el('span', 'deck-kicker', t.muted ? 'Sem som' : 'Tocando agora'), el('span', 'deck-title', tabTitle(t)),
+      el('span', 'deck-sub', space ? space.name : host(t.url)));
+    text.title = 'Ir para a aba';
+    text.onclick = () => invoke('activate_tab', { id: t.id });
+    const mute = el('button', 'deck-control focal');
     mute.append(icon(t.muted ? 'muted' : 'sound'));
     mute.title = t.muted ? 'Ativar som' : 'Silenciar aba';
     mute.onclick = () => invoke('toggle_mute', { id: t.id });
-    item.append(go, mute);
-    box.append(item);
+    body.append(art, text, mute);
+  } else {
+    const u = item.update;
+    const art = el('div', 'deck-art update');
+    art.append(icon('download'));
+    const text = el('div', 'deck-text');
+    text.append(el('span', 'deck-kicker', 'Atualização'), el('span', 'deck-title', `Blazon ${u.version}`),
+      el('span', 'deck-sub', 'Pronta para instalar'));
+    const acts = el('div', 'deck-actions');
+    const go = el('button', 'deck-action primary', 'Atualizar');
+    go.onclick = () => { go.disabled = true; go.textContent = 'Baixando…'; invoke('install_update').catch((err) => { go.disabled = false; go.textContent = 'Atualizar'; toast(String(err)); }); };
+    const notes = el('button', 'deck-action', 'Novidades');
+    notes.onclick = () => invoke('new_tab', { url: u.page });
+    const hide = el('button', 'deck-control quiet');
+    hide.append(icon('x'));
+    hide.title = 'Agora não';
+    hide.onclick = () => { deckUpdate = null; renderDeck(); };
+    acts.append(go, notes);
+    text.append(acts);
+    body.append(art, text, hide);
   }
+  card.append(body);
+  return card;
 }
+
+function renderDeck() {
+  const deck = $('deck');
+  const items = deckItems();
+  if (!items.length) {
+    Motion.hide(deck, () => { deck.querySelector('.deck-stack')?.replaceChildren(); deckCards.clear(); });
+    return;
+  }
+  if (deck.hidden || deck.classList.contains('m-leaving')) Motion.show(deck, 'rise');
+  if (!items.some((i) => i.id === deckSelected)) deckSelected = items[0].id;
+  const stack = deck.querySelector('.deck-stack');
+  const start = items.findIndex((i) => i.id === deckSelected);
+  const order = items.map((_, k) => items[(start + k) % items.length]);
+  const seen = new Set();
+  order.forEach((item, depth) => {
+    seen.add(item.id);
+    const fresh = deckCard(item);
+    let card = deckCards.get(item.id);
+    if (card) card.replaceChildren(...fresh.childNodes);
+    else {
+      card = fresh;
+      deckCards.set(item.id, card);
+      stack.append(card);
+      card.animate([{ opacity: 0, transform: `scale(${Motion.reduced.matches ? 1 : 0.97})` }, {}], { duration: Motion.ms('--space-swipe'), easing: Motion.ease('--snappy') });
+    }
+    const d = Math.min(depth, DECK.depth - 1);
+    const visible = depth < DECK.depth;
+    card.style.zIndex = String(DECK.depth - depth);
+    card.style.transform = `translateY(${d * DECK.peek}px) scale(${Motion.reduced.matches ? 1 : DECK.scales[d]})`;
+    card.style.opacity = visible ? String(DECK.opacities[d]) : '0';
+    card.style.setProperty('--content', String(DECK.content[d]));
+    card.inert = depth !== 0;
+    card.classList.toggle('front', depth === 0);
+  });
+  for (const [id, card] of deckCards) {
+    if (seen.has(id)) continue;
+    deckCards.delete(id);
+    card.animate([{}, { opacity: 0, transform: `scale(${Motion.reduced.matches ? 1 : 0.97})` }], { duration: Motion.ms('--dismissal'), easing: 'ease-out' }).onfinish = () => card.remove();
+  }
+  stack.style.paddingBottom = `${(Math.min(items.length, DECK.depth) - 1) * DECK.peek}px`;
+  const dots = deck.querySelector('.deck-dots');
+  dots.replaceChildren();
+  dots.hidden = items.length < 2;
+  items.forEach((item) => {
+    const b = el('button', 'deck-dot' + (item.id === deckSelected ? ' on' : ''));
+    b.title = item.tab ? tabTitle(item.tab) : 'Atualização';
+    b.onclick = () => { deckSelected = item.id; renderDeck(); };
+    dots.append(b);
+  });
+  deck.setAttribute('aria-valuetext', `${start + 1} / ${items.length}`);
+}
+
+function cycleDeck(direction) {
+  const items = deckItems();
+  if (items.length < 2) return;
+  const i = items.findIndex((x) => x.id === deckSelected);
+  deckSelected = items[(i + direction + items.length) % items.length].id;
+  renderDeck();
+}
+
+// Dragging the front card tracks the pointer at 35%, rubber-banded to 28px;
+// past 40px it flips to the next card.
+(() => {
+  const deck = $('deck');
+  let start = null;
+  deck.addEventListener('pointerdown', (e) => { if (e.button === 0 && deckItems().length > 1) start = { x: e.clientX, moved: 0 }; });
+  addEventListener('pointermove', (e) => {
+    if (!start) return;
+    const dx = e.clientX - start.x;
+    start.moved = dx;
+    const front = deck.querySelector('.deck-card.front');
+    if (!front || Math.abs(dx) < 6) return;
+    const tracked = Math.max(-28, Math.min(28, dx * 0.35));
+    front.style.translate = `${tracked}px 0`;
+    front.classList.add('dragging');
+  });
+  addEventListener('pointerup', () => {
+    if (!start) return;
+    const dx = start.moved;
+    start = null;
+    const front = deck.querySelector('.deck-card.front');
+    if (front) { front.classList.remove('dragging'); front.style.translate = ''; }
+    if (Math.abs(dx) > 40) {
+      cycleDeck(dx < 0 ? 1 : -1);
+      document.body.classList.add('just-dragged');
+      setTimeout(() => document.body.classList.remove('just-dragged'), 0);
+    }
+  });
+  deck.addEventListener('wheel', (e) => {
+    if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) || Math.abs(e.deltaX) < 20) return;
+    e.preventDefault();
+    e.stopPropagation();
+    if (deck.dataset.wheel) return;
+    deck.dataset.wheel = '1';
+    setTimeout(() => delete deck.dataset.wheel, 350);
+    cycleDeck(e.deltaX > 0 ? 1 : -1);
+  }, { passive: false });
+  deck.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); cycleDeck(e.key === 'ArrowRight' ? 1 : -1); }
+  });
+})();
 
 // Toasts: crash notices and other one-off messages.
 function toast(text, actions = []) {
@@ -924,9 +1057,42 @@ listen('downloads', (e) => {
   const before = downloads.length;
   downloads = e.payload;
   drawDownloads();
-  if (downloads.length > before) Motion.pulse($('downloads-btn'), 'm-bounce');
-  if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
+  if (downloads.length > before) flyDownload();
 });
+// A new download flies from the page edge to the downloads button along an
+// arc, shrinking as it goes (BrowserMacDownloadFeedbackLayer / FlightPath).
+function flyDownload() {
+  const button = $('downloads-btn');
+  const land = () => Motion.pulse(button, 'm-bounce');
+  if (Motion.reduced.matches) return land();
+  const bar = $('sidebar').getBoundingClientRect();
+  const to = button.getBoundingClientRect();
+  const src = { x: state?.settings.sidebar_right ? bar.left + 24 : bar.right - 24, y: innerHeight * 0.4 };
+  const dst = { x: to.left + to.width / 2, y: to.top + to.height / 2 };
+  const lift = Math.min(140, Math.hypot(dst.x - src.x, dst.y - src.y) * 0.3);
+  const ctl = { x: (src.x + dst.x) / 2, y: Math.max(20, Math.min(src.y, dst.y) - lift) };
+  const at = (t) => ({
+    x: (1 - t) ** 2 * src.x + 2 * (1 - t) * t * ctl.x + t * t * dst.x,
+    y: (1 - t) ** 2 * src.y + 2 * (1 - t) * t * ctl.y + t * t * dst.y,
+  });
+  const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  const fly = el('div', 'dl-flight');
+  fly.append(icon('download'));
+  document.body.append(fly);
+  // 0.14s appearing, 0.1s pause, 0.78s flight; fades over the last 10%.
+  const total = 1.02;
+  const frames = [{ offset: 0, opacity: 0, transform: `translate(${src.x}px, ${src.y}px) scale(.55)` },
+    { offset: 0.14 / total, opacity: 1, transform: `translate(${src.x}px, ${src.y}px) scale(1)`, easing: 'linear' },
+    { offset: 0.24 / total, opacity: 1, transform: `translate(${src.x}px, ${src.y}px) scale(1)` }];
+  for (let i = 1; i <= 20; i++) {
+    const p = i / 20;
+    const t = ease(p);
+    const pt = at(t);
+    frames.push({ offset: (0.24 + 0.78 * p) / total, opacity: p > 0.9 ? 1 - (p - 0.9) / 0.1 : 1, transform: `translate(${pt.x}px, ${pt.y}px) scale(${1 - t * 0.68})` });
+  }
+  fly.animate(frames, { duration: total * 1000, fill: 'forwards' }).onfinish = () => { fly.remove(); land(); };
+}
+
 $('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };
 $('dl-clear').onclick = () => invoke('clear_downloads');
 invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
@@ -937,11 +1103,11 @@ invoke('get_state').then((s) => {
   // First run: Crest-style welcome flow over the whole window.
   if (!s.settings.welcomed) setTimeout(() => invoke('open_overlay', { mode: 'welcome' }), 300);
 });
+// A new version shows up as a card in the widget deck, like Crest's.
 listen('update-available', (e) => {
-  toast(`Blazon ${e.payload.version} disponível.`, [
-    ['Atualizar', () => { toast('Baixando a atualização…'); invoke('install_update').catch((err) => toast(String(err))); }, true],
-    ['Novidades', () => invoke('new_tab', { url: e.payload.page })],
-  ]);
+  deckUpdate = e.payload;
+  deckSelected = 'update';
+  if (state) renderDeck();
 });
 
 invoke('take_crash_report').then((crash) => {

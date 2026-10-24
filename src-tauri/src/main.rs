@@ -12,6 +12,7 @@ mod importer;
 mod model;
 mod overlay;
 mod profile;
+mod quick;
 mod spaces;
 #[cfg(windows)]
 mod sqlite;
@@ -313,21 +314,25 @@ fn main() {
             let app = app.clone();
             let urls: Vec<String> = args.iter().skip(1).filter_map(|a| arg_to_url(a)).collect();
             spawn(async move {
-                if let Some(win) = window(&app) {
-                    let _ = win.unminimize();
-                    let _ = win.set_focus();
-                }
-                // "Peek" opens a single link as a floating preview, like Crest's Quick Window.
-                let peek = with_data(&app, |d| d.settings.external_space == "peek");
-                if peek
-                    && urls.len() == 1
-                    && !with_data(&app, |d| {
+                // A single link with no matching route can open in the Quick
+                // Window (its own small window, like Crest's) or in Peek.
+                let mode = with_data(&app, |d| d.settings.external_space.clone());
+                let routed = urls.len() != 1
+                    || with_data(&app, |d| {
                         d.settings
                             .routes
                             .iter()
                             .any(|r| !r.pattern.is_empty() && urls[0].contains(&r.pattern))
-                    })
-                {
+                    });
+                if mode == "quick" && !routed {
+                    quick::open(&app, &urls[0]);
+                    return;
+                }
+                if let Some(win) = window(&app) {
+                    let _ = win.unminimize();
+                    let _ = win.set_focus();
+                }
+                if mode == "peek" && !routed {
                     overlay::open_peek(&app, &urls[0]);
                     return;
                 }
@@ -409,6 +414,10 @@ fn main() {
             overlay::page_snapshot,
             overlay::peek_geometry,
             overlay::peek_show,
+            quick::quick_state,
+            quick::quick_to_tab,
+            quick::quick_close,
+            quick::quick_nav,
             overlay::peek_snapshot,
         ])
         .setup(|app| {

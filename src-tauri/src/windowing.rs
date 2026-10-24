@@ -75,6 +75,11 @@ pub(crate) fn sync_windows(app: &AppHandle) {
     }
 }
 
+/// Corner radius of the page card (Crest's BrowserChromeLayout.pageCornerRadius)
+/// and of Peek's card, in logical pixels.
+pub(crate) const PAGE_RADIUS: f64 = 13.0;
+pub(crate) const PEEK_RADIUS: f64 = 12.0;
+
 /// UI and page rectangles in physical pixels. The UI covers the whole window
 /// (sidebar plus the Space background); the page sits on it as an inset card.
 pub(crate) fn layout_rects(
@@ -205,15 +210,21 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
         } else if l == panel_l {
             let _ = wv.set_position(pos);
             let _ = wv.set_size(size);
+            #[cfg(windows)]
+            webview2::round_corners(&wv, PAGE_RADIUS);
         } else if l == peek_l {
             let (p, s) = overlay::peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
             let _ = wv.set_position(p);
             let _ = wv.set_size(s);
+            #[cfg(windows)]
+            webview2::round_corners(&wv, PEEK_RADIUS);
         } else if panel.is_some() {
             let _ = wv.hide();
         } else if let Some((_, p)) = slots.iter().find(|(s, _)| *s == l) {
             let _ = wv.set_position(*p);
             let _ = wv.set_size(PhysicalSize::new(w, size.height));
+            #[cfg(windows)]
+            webview2::round_corners(&wv, PAGE_RADIUS);
             let _ = wv.show();
         } else {
             let _ = wv.hide();

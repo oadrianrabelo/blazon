@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Janela rápida</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="motion.css">
+  <style>
+    body { background: var(--c0); }
+    .qbar { position: fixed; left: 0; right: 0; top: 0; height: 46px; display: flex; align-items: center; gap: 4px; padding: 0 8px; }
+    .qhost { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 0 8px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .qhost b { color: var(--fg); font-weight: 600; }
+    .qpick { position: relative; }
+    .qpick > button { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px 0 6px; border-radius: 9px; background: var(--field); }
+    .qpick svg.crest, .qpick > button > svg { width: 22px; height: 22px; flex: none; }
+    .qpick > button > svg:last-child { width: 14px; height: 14px; color: var(--muted); }
+    .qmenu { position: absolute; right: 0; top: 38px; z-index: 5; min-width: 220px; padding: 5px; border-radius: 12px;
+      background: color-mix(in srgb, var(--panel) 82%, transparent); backdrop-filter: blur(22px) saturate(1.6); box-shadow: 0 12px 32px rgba(0, 0, 0, .45), 0 0 0 1px var(--faint); }
+    .qmenu .sub { color: var(--muted); font-size: 11px; padding: 6px 9px 4px; }
+    .qmenu button { display: flex; width: 100%; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 7px; text-align: left; }
+    .qmenu button.sel { background: var(--active); }
+    .qmenu svg.crest { width: 22px; height: 22px; }
+    .qopen { height: 32px; padding: 0 14px; border-radius: 9px; background: var(--c2); color: var(--c0); font-weight: 600; }
+    .winctl .icon { width: 32px; height: 32px; }
+  </style>
+</head>
+<body>
+  <div id="banner" class="banner" aria-hidden="true"><div class="p-mid"></div><div class="p-low"></div></div>
+  <header class="qbar" data-tauri-drag-region>
+    <button class="icon" data-nav="back" data-i="back" title="Voltar"></button>
+    <button class="icon" data-nav="forward" data-i="forward" title="Avançar"></button>
+    <button class="icon" data-nav="reload" data-i="reload" title="Recarregar"></button>
+    <div id="host" class="qhost" data-tauri-drag-region></div>
+    <div class="qpick">
+      <button id="pick" title="Space de destino"></button>
+      <div id="menu" class="qmenu" hidden></div>
+    </div>
+    <button id="open" class="qopen">Abrir no Blazon</button>
+    <div class="winctl"><button class="icon close" id="close" data-i="x" title="Fechar (Esc)"></button></div>
+  </header>
+  <script src="i18n.js"></script>
+  <script src="diag.js"></script>
+  <script src="houses.js"></script>
+  <script src="charges.js"></script>
+  <script src="crest.js"></script>
+  <script src="motion.js"></script>
+  <script src="quick.js"></script>
+</body>
+</html>

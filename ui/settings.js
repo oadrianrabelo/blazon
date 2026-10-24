@@ -404,7 +404,7 @@ const SECTIONS = {
       return [
         ...header('Links', 'Como o Blazon abre links de outros apps e prévias rápidas.'),
         group('Links de outros apps',
-          select('Abrir em', 'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.', [['', 'Space atual'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
+          select('Abrir em', 'Quando nenhuma rota combina. A janela rápida abre o link numa janela pequena, onde você escolhe o Space; o Peek abre numa prévia flutuante.', [['', 'Space atual'], ['quick', 'Janela rápida'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
         routesGroup,
         group('Peek',
           select('Abrir prévia com', 'Clique num link segurando a tecla para ver numa janela flutuante. Esc fecha.', [['shift', 'Shift + clique'], ['alt', 'Alt + clique'], ['off', 'Desligado']], S('peek_modifier'), setS('peek_modifier'))),
@@ -583,6 +583,11 @@ const SECTIONS = {
       const updates = group('Atualizações',
         row('Procurar atualizações automaticamente', 'Uma vez por dia, nas versões publicadas no GitHub. Nada é instalado sem você confirmar.', (() => { const c = el('input', 'switch'); c.type = 'checkbox'; c.checked = state.settings.auto_update !== false; c.onchange = () => saveSettings({ auto_update: c.checked }); return c; })()),
         row('Agora', null, check), status);
+      const guide = el('button', 'btn', 'Abrir guia');
+      guide.onclick = () => {
+        const space = state.spaces.find((x) => x.id === state.active_space);
+        invoke('new_tab', { url: guideUrl(space, I18N.lang()) }).then(() => invoke('close_panel'));
+      };
       const again = el('button', 'btn', 'Rever boas-vindas');
       again.onclick = () => invoke('close_panel').then(() => invoke('open_overlay', { mode: 'welcome' }));
       return [
@@ -590,7 +595,9 @@ const SECTIONS = {
         ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
         version,
         updates,
-        group('Primeiros passos', row('Tela de boas-vindas', 'Escolher a casa, criar Spaces e importar de outros navegadores.', again)),
+        group('Primeiros passos',
+          row('Tela de boas-vindas', 'Escolher a casa, criar Spaces e importar de outros navegadores.', again),
+          row('Guia', 'Lições com prática: fixar, pastas, limpar, lado a lado, paleta e Peek.', guide)),
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
     },

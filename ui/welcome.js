@@ -165,7 +165,7 @@ function startWelcome() {
         row.append(item);
       }
       return [el('h1', '', 'Seus Spaces estão prontos'), row,
-        el('p', 'w-lead', 'Ctrl+K abre a paleta de comandos. Shift+clique num link abre o Peek. Tudo se ajusta em Configurações.'),
+        el('p', 'w-lead', 'Ctrl+K abre a paleta de comandos. Shift+clique num link abre o Peek. Os Primeiros passos abrem em seguida.'),
         actions(button('Tornar navegador padrão', '', () => invoke('open_default_apps')), button('Abrir o Blazon', 'primary', finish))];
     },
   ];
@@ -186,6 +186,8 @@ function startWelcome() {
   async function finish() {
     await refresh();
     await invoke('set_settings', { settings: { ...state.settings, welcomed: true } });
+    // Getting Started opens next, like in Crest.
+    await invoke('new_tab', { url: guideUrl(space(), I18N.lang()) }).catch(() => {});
     stage.animate([{ opacity: 1 }, { opacity: 0, transform: `scale(${Motion.reduced.matches ? 1 : 1.02})` }],
       { duration: Motion.ms('--chrome'), easing: Motion.ease('--smooth'), fill: 'forwards' }).onfinish = shut;
   }
