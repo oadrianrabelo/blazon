@@ -74,6 +74,7 @@ const COMMANDS = [
   ['Silenciar ou ativar som da aba', '', () => tab() && invoke('toggle_mute', { id: tab().id })],
   ['Privacidade e bloqueador', '', () => invoke('open_panel', { section: 'privacy' })],
   ['Modo leitura', '', () => invoke('reader_mode')],
+  ['Traduzir página', '', () => invoke('translate_page', { target: I18N.lang() })],
   ['Arquivo de abas', '', () => invoke('run_command', { cmd: 'history' })],
   ['Bloquear Spaces agora', '', () => invoke('lock_now')],
   ['Relatar problema', '', () => invoke('open_panel', { section: 'report' })],

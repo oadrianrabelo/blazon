@@ -3,8 +3,18 @@
 use crate::*;
 
 /// Closes the webviews of background tabs idle longer than the sleep setting.
+/// Closes the webviews of idle background tabs. Tabs playing sound stay;
+/// pinned tabs stay unless their Space isn't open in any window, so a Space
+/// left alone releases its whole WebView2 process.
 pub(crate) fn sleep_idle_tabs(app: &AppHandle) {
     let visible = shown_tabs(app);
+    let shown_spaces: Vec<String> = state(app)
+        .windows
+        .lock()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect();
     let asleep = with_data(app, |d| {
         let limit = d.settings.sleep_minutes * 60;
         let cutoff = now().saturating_sub(limit);
@@ -12,7 +22,8 @@ pub(crate) fn sleep_idle_tabs(app: &AppHandle) {
         for t in d.tabs.iter_mut() {
             if limit > 0
                 && t.awake
-                && !t.pinned
+                && !t.audio
+                && (!t.pinned || !shown_spaces.contains(&t.space))
                 && !visible.contains(&t.id)
                 && t.last_active < cutoff
             {
@@ -711,4 +722,51 @@ pub(crate) fn archive_idle_tabs(app: &AppHandle) {
     if !gone.is_empty() {
         commit(app);
     }
+}
+
+/// Puts every hidden tab of a Space to sleep now.
+#[tauri::command]
+pub(crate) async fn sleep_space(app: AppHandle, space: String) -> usize {
+    let visible = shown_tabs(&app);
+    let ids = with_data(&app, |d| {
+        let mut ids = vec![];
+        for t in d
+            .tabs
+            .iter_mut()
+            .filter(|t| t.space == space && t.awake && !visible.contains(&t.id))
+        {
+            t.awake = false;
+            t.loading = false;
+            ids.push(t.id);
+        }
+        ids
+    });
+    for id in &ids {
+        if let Some(wv) = app.get_webview(&label(*id)) {
+            let _ = wv.close();
+        }
+    }
+    commit(&app);
+    ids.len()
+}
+
+/// Opens the active page translated by Google Translate into `target`.
+#[tauri::command]
+pub(crate) async fn translate_page(app: AppHandle, target: String) {
+    let Some(url) = with_data(&app, |d| {
+        let id = d.active_tab_id()?;
+        d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone())
+    }) else {
+        return;
+    };
+    if !url.starts_with("http") {
+        return;
+    }
+    let target = if target == "en" { "en" } else { "pt" };
+    let q: String = url::form_urlencoded::byte_serialize(url.as_bytes()).collect();
+    navigate(
+        app,
+        format!("https://translate.google.com/translate?sl=auto&tl={target}&u={q}"),
+    )
+    .await;
 }

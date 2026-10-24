@@ -502,3 +502,55 @@ pub async fn change_extension(wv: &Webview, id: String, action: String) -> bool 
     .await
     .unwrap_or(false)
 }
+
+/// Working set, in MB, of all processes of a webview's WebView2 environment.
+pub async fn memory_mb(wv: &Webview) -> u64 {
+    let pids = ask(wv, |pv, tx| unsafe {
+        let mut pids = vec![];
+        if let Ok(infos) = pv
+            .environment()
+            .cast::<ICoreWebView2Environment8>()
+            .and_then(|e| e.GetProcessInfos())
+        {
+            let mut n = 0u32;
+            let _ = infos.Count(&mut n);
+            for i in 0..n {
+                if let Ok(info) = infos.GetValueAtIndex(i) {
+                    let mut pid = 0i32;
+                    if info.ProcessId(&mut pid).is_ok() {
+                        pids.push(pid as u32);
+                    }
+                }
+            }
+        }
+        let _ = tx.send(pids);
+    })
+    .await
+    .unwrap_or_default();
+    let mut bytes = 0u64;
+    for pid in pids {
+        use windows::Win32::{
+            Foundation::CloseHandle,
+            System::{
+                ProcessStatus::{K32GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS},
+                Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
+            },
+        };
+        unsafe {
+            if let Ok(h) = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) {
+                let mut c = PROCESS_MEMORY_COUNTERS::default();
+                if K32GetProcessMemoryInfo(
+                    h,
+                    &mut c,
+                    std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+                )
+                .as_bool()
+                {
+                    bytes += c.WorkingSetSize as u64;
+                }
+                let _ = CloseHandle(h);
+            }
+        }
+    }
+    bytes / 1_048_576
+}

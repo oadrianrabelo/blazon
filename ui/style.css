@@ -151,6 +151,14 @@ dialog menu .danger { margin-right: auto; }
 .history-list .day::first-letter { text-transform: uppercase; }
 .history-list .day:hover { background: none; }
 [hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--c2); outline-offset: 1px; }
+.tab:focus-visible, .pin:focus-visible, .folder:focus-visible { outline-offset: -2px; }
+.now-playing { display: flex; flex-direction: column; gap: 2px; padding: 6px; border-radius: 10px; background: var(--field); }
+.np-item { display: flex; align-items: center; gap: 4px; }
+.np-title { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; padding: 4px 6px; text-align: left; }
+.np-title .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.np-item .icon { width: 26px; height: 26px; color: var(--c2); }
+.np-item .icon svg { width: 14px; height: 14px; }
 .foot-right { display: flex; gap: 2px; }
 #downloads-btn { position: relative; }
 .badge { position: absolute; right: 2px; top: 2px; min-width: 14px; height: 14px; padding: 0 3px; border-radius: 7px; background: var(--c2); color: var(--c0); font-size: 9px; font-weight: 700; line-height: 14px; }

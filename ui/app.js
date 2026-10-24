@@ -135,6 +135,21 @@ function dragTarget(node, t, pinned) {
 }
 
 function tabEvents(node, t) {
+  // Keyboard: reachable with Tab/arrows, Enter opens, Delete closes, menu key opens the menu.
+  node.tabIndex = -1;
+  node.dataset.tab = t.id;
+  node.setAttribute('role', node.tagName === 'LI' ? 'option' : 'button');
+  node.setAttribute('aria-label', tabTitle(t));
+  node.setAttribute('aria-selected', String(t.id === activeTab()?.id));
+  node.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); invoke('activate_tab', { id: t.id }); }
+    else if (e.key === 'Delete') { e.preventDefault(); invoke('close_tab', { id: t.id }); }
+    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const r = node.getBoundingClientRect();
+      tabMenu({ clientX: r.left + 20, clientY: r.bottom, preventDefault() {}, stopPropagation() {} }, t);
+    }
+  };
   node.onclick = () => invoke('activate_tab', { id: t.id });
   node.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
   node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
@@ -193,6 +208,7 @@ function tabMenu(e, t) {
     for (const o of others) items.push({ label: tabTitle(o), icon: 'split', run: () => invoke('split_tab', { id: t.id, with: o.id }) });
   }
   items.push('-',
+    { label: 'Traduzir página', icon: 'book', run: () => invoke('activate_tab', { id: t.id }).then(() => invoke('translate_page', { target: I18N.lang() })) },
     { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
     { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
     { label: 'Fechar', icon: 'x', run: () => invoke('close_tab', { id: t.id }) });
@@ -313,6 +329,16 @@ function render() {
     if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
     head.append(chev);
     head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
+    head.tabIndex = -1;
+    head.setAttribute('role', 'treeitem');
+    head.setAttribute('aria-expanded', String(f.open));
+    head.setAttribute('aria-label', `Pasta ${f.name}`);
+    head.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || (e.key === 'ArrowRight' && !f.open) || (e.key === 'ArrowLeft' && f.open)) {
+        e.preventDefault();
+        invoke('update_folder', { id: f.id, open: !f.open });
+      }
+    };
     head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
     head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
     head.addEventListener('dragover', (e) => { e.preventDefault(); head.classList.add('drop-before'); });
@@ -342,6 +368,8 @@ function render() {
     }
     list.append(tabRow(t, ''));
   }
+
+  renderNowPlaying();
 
   const spaces = $('spaces');
   spaces.replaceChildren();
@@ -554,6 +582,43 @@ $('sidebar').addEventListener('mouseleave', () => {
   if (!busy) peekTimer = setTimeout(() => peek(false), 350);
 });
 
+// Accessibility: icon buttons get spoken names, arrows move between tabs,
+// F6 cycles address bar → tab list → page.
+function labelIconButtons(root) {
+  root.querySelectorAll('button[title]').forEach((b) => {
+    if (!b.textContent.trim()) b.setAttribute('aria-label', b.title.replace(/\s*\(.*\)$/, ''));
+  });
+}
+new MutationObserver(() => labelIconButtons(document.body)).observe(document.body, { childList: true, subtree: true });
+labelIconButtons(document.body);
+
+function tabNodes() {
+  return [...document.querySelectorAll('#pinned [data-tab], #folders .folder, #folders [data-tab], #tabs [data-tab]')];
+}
+function focusTabList() {
+  const nodes = tabNodes();
+  const target = nodes.find((n) => n.getAttribute('aria-selected') === 'true') || nodes[0];
+  if (target) { nodes.forEach((n) => { n.tabIndex = -1; }); target.tabIndex = 0; target.focus(); }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'F6') {
+    e.preventDefault();
+    if (document.activeElement === $('address')) focusTabList();
+    else if (document.activeElement && document.activeElement.closest('#pinned, #folders, #tabs')) invoke('run_command', { cmd: 'focuspage' });
+    else { $('address').focus(); $('address').select(); }
+    return;
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const nodes = tabNodes();
+  const i = nodes.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : Math.max(0, Math.min(nodes.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+  nodes[i].tabIndex = -1;
+  nodes[next].tabIndex = 0;
+  nodes[next].focus();
+});
+
 // Shortcuts while the sidebar itself has focus.
 document.addEventListener('keydown', (e) => {
   if (!e.ctrlKey || e.altKey || !state) return;
@@ -581,6 +646,28 @@ document.addEventListener('keydown', (e) => {
   } else return;
   e.preventDefault();
 });
+
+// "Now playing": tabs making sound in any Space, with mute and go-to.
+function renderNowPlaying() {
+  const box = $('now-playing');
+  const playing = state.tabs.filter((t) => t.audio || (t.muted && t.awake));
+  box.hidden = !playing.length;
+  box.replaceChildren();
+  for (const t of playing.slice(0, 3)) {
+    const item = el('div', 'np-item');
+    const go = el('button', 'np-title');
+    const space = state.spaces.find((s) => s.id === t.space);
+    go.append(favicon(t), el('span', 'title', tabTitle(t)));
+    go.title = `${tabTitle(t)} · ${space ? space.name : ''}`;
+    go.onclick = () => invoke('activate_tab', { id: t.id });
+    const mute = el('button', 'icon');
+    mute.append(icon(t.muted ? 'muted' : 'sound'));
+    mute.title = t.muted ? 'Ativar som' : 'Silenciar aba';
+    mute.onclick = () => invoke('toggle_mute', { id: t.id });
+    item.append(go, mute);
+    box.append(item);
+  }
+}
 
 // Toasts: crash notices and other one-off messages.
 function toast(text, actions = []) {

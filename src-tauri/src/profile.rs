@@ -99,3 +99,55 @@ pub(crate) async fn add_extension() -> Result<String, String> {
 pub(crate) async fn change_extension() -> Result<bool, String> {
     Err("Só no Windows.".into())
 }
+
+#[derive(Serialize)]
+pub(crate) struct SpaceMemory {
+    space: String,
+    name: String,
+    mb: u64,
+    awake: usize,
+}
+
+/// Memory used by each Space's WebView2 processes (and by Blazon's own UI).
+#[tauri::command]
+pub(crate) async fn memory_usage(app: AppHandle) -> Vec<SpaceMemory> {
+    #[cfg(windows)]
+    {
+        let spaces = with_data(&app, |d| {
+            d.spaces
+                .iter()
+                .map(|s| (s.id.clone(), s.name.clone()))
+                .collect::<Vec<_>>()
+        });
+        let mut out = vec![];
+        for (id, name) in spaces {
+            let awake = with_data(&app, |d| {
+                d.tabs.iter().filter(|t| t.space == id && t.awake).count()
+            });
+            let Ok(wv) = space_webview(&app, &id) else {
+                continue;
+            };
+            let mb = webview2::memory_mb(&wv).await;
+            out.push(SpaceMemory {
+                space: id,
+                name,
+                mb,
+                awake,
+            });
+        }
+        if let Some(ui) = app.get_webview(UI) {
+            out.push(SpaceMemory {
+                space: String::new(),
+                name: "Interface do Blazon".into(),
+                mb: webview2::memory_mb(&ui).await,
+                awake: 0,
+            });
+        }
+        out
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = app;
+        vec![]
+    }
+}

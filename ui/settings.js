@@ -197,8 +197,9 @@ const SECTIONS = {
         group('Idioma',
           select('Idioma da interface', null, [['auto', 'Automático'], ['pt', 'Português'], ['en', 'English']], () => state.settings.language || 'auto', setS('language'))),
         group('Abas',
-          select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas nunca dormem.',
+          select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas e abas tocando som ficam acordadas no Space aberto.',
             [[0, 'Nunca'], [15, '15 minutos'], [30, '30 minutos'], [60, '1 hora'], [240, '4 horas']], S('sleep_minutes'), setS('sleep_minutes'))),
+        memoryGroup(),
         group('Arquivo',
           select('Arquivar abas paradas após', 'Abas soltas sem uso vão para o Arquivo (botão no rodapé da barra). Fixadas e abas em pastas ficam.',
             [[0, 'Nunca'], [12, '12 horas'], [24, '1 dia'], [72, '3 dias'], [168, '1 semana']], S('archive_hours'), setS('archive_hours'))),
@@ -403,7 +404,7 @@ const SECTIONS = {
       return [
         ...header('Links', 'Como o Blazon abre links de outros apps e prévias rápidas.'),
         group('Links de outros apps',
-          select('Abrir em', 'Quando nenhuma rota combina.', [['', 'Space atual'], ...spaces], S('external_space'), setS('external_space'))),
+          select('Abrir em', 'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.', [['', 'Space atual'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
         routesGroup,
         group('Peek',
           select('Abrir prévia com', 'Clique num link segurando a tecla para ver numa janela flutuante. Esc fecha.', [['shift', 'Shift + clique'], ['alt', 'Alt + clique'], ['off', 'Desligado']], S('peek_modifier'), setS('peek_modifier'))),
@@ -910,6 +911,33 @@ function permissionsGroup() {
   const g = group('Permissões de sites', row('Space', 'Câmera, microfone, localização, notificações e outras.', spacePicker(load)), list);
   load(state.active_space);
   return g;
+}
+
+// Memory per Space: each Space runs its own WebView2 processes.
+function memoryGroup() {
+  const list = el('div');
+  const load = async () => {
+    list.replaceChildren(el('p', 'lead', 'Carregando…'));
+    const rows = await invoke('memory_usage');
+    list.replaceChildren();
+    if (!rows.length) list.append(el('p', 'lead', 'Nenhum Space com abas carregadas.'));
+    for (const r of rows) {
+      const hint = r.space ? `${r.awake} abas carregadas` : null;
+      const right = el('div', 'seg');
+      right.style.background = 'none';
+      right.append(el('span', 'lead', `${r.mb} MB`));
+      if (r.space && r.awake) {
+        const sleep = el('button', 'btn', 'Dormir agora');
+        sleep.onclick = async () => { await invoke('sleep_space', { space: r.space }); setTimeout(load, 1500); };
+        right.append(sleep);
+      }
+      list.append(row(r.name, hint, right));
+    }
+  };
+  const refresh = el('button', 'btn', 'Medir de novo');
+  refresh.onclick = load;
+  load();
+  return group('Memória', row('Uso por Space', 'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.', refresh), list);
 }
 
 function accentRow() {

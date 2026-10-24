@@ -69,6 +69,7 @@ fn shortcuts_js(peek_modifier: &str) -> String {
   const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette', n: 'newwindow' };
   const send = (cmd) => window.open('https://blazon-cmd.invalid/' + cmd);
   addEventListener('keydown', (e) => {
+    if (e.key === 'F6' && !e.ctrlKey && !e.altKey) { e.preventDefault(); send('address'); return; }
     if (!e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
     const digit = /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
@@ -202,6 +203,7 @@ async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
             }
         }
         "address" => focus_address(app),
+        "focuspage" => focus_active(app),
         "sidebar" => {
             with_data(app, |d| {
                 d.settings.floating_sidebar = !d.settings.floating_sidebar
@@ -311,13 +313,27 @@ fn main() {
             let app = app.clone();
             let urls: Vec<String> = args.iter().skip(1).filter_map(|a| arg_to_url(a)).collect();
             spawn(async move {
-                for url in urls {
-                    with_data(&app, |d| d.active_space = route_space(d, &url));
-                    open_tab(&app, url).await;
-                }
                 if let Some(win) = window(&app) {
                     let _ = win.unminimize();
                     let _ = win.set_focus();
+                }
+                // "Peek" opens a single link as a floating preview, like Crest's Quick Window.
+                let peek = with_data(&app, |d| d.settings.external_space == "peek");
+                if peek
+                    && urls.len() == 1
+                    && !with_data(&app, |d| {
+                        d.settings
+                            .routes
+                            .iter()
+                            .any(|r| !r.pattern.is_empty() && urls[0].contains(&r.pattern))
+                    })
+                {
+                    overlay::open_peek(&app, &urls[0]);
+                    return;
+                }
+                for url in urls {
+                    with_data(&app, |d| d.active_space = route_space(d, &url));
+                    open_tab(&app, url).await;
                 }
                 focus_active(&app);
             });
@@ -342,6 +358,9 @@ fn main() {
             windowing::close_panel,
             support::open_default_apps,
             backup::export_backup,
+            tabs::sleep_space,
+            tabs::translate_page,
+            profile::memory_usage,
             backup::restore_backup,
             support::app_version,
             support::check_update,
