@@ -13,6 +13,7 @@
   <img id="page-shot" class="page-shot" alt="" hidden>
 
   <div id="edge" class="edge"></div>
+  <header id="titlebar" class="topbar titlebar" data-tauri-drag-region hidden><span id="page-title" class="page-title" data-tauri-drag-region></span></header>
   <aside id="sidebar" data-tauri-drag-region>
     <header class="topbar" data-tauri-drag-region>
       <button class="icon" data-nav="back" data-i="back" title="Voltar (Alt+←)"></button>
@@ -89,6 +90,14 @@
       <div id="fd-colors" class="swatches"></div>
       <label>Ícone (um emoji) <input id="fd-icon" type="text" maxlength="4" placeholder="📁"></label>
       <menu><button type="button" id="fd-reset">Padrão</button><button value="save" class="primary">Salvar</button></menu>
+    </form>
+  </dialog>
+  <dialog id="folder-pick">
+    <form method="dialog">
+      <h3 id="fp-title">Mover para</h3>
+      <input id="fp-q" type="search" placeholder="Pesquisar pastas" autocomplete="off">
+      <ul id="fp-list" class="history-list folder-list"></ul>
+      <menu><button value="cancel">Cancelar</button></menu>
     </form>
   </dialog>
   <div id="side-head" class="side-head" hidden><span data-i="puzzle"></span><span id="side-name" class="side-name"></span><button id="side-close" class="icon" data-i="x" title="Fechar painel"></button></div>

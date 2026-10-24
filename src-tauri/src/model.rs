@@ -70,6 +70,9 @@ pub(crate) struct Folder {
     pub(crate) color: String,
     #[serde(default)]
     pub(crate) icon: String,
+    /// Folder this one sits in (imported bookmark trees), or None at the top.
+    #[serde(default)]
+    pub(crate) parent: Option<u64>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -314,11 +317,178 @@ impl Data {
             .retain(|[a, b]| a != b && space_of(*a).is_some() && space_of(*a) == space_of(*b));
         self.active_tab
             .retain(|s, id| tabs.iter().any(|t| t.id == *id && &t.space == s));
+        // Parents must exist in the same Space, without loops.
+        let homes: HashMap<u64, String> = self
+            .folders
+            .iter()
+            .map(|f| (f.id, f.space.clone()))
+            .collect();
+        for f in self.folders.iter_mut() {
+            if f.parent
+                .is_some_and(|p| p == f.id || homes.get(&p) != Some(&f.space))
+            {
+                f.parent = None;
+            }
+        }
+        let parents: HashMap<u64, Option<u64>> =
+            self.folders.iter().map(|f| (f.id, f.parent)).collect();
+        for f in self.folders.iter_mut() {
+            let mut at = f.parent;
+            for _ in 0..=parents.len() {
+                match at {
+                    Some(p) if p == f.id => {
+                        f.parent = None;
+                        break;
+                    }
+                    Some(p) => at = parents.get(&p).copied().flatten(),
+                    None => break,
+                }
+            }
+        }
         let max_tab = self.tabs.iter().map(|t| t.id).max().unwrap_or(0);
         let max_folder = self.folders.iter().map(|f| f.id).max().unwrap_or(0);
         self.next_id = max_tab.max(max_folder).max(self.next_id);
+        // After next_id is past every id, so new parent folders never collide.
+        self.nest_folder_paths();
+    }
+}
+
+impl Data {
+    /// Imports used to flatten bookmark trees into folders named
+    /// "Barra de favoritos / dev / frontend". Those become nested folders,
+    /// so a big bookmark bar is one closed folder in the sidebar. A name is
+    /// only split when another folder in the Space shares its first part, so
+    /// a folder someone named "A / B" by hand stays as it is.
+    pub(crate) fn nest_folder_paths(&mut self) {
+        const SEP: &str = " / ";
+        let first = |n: &str| n.split(SEP).next().unwrap_or("").to_string();
+        let candidates: Vec<u64> = self
+            .folders
+            .iter()
+            .filter(|f| f.parent.is_none() && f.name.contains(SEP))
+            .filter(|f| {
+                let head = first(&f.name);
+                self.folders.iter().any(|o| {
+                    o.id != f.id
+                        && o.space == f.space
+                        && o.parent.is_none()
+                        && (o.name == head || first(&o.name) == head)
+                })
+            })
+            .map(|f| f.id)
+            .collect();
+        // Shorter paths first, so "A / B" exists before "A / B / C" looks for it.
+        let mut candidates: Vec<(usize, u64)> = candidates
+            .into_iter()
+            .map(|id| {
+                let n = self.folders.iter().find(|f| f.id == id).unwrap();
+                (n.name.matches(SEP).count(), id)
+            })
+            .collect();
+        candidates.sort();
+        for (_, id) in candidates {
+            let Some(f) = self.folders.iter().find(|f| f.id == id) else {
+                continue;
+            };
+            let space = f.space.clone();
+            let parts: Vec<String> = f.name.split(SEP).map(str::to_string).collect();
+            let mut parent: Option<u64> = None;
+            for part in &parts[..parts.len() - 1] {
+                let found = self
+                    .folders
+                    .iter()
+                    .find(|o| {
+                        o.space == space && o.parent == parent && &o.name == part && o.id != id
+                    })
+                    .map(|o| o.id);
+                parent = Some(match found {
+                    Some(p) => p,
+                    None => {
+                        let new = self.new_id();
+                        self.folders.push(Folder {
+                            id: new,
+                            space: space.clone(),
+                            name: part.clone(),
+                            open: false,
+                            color: String::new(),
+                            icon: String::new(),
+                            parent,
+                        });
+                        new
+                    }
+                });
+            }
+            if let Some(f) = self.folders.iter_mut().find(|f| f.id == id) {
+                f.name = parts.last().cloned().unwrap_or_default();
+                f.parent = parent;
+                f.open = false;
+            }
+        }
     }
 }
 
 pub(crate) const HISTORY_LIMIT: usize = 5000;
 pub(crate) const CLOSED_LIMIT: usize = 25;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn folder(id: u64, name: &str) -> Folder {
+        Folder {
+            id,
+            space: "personal".into(),
+            name: name.into(),
+            open: true,
+            color: String::new(),
+            icon: String::new(),
+            parent: None,
+        }
+    }
+
+    #[test]
+    fn flattened_bookmark_paths_become_a_tree() {
+        let mut d = Data {
+            next_id: 10,
+            ..Default::default()
+        };
+        d.folders = vec![
+            folder(1, "Barra de favoritos / dev"),
+            folder(2, "Barra de favoritos / dev / frontend"),
+            folder(3, "Barra de favoritos / TCC"),
+            folder(4, "Outros favoritos"),
+            folder(5, "Receitas / doces"),
+        ];
+        d.repair();
+        let bar: Vec<&Folder> = d
+            .folders
+            .iter()
+            .filter(|f| f.name == "Barra de favoritos")
+            .collect();
+        assert_eq!(bar.len(), 1, "one folder for the bar");
+        let bar = bar[0].id;
+        let by = |id: u64| d.folders.iter().find(|f| f.id == id).unwrap();
+        assert_eq!((by(1).name.as_str(), by(1).parent), ("dev", Some(bar)));
+        assert_eq!((by(2).name.as_str(), by(2).parent), ("frontend", Some(1)));
+        assert_eq!((by(3).name.as_str(), by(3).parent), ("TCC", Some(bar)));
+        assert!(!by(1).open, "imported trees start closed");
+        // Nothing else shares "Receitas", so a hand-made name stays.
+        assert_eq!(
+            (by(5).name.as_str(), by(5).parent),
+            ("Receitas / doces", None)
+        );
+        assert_eq!(by(4).parent, None);
+    }
+
+    #[test]
+    fn folder_loops_are_broken() {
+        let mut d = Data::default();
+        let mut a = folder(1, "a");
+        let mut b = folder(2, "b");
+        a.parent = Some(2);
+        b.parent = Some(1);
+        d.folders = vec![a, b];
+        d.repair();
+        assert!(d.folders.iter().any(|f| f.parent.is_none()));
+    }
+}

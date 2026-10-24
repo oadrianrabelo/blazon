@@ -4,6 +4,19 @@
 
 const I18N = (() => {
   const EN = {
+    // Nested folders, icon size and the corner title bar
+    "Nova subpasta": "New subfolder",
+    "Mover para outra pasta…": "Move to another folder…",
+    "Tirar da pasta": "Take out of the folder",
+    "Recolher todas as pastas": "Collapse all folders",
+    "Mover a aba para": "Move the tab to",
+    "Mover a pasta para": "Move the folder to",
+    "Pesquisar pastas": "Search folders",
+    "Tamanho dos ícones": "Icon size",
+    "Botões da barra, ícones dos sites, pastas e brasões.": "Toolbar buttons, site icons, folders and crests.",
+    "Pequeno": "Small",
+    "Canto da janela": "Window corner",
+    "Automático: Mac à esquerda, Windows à direita. Canto da janela: numa barra de título por cima de tudo, no canto direito, como no Windows.": "Automatic: Mac on the left, Windows on the right. Window corner: on a title bar across the top, in the right corner, like Windows.",
     // Interface fonts
     "Fonte da interface": "Interface font",
     "A Inter é a fonte livre mais parecida com a San Francisco do Mac.": "Inter is the free font closest to the Mac's San Francisco.",

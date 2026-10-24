@@ -42,11 +42,14 @@ pub(crate) fn push_folders(d: &mut Data, space: &str, folders: Vec<import::Folde
             open: false,
             color: String::new(),
             icon: String::new(),
+            parent: None,
         });
         for e in f.tabs {
             push_tab(d, space, e, false, Some(fid));
         }
     }
+    // Bookmark trees arrive as "Parent / Child" names.
+    d.nest_folder_paths();
 }
 
 /// Puts imported data in the current Space or a new one named after the source.

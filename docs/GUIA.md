@@ -99,6 +99,9 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Pastas**: clique direito numa área vazia da lista → Nova pasta, ou clique direito numa
   aba → "Nova pasta com esta aba". Arraste abas para dentro e para fora. Clique direito na pasta
   → **Cor e ícone…** escolhe uma cor ou um emoji.
+- **Pastas dentro de pastas**: clique direito na pasta → **Nova subpasta** ou **Mover para outra
+  pasta…** (com busca). Favoritos importados chegam assim: a Barra de favoritos é uma pasta só, com
+  as subpastas dentro. **Recolher todas as pastas** fecha tudo de uma vez.
 - **Voltar depois de reabrir**: cada aba guarda os últimos endereços. Depois de reiniciar o app, o
   botão Voltar (Alt+←) continua funcionando.
 - **Reordenar**: arraste.
@@ -287,7 +290,10 @@ Em **Configurações → Aparência**:
   em teclas arredondadas que acendem como vidro; o fechar brilha em vermelho), **Mac** (as três
   bolinhas) ou **Grafite** (bolinhas cinza que ganham cor ao passar o mouse). Uma prévia mostra
   como fica.
-- **Botões da janela → Lado**: automático (Mac à esquerda, Windows à direita), esquerda ou direita.
+- **Botões da janela → Lado**: automático (Mac à esquerda, Windows à direita), esquerda, direita ou
+  **canto da janela** (uma barra de título por cima de tudo, com o título da página e os botões no
+  canto direito, como no Windows).
+- **Tamanho dos ícones**: pequeno, normal, grande ou enorme.
 - **Barra de ferramentas**: desligue os botões que você não usa. Sem o botão de configurações,
   use Ctrl+, ou a paleta.
 - **Cantos da página**: de retos (0px) a bem redondos (24px).

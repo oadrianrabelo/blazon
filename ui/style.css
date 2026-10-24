@@ -446,3 +446,42 @@ input, textarea, select, button { letter-spacing: inherit; font-weight: inherit;
 
 /* Appearance › Toolbar: buttons the person turned off. */
 .btn-off { display: none !important; }
+
+/* Nested folders (imported bookmark trees): each level steps in a little. */
+.folder { padding-left: calc(9px + var(--depth, 0) * 14px); }
+.in-folder { padding-left: calc(30px + var(--depth, 0) * 14px); }
+body.horizontal .folder, body.horizontal .in-folder { padding-left: 10px; }
+.folder-list li { display: flex; align-items: center; gap: 8px; cursor: default; }
+.folder-list li svg { width: 14px; height: 14px; flex: none; color: var(--c2); }
+.folder-list .title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Appearance › Icon size: toolbar and footer icons, favicons, folders and crests. */
+:root { --icon-scale: 1; }
+.icon svg, .topbar .icon svg, #reader svg, #shield svg, #logins svg { width: calc(16px * var(--icon-scale)); height: calc(16px * var(--icon-scale)); }
+.wc-fluent .topbar .winctl .icon svg { width: calc(12px * var(--icon-scale)); height: calc(12px * var(--icon-scale)); }
+.mac-controls .topbar .winctl .icon svg { width: 8px; height: 8px; }
+.icon { width: calc(30px * max(1, var(--icon-scale))); height: calc(30px * max(1, var(--icon-scale))); }
+.topbar .icon { width: calc(27px * max(1, var(--icon-scale))); }
+.mac-controls .topbar .winctl .icon { width: 12px; height: 12px; }
+.wc-fluent .topbar .winctl .icon { width: calc(30px * max(1, var(--icon-scale))); height: 26px; }
+.tab .close { width: 22px; height: 22px; }
+.tab .close svg { width: calc(12px * var(--icon-scale)); height: calc(12px * var(--icon-scale)); }
+.fav { width: calc(16px * var(--icon-scale)); height: calc(16px * var(--icon-scale)); font-size: calc(10px * var(--icon-scale)); }
+.pin .fav { width: calc(18px * var(--icon-scale)); height: calc(18px * var(--icon-scale)); }
+.folder svg { width: calc(16px * var(--icon-scale)); height: calc(16px * var(--icon-scale)); }
+.folder .chev { width: 12px; height: 12px; }
+.folder .emoji { font-size: calc(14px * var(--icon-scale)); width: calc(16px * var(--icon-scale)); }
+.space-name img, .space-name svg { width: calc(26px * var(--icon-scale)); height: calc(26px * var(--icon-scale)); }
+.dot img, .dot svg { width: calc(26px * var(--icon-scale)); height: calc(26px * var(--icon-scale)); }
+.dot { width: calc(30px * max(1, var(--icon-scale))); height: calc(30px * max(1, var(--icon-scale))); }
+
+/* Window buttons › Side: corner. A title bar across the window, as on
+   Windows: the page's title in the middle and the buttons in the corner; the
+   sidebar and the page start below it (windowing.rs TITLEBAR_HEIGHT = 36px). */
+.titlebar { position: fixed; z-index: 6; top: 0; left: 0; right: 0; height: 36px; padding: 0 6px 0 12px; gap: 0; }
+.titlebar .page-title { flex: 1; min-width: 0; align-self: stretch; display: flex; align-items: center; justify-content: center; padding: 0 140px;
+  color: var(--muted); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titlebar .winctl { position: absolute; right: 6px; top: 0; bottom: 0; display: flex; align-items: center; }
+body.wc-corner #sidebar { top: 36px; padding-top: 0; }
+body.wc-corner .edge { top: 36px; }
+body.wc-corner dialog { top: 84px; }

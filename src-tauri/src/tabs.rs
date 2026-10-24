@@ -540,10 +540,18 @@ pub(crate) async fn unsplit_tab(app: AppHandle, id: u64) {
 }
 
 #[tauri::command]
-pub(crate) async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
+pub(crate) async fn add_folder(
+    app: AppHandle,
+    name: String,
+    tab: Option<u64>,
+    parent: Option<u64>,
+) {
     with_data(&app, |d| {
         let id = d.new_id();
         let space = d.active_space.clone();
+        if let Some(p) = d.folders.iter_mut().find(|f| Some(f.id) == parent) {
+            p.open = true;
+        }
         d.folders.push(Folder {
             id,
             space,
@@ -551,6 +559,7 @@ pub(crate) async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
             open: true,
             color: String::new(),
             icon: String::new(),
+            parent,
         });
         if let Some(t) = d.tabs.iter_mut().find(|t| Some(t.id) == tab) {
             t.folder = Some(id);
@@ -588,13 +597,39 @@ pub(crate) async fn update_folder(
     commit(&app);
 }
 
-/// Removes a folder, keeping its tabs as loose tabs.
+/// Moves a folder into another one (None: to the top of the Space).
+#[tauri::command]
+pub(crate) async fn move_folder(app: AppHandle, id: u64, parent: Option<u64>) {
+    with_data(&app, |d| {
+        // Never into itself or one of its own subfolders.
+        let mut at = parent;
+        while let Some(p) = at {
+            if p == id {
+                return;
+            }
+            at = d.folders.iter().find(|f| f.id == p).and_then(|f| f.parent);
+        }
+        if let Some(f) = d.folders.iter_mut().find(|f| f.id == id) {
+            f.parent = parent;
+        }
+        if let Some(p) = d.folders.iter_mut().find(|f| Some(f.id) == parent) {
+            p.open = true;
+        }
+    });
+    commit(&app);
+}
+
+/// Removes a folder; its tabs and subfolders move up to where it was.
 #[tauri::command]
 pub(crate) async fn delete_folder(app: AppHandle, id: u64) {
     with_data(&app, |d| {
+        let up = d.folders.iter().find(|f| f.id == id).and_then(|f| f.parent);
         d.folders.retain(|f| f.id != id);
+        for f in d.folders.iter_mut().filter(|f| f.parent == Some(id)) {
+            f.parent = up;
+        }
         for t in d.tabs.iter_mut().filter(|t| t.folder == Some(id)) {
-            t.folder = None;
+            t.folder = up;
         }
     });
     commit(&app);
