@@ -12,7 +12,8 @@ import { chromium } from 'playwright-core';
 const [exe, out = 'screenshots'] = process.argv.slice(2);
 mkdirSync(out, { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const env = { ...process.env, WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: '--remote-debugging-port=9222' };
+// Blazon opens WebView2's DevTools protocol on its interface when this is set.
+const env = { ...process.env, BLAZON_DEVTOOLS_PORT: '9222' };
 const problems = [];
 let step = 0;
 
@@ -35,19 +36,22 @@ async function waitFor(fn, what, timeout = 30000) {
 const app = spawn(exe, [], { env, stdio: 'inherit' });
 app.on('exit', (code) => { if (code) problems.push(`Blazon saiu com código ${code}`); });
 
-await waitFor(() => fetch('http://127.0.0.1:9222/json/version').then((r) => r.ok), 'DevTools', 60000);
-const browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
-const context = browser.contexts()[0];
-const page = (part) => waitFor(() => context.pages().find((p) => p.url().includes(part)), part);
-const watch = (p) => {
-  p.on('pageerror', (e) => problems.push(`${p.url()}: ${e.message}`));
-  p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) problems.push(`${p.url()}: ${m.text()}`); });
-};
-context.on('page', watch);
-context.pages().forEach(watch);
-
 let failed = null;
+let browser = null;
+await sleep(8000);
+shot('abertura');
 try {
+  await waitFor(() => fetch('http://127.0.0.1:9222/json/version').then((r) => r.ok), 'DevTools', 60000);
+  browser = await chromium.connectOverCDP('http://127.0.0.1:9222');
+  const context = browser.contexts()[0];
+  const page = (part) => waitFor(() => context.pages().find((p) => p.url().includes(part)), part);
+  const watch = (p) => {
+    p.on('pageerror', (e) => problems.push(`${p.url()}: ${e.message}`));
+    p.on('console', (m) => { if (m.type() === 'error' && !/Failed to load resource/.test(m.text())) problems.push(`${p.url()}: ${m.text()}`); });
+  };
+  context.on('page', watch);
+  context.pages().forEach(watch);
+
   const ui = await page('index.html');
   const invoke = (cmd, args = {}) => ui.evaluate(([c, a]) => window.__TAURI__.core.invoke(c, a), [cmd, args]);
   await ui.evaluate(() => window.__TAURI__.window.getCurrentWindow().toggleMaximize()).catch(() => {});
@@ -126,7 +130,7 @@ if (existsSync(logs)) {
   }
 }
 
-await browser.close().catch(() => {});
+await browser?.close().catch(() => {});
 app.kill();
 console.log(problems.length ? `\n⚠️ Problemas:\n- ${problems.join('\n- ')}` : '\n✅ Nenhum erro de interface.');
 process.exit(failed ? 1 : 0);

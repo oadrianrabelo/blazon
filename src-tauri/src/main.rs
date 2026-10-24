@@ -184,6 +184,22 @@ fn commit(app: &AppHandle) {
     }
 }
 
+/// Builder for Blazon's own interface webviews (sidebar, panel, overlays).
+/// When BLAZON_DEVTOOLS_PORT is set, as in the CI smoke test, they expose
+/// WebView2's DevTools protocol on that port; site pages never do.
+pub(crate) fn interface_webview(
+    label: impl Into<String>,
+    url: WebviewUrl,
+) -> WebviewBuilder<tauri::Wry> {
+    let builder = WebviewBuilder::new(label, url);
+    match std::env::var("BLAZON_DEVTOOLS_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
+        Some(port) => builder.additional_browser_args(&format!(
+            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
+        )),
+        None => builder,
+    }
+}
+
 fn label(id: u64) -> String {
     format!("tab-{id}")
 }

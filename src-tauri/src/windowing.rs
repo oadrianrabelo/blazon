@@ -195,7 +195,7 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
         let section = panel.clone().unwrap_or_default();
         let url = WebviewUrl::App(format!("settings.html#{section}").into());
         if let Err(e) = win.add_child(
-            WebviewBuilder::new(&panel_l, url).disable_drag_drop_handler(),
+            interface_webview(&panel_l, url).disable_drag_drop_handler(),
             pos,
             size,
         ) {
@@ -276,7 +276,7 @@ pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
         .build()?;
     let size = win.inner_size()?;
     win.add_child(
-        WebviewBuilder::new(ui_of(wl), WebviewUrl::App("index.html".into()))
+        interface_webview(ui_of(wl), WebviewUrl::App("index.html".into()))
             // HTML5 drag and drop for tab reordering.
             .disable_drag_drop_handler(),
         PhysicalPosition::new(0, 0),

@@ -82,7 +82,7 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
             .build()?;
         let size = win.inner_size()?;
         win.add_child(
-            WebviewBuilder::new(QUICK_UI, WebviewUrl::App("quick.html".into())),
+            interface_webview(QUICK_UI, WebviewUrl::App("quick.html".into())),
             PhysicalPosition::new(0, 0),
             size,
         )?;
