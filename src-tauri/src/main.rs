@@ -2677,7 +2677,9 @@ fn app_version() -> String {
 #[tauri::command]
 async fn check_update(app: AppHandle) -> Result<Option<updater::Update>, String> {
     with_data(&app, |d| d.last_update_check = now());
-    let found = tauri::async_runtime::spawn_blocking(updater::check).await.map_err(|e| e.to_string())?;
+    let found = tauri::async_runtime::spawn_blocking(updater::check)
+        .await
+        .map_err(|e| e.to_string())?;
     match &found {
         Ok(Some(u)) => diag::info(&format!("atualização disponível: {}", u.version)),
         Err(e) => diag::warn(&format!("verificação de atualização falhou: {e}")),
@@ -2695,7 +2697,9 @@ async fn install_update(app: AppHandle) -> Result<(), String> {
         .map_err(|e| e.to_string())??
         .ok_or("Você já está na versão mais recente.")?;
     diag::info(&format!("instalando a versão {}", update.version));
-    tauri::async_runtime::spawn_blocking(move || updater::install(&update)).await.map_err(|e| e.to_string())??;
+    tauri::async_runtime::spawn_blocking(move || updater::install(&update))
+        .await
+        .map_err(|e| e.to_string())??;
     EXITING.store(true, Ordering::Relaxed);
     save_history(&app);
     commit(&app);
@@ -2708,7 +2712,9 @@ fn schedule_update_check(app: &AppHandle) {
     let app = app.clone();
     spawn(async move {
         tokio_sleep(Duration::from_secs(20)).await;
-        let due = with_data(&app, |d| d.settings.auto_update && now().saturating_sub(d.last_update_check) > 86_400);
+        let due = with_data(&app, |d| {
+            d.settings.auto_update && now().saturating_sub(d.last_update_check) > 86_400
+        });
         if !due {
             return;
         }

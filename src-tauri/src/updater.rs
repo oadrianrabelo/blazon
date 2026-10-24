@@ -19,7 +19,11 @@ pub struct Update {
 }
 
 fn version_parts(v: &str) -> Vec<u64> {
-    v.trim_start_matches('v').split(['.', '-']).take(3).map(|p| p.parse().unwrap_or(0)).collect()
+    v.trim_start_matches('v')
+        .split(['.', '-'])
+        .take(3)
+        .map(|p| p.parse().unwrap_or(0))
+        .collect()
 }
 
 /// Whether `latest` is newer than `current` (semantic version, numeric parts).
@@ -47,8 +51,18 @@ fn curl(args: &[&str]) -> Result<Vec<u8>, String> {
 /// The latest release, when it is newer than this build.
 #[cfg(windows)]
 pub fn check() -> Result<Option<Update>, String> {
-    let body = curl(&["-H", "Accept: application/vnd.github+json", &format!("https://api.github.com/repos/{REPO}/releases/latest")])
-        .map_err(|e| if e.contains("404") { "Nenhuma versão publicada ainda.".to_string() } else { format!("Sem conexão com o GitHub ({e}).") })?;
+    let body = curl(&[
+        "-H",
+        "Accept: application/vnd.github+json",
+        &format!("https://api.github.com/repos/{REPO}/releases/latest"),
+    ])
+    .map_err(|e| {
+        if e.contains("404") {
+            "Nenhuma versão publicada ainda.".to_string()
+        } else {
+            format!("Sem conexão com o GitHub ({e}).")
+        }
+    })?;
     let json: Value = serde_json::from_slice(&body).map_err(|e| e.to_string())?;
     let tag = json["tag_name"].as_str().unwrap_or_default();
     if !is_newer(tag, env!("CARGO_PKG_VERSION")) {
@@ -58,12 +72,24 @@ pub fn check() -> Result<Option<Update>, String> {
         .as_array()
         .into_iter()
         .flatten()
-        .find(|a| a["name"].as_str().is_some_and(|n| n.ends_with("-setup.exe")))
+        .find(|a| {
+            a["name"]
+                .as_str()
+                .is_some_and(|n| n.ends_with("-setup.exe"))
+        })
         .ok_or("A versão nova não tem instalador para Windows.")?;
     Ok(Some(Update {
         version: tag.trim_start_matches('v').to_string(),
-        notes: json["body"].as_str().unwrap_or_default().chars().take(2000).collect(),
-        url: asset["browser_download_url"].as_str().unwrap_or_default().to_string(),
+        notes: json["body"]
+            .as_str()
+            .unwrap_or_default()
+            .chars()
+            .take(2000)
+            .collect(),
+        url: asset["browser_download_url"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
         page: json["html_url"].as_str().unwrap_or_default().to_string(),
         digest: asset["digest"].as_str().map(String::from),
     }))
@@ -82,20 +108,32 @@ pub fn install(update: &Update) -> Result<(), String> {
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
     let file = dir.join(format!("Blazon_{}_setup.exe", update.version));
-    curl(&["-o", &file.to_string_lossy(), &update.url]).map_err(|e| format!("O download falhou ({e})."))?;
-    if let Some(expected) = update.digest.as_deref().and_then(|d| d.strip_prefix("sha256:")) {
+    curl(&["-o", &file.to_string_lossy(), &update.url])
+        .map_err(|e| format!("O download falhou ({e})."))?;
+    if let Some(expected) = update
+        .digest
+        .as_deref()
+        .and_then(|d| d.strip_prefix("sha256:"))
+    {
         let out = std::process::Command::new("certutil")
             .args(["-hashfile", &file.to_string_lossy(), "SHA256"])
             .creation_flags(CREATE_NO_WINDOW)
             .output()
             .map_err(|e| e.to_string())?;
-        let text = String::from_utf8_lossy(&out.stdout).to_lowercase().replace(' ', "");
+        let text = String::from_utf8_lossy(&out.stdout)
+            .to_lowercase()
+            .replace(' ', "");
         if !text.contains(&expected.to_lowercase()) {
             let _ = std::fs::remove_file(&file);
-            return Err("O instalador baixado não confere com o publicado. Nada foi instalado.".into());
+            return Err(
+                "O instalador baixado não confere com o publicado. Nada foi instalado.".into(),
+            );
         }
     }
-    std::process::Command::new(&file).args(["/P", "/R", "/UPDATE"]).spawn().map_err(|e| e.to_string())?;
+    std::process::Command::new(&file)
+        .args(["/P", "/R", "/UPDATE"])
+        .spawn()
+        .map_err(|e| e.to_string())?;
     Ok(())
 }
 

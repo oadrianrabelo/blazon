@@ -188,17 +188,18 @@ pub fn cosmetic_css(url: &str) -> String {
 mod tests {
     use super::*;
 
-    fn engine(list: &str) -> Engine {
+    /// Tests run in parallel, so each one gets its own list file.
+    fn engine(name: &str, list: &str) -> Engine {
         let dir = std::env::temp_dir().join(format!("blazon-blocker-test-{}", std::process::id()));
         fs::create_dir_all(&dir).unwrap();
-        let file = dir.join("list.txt");
+        let file = dir.join(format!("{name}.txt"));
         fs::write(&file, list).unwrap();
         build(&[file]).expect("engine")
     }
 
     #[test]
     fn blocks_listed_hosts_only() {
-        let e = engine("||doubleclick.net^\n||tracker.example^$script\n");
+        let e = engine("network", "||doubleclick.net^\n||tracker.example^$script\n");
         let check = |url: &str, kind: &str| {
             Request::new(url, "https://news.site/", kind, "GET")
                 .is_ok_and(|r| e.check_network_request(&r).should_block())
@@ -214,7 +215,7 @@ mod tests {
 
     #[test]
     fn hides_page_specific_elements() {
-        let e = engine("example.com##.ad-banner\n");
+        let e = engine("cosmetic", "example.com##.ad-banner\n");
         let hidden = e
             .url_cosmetic_resources("https://example.com/")
             .hide_selectors;
