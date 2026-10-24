@@ -90,3 +90,38 @@ kbd { font: 12px ui-monospace, Consolas, monospace; background: var(--field); bo
 
 .pw-secret { font: 12px Consolas, monospace; color: var(--muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
 #pw-search { width: 100%; margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--faint); background: var(--field); color: var(--fg); font: inherit; }
+
+/* Settings › Shortcuts */
+.keys-edit { padding: 0; align-items: center; justify-content: flex-end; flex-wrap: nowrap; }
+.keys-edit kbd { min-width: 92px; text-align: center; padding: 4px 8px; }
+.keys-edit kbd.off { opacity: .55; }
+.keys-edit kbd.rec { outline: 2px solid var(--c2); animation: m-fade-in .6s ease-in-out infinite alternate; }
+.keys-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--field); font-size: 13px; }
+
+/* Appearance › Window buttons: a preview of the window's top corner. */
+.wb-preview { margin: 8px 0 6px; height: 54px; border-radius: 12px; padding: 0 12px; display: flex; align-items: center;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--c0) 80%, #000), var(--c0)); box-shadow: inset 0 0 0 1px var(--faint); }
+.wb-bar { flex: 1; display: flex; align-items: center; gap: 14px; }
+.wb-preview.right .wb-bar { flex-direction: row-reverse; }
+.wb-addr { flex: 1; height: 26px; border-radius: 8px; background: var(--field); }
+.wb-keys { display: flex; align-items: center; gap: 3px; color: var(--muted); }
+.wb-key { display: grid; place-items: center; width: 30px; height: 26px; border-radius: 6px; }
+.wb-key svg { width: 14px; height: 14px; stroke-width: 2; }
+.wb-preview.fluent .wb-key { border-radius: 8px; background: rgba(255, 255, 255, .08); box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .2); }
+.wb-preview.fluent .wb-key svg { width: 11px; height: 11px; stroke-width: 1.7; }
+.wb-preview.fluent .wb-key.max rect { rx: 1.6px; }
+.wb-preview.fluent .wb-key.x { background: linear-gradient(#f0605d, #d83b3b); color: #fff; }
+.wb-preview.mac .wb-keys, .wb-preview.graphite .wb-keys { gap: 8px; }
+.wb-preview.mac .wb-key, .wb-preview.graphite .wb-key { width: 12px; height: 12px; border-radius: 50%; color: transparent; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .28); }
+.wb-preview.mac .wb-key.x { background: #ff5f57; }
+.wb-preview.mac .wb-key.min { background: #febc2e; }
+.wb-preview.mac .wb-key.max { background: #28c840; }
+.wb-preview.graphite .wb-key { background: rgba(255, 255, 255, .3); }
+
+/* Appearance › Text */
+.font-pick { display: flex; }
+.font-input { min-width: 220px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--faint); background: var(--field); color: var(--fg); font: inherit; outline: none; }
+.font-input:focus { border-color: var(--c2); }
+.font-sample { margin: 6px 0 10px; padding: 14px 16px; border-radius: 12px; background: var(--field); display: flex; flex-direction: column; gap: 4px; }
+.font-sample b { font: 600 20px/1.2 var(--font-display); letter-spacing: var(--display-tracking); }
+.font-sample span { color: var(--muted); }

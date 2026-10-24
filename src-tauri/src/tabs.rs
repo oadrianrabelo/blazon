@@ -101,9 +101,8 @@ pub(crate) fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> ta
     let builder = WebviewBuilder::new(label(id), url)
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&tab.space))
-        .initialization_script(shortcuts_js(&with_data(app, |d| {
-            d.settings.peek_modifier.clone()
-        })))
+        .additional_browser_args(&browser_args())
+        .initialization_script(with_data(app, |d| shortcuts_js(&d.settings)))
         .zoom_hotkeys_enabled(true)
         .browser_extensions_enabled(true)
         .devtools(true)
@@ -288,6 +287,19 @@ pub(crate) async fn activate_tab(app: AppHandle, id: u64) {
     if !ensure_unlocked(&app, &space).await {
         return;
     }
+    // The old page fades out (or slides, to another Space) over the new one.
+    let (current, current_space) = with_data(&app, |d| (d.active_tab_id(), d.active_space.clone()));
+    let covered = current != Some(id)
+        && transition::cover(
+            &app,
+            if space == current_space {
+                "tab"
+            } else {
+                "space"
+            },
+            1,
+        )
+        .await;
     let ok = with_data(&app, |d| {
         let space = d.tabs.iter().find(|t| t.id == id)?.space.clone();
         d.active_space = space.clone();
@@ -298,6 +310,9 @@ pub(crate) async fn activate_tab(app: AppHandle, id: u64) {
         apply_layout(&app);
         commit(&app);
         focus_active(&app);
+    }
+    if covered {
+        transition::reveal(&app);
     }
 }
 

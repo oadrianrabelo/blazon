@@ -73,6 +73,9 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `profile.rs` | Permissões de sites, extensões e uso de memória por Space |
 | `passwords.rs` | Cofre de senhas (DPAPI), importação do Chromium (AES-GCM pelo CNG do Windows) e de CSV, preenchimento |
 | `sidepanel.rs` | Painel lateral de extensões: página da extensão numa coluna ao lado do site |
+| `transition.rs` | Transição entre páginas: foto da página antiga numa camada (`fx.html`) acima do cartão, que esmaece ou desliza |
+| `keys.rs` | Atalhos personalizáveis: tabela de comandos e combinações padrão, trocas salvas em `settings.shortcuts`, mapa enviado às páginas abertas |
+| `fonts.rs` | Lista as famílias de fontes instaladas (DirectWrite) para Aparência → Texto |
 | `quick.rs` | Janela rápida: janela pequena para links de outros apps, com escolha de Space |
 | `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
@@ -98,6 +101,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `motion.css`, `motion.js` | Animações do Crest: os tempos do `CrestMotion`, molas do SwiftUI convertidas em curvas `linear()`, reordenação estilo FLIP, seleção que desliza, troca de Space, painéis flutuantes e o modo de movimento reduzido do Windows |
 | `guide.html`, `guide.js` | Primeiros passos: lições com uma barra de prática própria |
 | `quick.html`, `quick.js` | Barra da janela rápida |
+| `glass.js`, `glass.css` | Liquid Glass: filtro SVG de refração por tamanho de superfície, brilho e luz que segue o mouse |
 | `welcome.js` | Boas-vindas da primeira abertura (no overlay, sobre a janela inteira) |
 | `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
 | `diag.js` | Envia erros de JavaScript da interface para o log |

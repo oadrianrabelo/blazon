@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Transição</title>
+  <link rel="stylesheet" href="motion.css">
+  <style>
+    html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
+    img { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: fill; border-radius: var(--page-radius, 13px); }
+  </style>
+</head>
+<body>
+  <img id="shot" alt="">
+  <script src="motion.js"></script>
+  <script>
+    // The transition layer (transition.rs): shows a picture of the old page over
+    // the card, then fades it (tab switch) or slides it away (Space switch).
+    const { invoke } = window.__TAURI__.core;
+    const { listen } = window.__TAURI__.event;
+    const shot = document.getElementById('shot');
+    let kind = 'tab';
+    let dir = 1;
+    let safety = null;
+    listen('fx-cover', async (e) => {
+      ({ kind, dir } = e.payload);
+      shot.getAnimations().forEach((a) => a.cancel());
+      document.documentElement.style.setProperty('--page-radius', `${e.payload.radius ?? 13}px`);
+      shot.src = e.payload.image;
+      await shot.decode().catch(() => {});
+      invoke('fx_ready');
+      // Never stay over the page if the switch doesn't finish.
+      clearTimeout(safety);
+      safety = setTimeout(() => invoke('fx_done'), 1500);
+    });
+    listen('fx-reveal', () => {
+      clearTimeout(safety);
+      const move = Motion.reduced.matches ? 0 : 6 * dir;
+      const frames = kind === 'space'
+        ? [{ opacity: 1, transform: 'none' }, { opacity: 0, transform: `translateX(${-move}%) scale(.985)` }]
+        : [{ opacity: 1 }, { opacity: 0 }];
+      const duration = kind === 'space' ? Motion.ms('--space-swipe') : Motion.ms('--feedback');
+      shot.animate(frames, { duration, easing: kind === 'space' ? Motion.ease('--snappy') : 'ease-out', fill: 'forwards' })
+        .onfinish = () => invoke('fx_done');
+    });
+  </script>
+</body>
+</html>

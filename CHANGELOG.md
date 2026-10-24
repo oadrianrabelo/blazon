@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.1.4
+
+Mais Mac:
+- **Liquid Glass**: menus, sugestões, avisos, cartões de widget, seletor de Spaces, paleta, Peek e
+  boas-vindas em vidro que curva o que está atrás nas bordas, com brilho na borda e uma luz que
+  segue o mouse. Os menus nascem do botão (ou do ponto) que os abriu.
+- **Barra translúcida (Mica)**: a barra lateral mostra o papel de parede desfocado (Acrylic no
+  Windows 10).
+- **Transição entre páginas**: a página anterior esmaece ao trocar de aba e desliza ao trocar de
+  Space.
+- **Rolagem elástica** na lista de abas.
+- **Botões da janela estilo Mac** (as três bolinhas), opcionais.
+- **Ícones** redesenhados no estilo do SF Symbols.
+- Tudo em Configurações → Aparência → Materiais e movimento.
+- **Abas no topo**, como no Safari, ou na lateral (Configurações → Aparência → Abas, ou
+  Ctrl+Shift+L). Menus e janelas da barra se abrem sobre a página.
+- **Esconder a barra de abas** com nome claro (Ctrl+Shift+S); ela volta ao encostar na borda.
+- **Fontes como no Mac**: Inter (parecida com a San Francisco) na interface e suavização em tons
+  de cinza em todas as páginas. Em Aparência → Texto dá para trocar por Geist, Figtree, Segoe UI
+  ou qualquer fonte instalada no Windows, com prévia, e voltar ao ClearType.
+- **Mais personalização** em Configurações → Aparência:
+  - botões da janela em quatro estilos: Windows, **Blazon** (os botões do Windows redesenhados,
+    em teclas arredondadas de vidro), Mac e Grafite; na esquerda ou na direita; maximizar vira
+    restaurar com a janela maximizada;
+  - barra de ferramentas: escolha quais botões aparecem (voltar/avançar, recarregar, bloqueador,
+    modo leitura, nova aba, configurações, extensões, downloads, arquivo);
+  - cantos da página, de retos a bem redondos;
+  - intensidade do vidro (leve, normal, forte) e velocidade das animações (calma, normal,
+    rápida ou sem animação).
+- **Atalhos personalizáveis** em Configurações → Atalhos, com novos comandos: modo leitura,
+  fixar, duplicar, silenciar, configurações e abas no topo.
+
 ## 0.1.3
 
 - **Senhas**: importa do Chrome, Edge, Brave, Vivaldi e Opera e de CSV (Chrome, Edge, Firefox,

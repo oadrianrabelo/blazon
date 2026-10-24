@@ -280,6 +280,52 @@ Em Configurações → Aparência você ajusta:
 | Páginas | Zoom padrão, de 50% a 300% |
 | Restaurar tudo | Volta tudo ao padrão |
 
+### Janela, botões e barra de ferramentas
+
+Em **Configurações → Aparência**:
+- **Botões da janela → Estilo**: Windows, **Blazon** (minimizar, maximizar e fechar redesenhados,
+  em teclas arredondadas que acendem como vidro; o fechar brilha em vermelho), **Mac** (as três
+  bolinhas) ou **Grafite** (bolinhas cinza que ganham cor ao passar o mouse). Uma prévia mostra
+  como fica.
+- **Botões da janela → Lado**: automático (Mac à esquerda, Windows à direita), esquerda ou direita.
+- **Barra de ferramentas**: desligue os botões que você não usa. Sem o botão de configurações,
+  use Ctrl+, ou a paleta.
+- **Cantos da página**: de retos (0px) a bem redondos (24px).
+- **Intensidade do vidro** e **Velocidade das animações** (em Materiais e movimento).
+
+### Abas no topo ou na lateral
+
+Em **Configurações → Aparência → Abas**, escolha **Na lateral** (a barra do Crest) ou **No topo**
+(como no Safari), ou aperte **Ctrl+Shift+L**. No topo, a primeira linha tem navegação, o endereço
+no meio, Spaces e botões; a segunda tem o Space, as fixadas e as abas como fichas, que rolam para
+os lados com a roda do mouse. Clicar no endereço abre a busca sobre a página. Menus e janelas
+da barra se abrem por cima da página (que fica congelada numa imagem enquanto estão abertos).
+
+**Esconder a barra de abas** (Ctrl+Shift+S) deixa a página com a janela toda; encoste o mouse na
+borda (lateral ou de cima) para a barra voltar.
+
+### Texto
+
+Em **Configurações → Aparência → Texto**:
+- **Fonte da interface**: **Inter** (padrão; a fonte livre mais parecida com a San Francisco do
+  macOS, com tamanhos ópticos e espaçamento ajustado), **Geist**, **Figtree**, **Segoe UI** ou
+  **uma fonte instalada no Windows** (digite o nome ou escolha da lista). Uma prévia mostra como
+  fica. A SF Pro da Apple não pode vir com o Blazon: a licença dela só permite uso em
+  aparelhos Apple.
+- **Suavização**: **Mac** (padrão) suaviza o texto de tudo, páginas incluídas, em tons de cinza,
+  como no Mac, em vez do ClearType; **Windows** usa o ClearType. Muda depois de reiniciar o Blazon.
+
+### Materiais e movimento
+
+Em **Configurações → Aparência → Materiais e movimento**:
+- **Liquid Glass**: menus, paleta, avisos e cartões de vidro que curva o que está atrás, como no
+  macOS 26. Desligue se o computador for mais simples; também desliga sozinho com as
+  transparências do Windows desligadas.
+- **Barra translúcida (Mica)**: a barra mostra o papel de parede desfocado. Fica completa depois
+  de reiniciar o Blazon.
+- **Transição entre páginas** e **Rolagem elástica**.
+- Em **Janela e barra lateral → Botões da janela**, escolha **Mac** para as três bolinhas.
+
 ### Animações
 
 As animações seguem as do Crest, com os mesmos tempos e molas:
@@ -300,7 +346,12 @@ desligado, o Blazon mantém só os esmaecimentos, sem movimento.
 
 ## Atalhos
 
-| Atalho | Ação |
+Todos os atalhos da primeira tabela podem ser trocados em **Configurações → Atalhos**: clique em
+**Alterar** e pressione a nova combinação (Esc cancela, Backspace desliga o atalho). Se a
+combinação já for de outro comando, ela muda de lugar e o outro fica sem atalho; **Padrão**
+devolve a original. Valem na barra lateral e dentro das páginas, sem recarregar.
+
+| Atalho padrão | Ação |
 | --- | --- |
 | Ctrl+T | Nova aba |
 | Ctrl+N | Nova janela |
@@ -308,12 +359,23 @@ desligado, o Blazon mantém só os esmaecimentos, sem movimento.
 | Ctrl+Shift+T | Reabrir aba fechada |
 | Ctrl+K | Paleta de comandos |
 | Ctrl+L | Barra de endereço |
-| F6 | Endereço → abas → página |
 | Ctrl+H | Histórico |
 | Ctrl+Tab / Ctrl+Shift+Tab | Próxima / anterior |
+| Ctrl+Shift+S | Mostrar ou esconder a barra de abas |
+| Ctrl+Shift+L | Abas na lateral ou no topo |
+| Ctrl+Shift+R | Modo leitura |
+| Ctrl+Shift+P | Fixar ou soltar a aba |
+| Ctrl+Shift+D | Duplicar a aba |
+| Ctrl+M | Silenciar a aba |
+| Ctrl+, | Configurações |
+
+Fixos:
+
+| Atalho | Ação |
+| --- | --- |
+| F6 | Endereço → abas → página |
 | Ctrl+1 … 8, Ctrl+9 | Aba pela posição, última aba |
 | Ctrl+Shift+1 … 9 | Trocar de Space |
-| Ctrl+Shift+S | Mostrar ou esconder a barra lateral |
 | Shift+clique num link | Peek |
 | Alt+← / Alt+→, F5 | Voltar / avançar, recarregar |
 | Ctrl + / Ctrl − / Ctrl+0 | Zoom |

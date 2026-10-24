@@ -125,6 +125,12 @@ pub(crate) async fn switch_space(app: AppHandle, id: String) {
     if !ensure_unlocked(&app, &id).await {
         return;
     }
+    // The old Space's page slides away toward the side the new one comes from.
+    let dir = with_data(&app, |d| {
+        let at = |s: &str| d.spaces.iter().position(|x| x.id == s).unwrap_or(0) as i32;
+        (at(&id) - at(&d.active_space)).signum()
+    });
+    let covered = dir != 0 && transition::cover(&app, "space", dir).await;
     let empty = with_data(&app, |d| {
         if !d.spaces.iter().any(|s| s.id == id) {
             return None;
@@ -148,6 +154,9 @@ pub(crate) async fn switch_space(app: AppHandle, id: String) {
             focus_active(&app);
         }
         None => {}
+    }
+    if covered {
+        transition::reveal(&app);
     }
 }
 

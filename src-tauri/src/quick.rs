@@ -43,7 +43,10 @@ fn layout_quick(app: &AppHandle) {
         let _ = page.set_position(pos);
         let _ = page.set_size(size);
         #[cfg(windows)]
-        webview2::round_corners(&page, windowing::PAGE_RADIUS);
+        webview2::round_corners(
+            &page,
+            windowing::page_radius(&with_data(app, |d| d.settings.clone())),
+        );
     }
 }
 
@@ -91,6 +94,7 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
         let builder = WebviewBuilder::new(QUICK_PAGE, WebviewUrl::External(parsed))
             .incognito(private)
             .data_directory(state(app).root.join("spaces").join(&space))
+            .additional_browser_args(&browser_args())
             .browser_extensions_enabled(true)
             .zoom_hotkeys_enabled(true)
             .on_new_window(move |url, _| {
@@ -106,7 +110,10 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
         #[cfg(windows)]
         {
             webview2::install(app, &page, None, None, passwords);
-            webview2::round_corners(&page, windowing::PAGE_RADIUS);
+            webview2::round_corners(
+                &page,
+                windowing::page_radius(&with_data(app, |d| d.settings.clone())),
+            );
         }
         let _ = page.set_focus();
         let handle = app.clone();

@@ -75,28 +75,70 @@ pub(crate) fn sync_windows(app: &AppHandle) {
     }
 }
 
-/// Corner radius of the page card (Crest's BrowserChromeLayout.pageCornerRadius)
-/// and of Peek's card, in logical pixels.
+/// Default corner radius of the page card (Crest's
+/// BrowserChromeLayout.pageCornerRadius), in logical pixels.
 pub(crate) const PAGE_RADIUS: f64 = 13.0;
-pub(crate) const PEEK_RADIUS: f64 = 12.0;
+
+/// Appearance › Page corners: the page card's radius (0 = square corners).
+pub(crate) fn page_radius(settings: &Settings) -> f64 {
+    settings
+        .appearance
+        .get("pageRadius")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(PAGE_RADIUS)
+        .clamp(0.0, 24.0)
+}
+
+/// Peek's card follows the page's corners, one pixel tighter (Crest's 13/12).
+pub(crate) fn peek_radius(settings: &Settings) -> f64 {
+    (page_radius(settings) - 1.0).max(0.0)
+}
+
+/// Height of the top bar when tabs are horizontal (Appearance › Tabs: top):
+/// the toolbar row and the tab row, as in Safari.
+pub(crate) const TOPBAR_HEIGHT: f64 = 84.0;
+
+/// Appearance › Tabs: on the side (Crest's sidebar) or along the top.
+pub(crate) fn horizontal(settings: &Settings) -> bool {
+    settings
+        .appearance
+        .get("tabLayout")
+        .and_then(|v| v.as_str())
+        == Some("horizontal")
+}
 
 /// UI and page rectangles in physical pixels. The UI covers the whole window
-/// (sidebar plus the Space background); the page sits on it as an inset card.
+/// (sidebar or top bar plus the Space background); the page sits on it as an
+/// inset card.
 pub(crate) fn layout_rects(
     win: &Window,
     settings: &Settings,
     collapsed: bool,
 ) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
-    let right = settings.sidebar_right;
     let size = win.inner_size().ok()?;
     let scale = win.scale_factor().ok()?;
+    let m = (CARD_MARGIN * scale) as u32;
+    if horizontal(settings) {
+        let bar = if collapsed { FLOAT_EDGE } else { TOPBAR_HEIGHT };
+        let bh = ((bar * scale) as u32).min(size.height);
+        return Some([
+            (PhysicalPosition::new(0, 0), size),
+            (
+                PhysicalPosition::new(m as i32, bh as i32),
+                PhysicalSize::new(
+                    size.width.saturating_sub(2 * m),
+                    size.height.saturating_sub(bh + m),
+                ),
+            ),
+        ]);
+    }
+    let right = settings.sidebar_right;
     let width = if collapsed {
         FLOAT_EDGE
     } else {
         settings.sidebar_width.clamp(200.0, 420.0)
     };
     let sw = ((width * scale) as u32).min(size.width);
-    let m = (CARD_MARGIN * scale) as u32;
     let cw = size.width.saturating_sub(sw + m);
     let ch = size.height.saturating_sub(2 * m);
     let content_x = if right { m } else { sw };
@@ -107,6 +149,25 @@ pub(crate) fn layout_rects(
             PhysicalSize::new(cw, ch),
         ),
     ])
+}
+
+/// Windows whose page is hidden behind a picture of itself, so a menu or
+/// dialog of the top bar can spread over the page card (see `set_page_hidden`).
+static COVERED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// The top bar is too short for its menus and dialogs: while one is open the
+/// UI shows a picture of the page (page_snapshot) and the live page steps aside.
+#[tauri::command]
+pub(crate) async fn set_page_hidden(app: AppHandle, webview: tauri::Webview, hidden: bool) {
+    let wl = webview.window().label().to_string();
+    {
+        let mut c = COVERED.lock().unwrap();
+        c.retain(|l| *l != wl);
+        if hidden {
+            c.push(wl);
+        }
+    }
+    layout(&app, false);
 }
 
 /// Creates the visible tabs' webviews if needed, shows them and hides the rest.
@@ -151,6 +212,7 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
         return;
     };
     let panel = s.panel.lock().unwrap().get(wl).cloned();
+    let covered = COVERED.lock().unwrap().iter().any(|l| l == wl);
     let (ui_l, panel_l, overlay_l, peek_l) = (
         ui_of(wl),
         panel_of(wl),
@@ -223,20 +285,22 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_position(pos);
             let _ = wv.set_size(size);
             #[cfg(windows)]
-            webview2::round_corners(&wv, PAGE_RADIUS);
+            webview2::round_corners(&wv, page_radius(&settings));
         } else if l == peek_l {
             let (p, s) = overlay::peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
             let _ = wv.set_position(p);
             let _ = wv.set_size(s);
             #[cfg(windows)]
-            webview2::round_corners(&wv, PEEK_RADIUS);
+            webview2::round_corners(&wv, peek_radius(&settings));
+        } else if l == transition::fx_of(wl) {
+            // Shown and hidden by transition.rs around a switch.
         } else if l == side_l {
             match side_rect {
                 Some((p, s)) if panel.is_none() => {
                     let _ = wv.set_position(p);
                     let _ = wv.set_size(s);
                     #[cfg(windows)]
-                    webview2::round_corners(&wv, PEEK_RADIUS);
+                    webview2::round_corners(&wv, peek_radius(&settings));
                     let _ = wv.show();
                 }
                 Some(_) => {
@@ -253,8 +317,12 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_position(*p);
             let _ = wv.set_size(PhysicalSize::new(w, size.height));
             #[cfg(windows)]
-            webview2::round_corners(&wv, PAGE_RADIUS);
-            let _ = wv.show();
+            webview2::round_corners(&wv, page_radius(&settings));
+            if covered {
+                let _ = wv.hide();
+            } else {
+                let _ = wv.show();
+            }
         } else {
             let _ = wv.hide();
         }
@@ -295,17 +363,49 @@ pub(crate) async fn open_panel(app: AppHandle, section: String) {
 
 /// Builds a browser window with its sidebar webview and event handlers.
 /// Must not run on the main thread after startup (see `layout`).
+/// Appearance › Translucent sidebar (stored in the UI's appearance options).
+pub(crate) fn mica_on(settings: &Settings) -> bool {
+    settings
+        .appearance
+        .get("mica")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Puts Windows 11's Mica material (Acrylic on Windows 10) behind the window,
+/// which the sidebar shows through when it is translucent.
+pub(crate) fn apply_material(win: &Window, on: bool) {
+    use tauri::window::{Effect, EffectsBuilder};
+    let _ = if on {
+        let effect = if diag::windows_build() >= 22000 {
+            Effect::Mica
+        } else {
+            Effect::Acrylic
+        };
+        win.set_effects(EffectsBuilder::new().effect(effect).build())
+    } else {
+        win.set_effects(None)
+    };
+}
+
 pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
-    let native_frame = with_data(app, |d| d.settings.native_frame);
+    let (native_frame, mica) = with_data(app, |d| (d.settings.native_frame, mica_on(&d.settings)));
     let win = tauri::window::WindowBuilder::new(app, wl)
         .title("Blazon")
         .inner_size(1280.0, 820.0)
         .min_inner_size(640.0, 400.0)
         .decorations(native_frame)
+        // A see-through window only when the material is on (shadows stay otherwise).
+        .transparent(mica)
         .build()?;
+    if mica {
+        apply_material(&win, true);
+    }
     let size = win.inner_size()?;
     win.add_child(
         interface_webview(ui_of(wl), WebviewUrl::App("index.html".into()))
+            // Transparent so the Mica material can show through the sidebar.
+            .background_color(tauri::window::Color(0, 0, 0, 0))
             // HTML5 drag and drop for tab reordering.
             .disable_drag_drop_handler(),
         PhysicalPosition::new(0, 0),

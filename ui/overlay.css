@@ -58,8 +58,8 @@ html, body { background: transparent !important; overflow: hidden; }
 .w-rail i { height: 4px; flex: 1; border-radius: 2px; background: rgba(255, 255, 255, .14); transition: background-color var(--selection) ease-in-out; }
 .w-rail i.done { background: color-mix(in srgb, var(--c2) 55%, transparent); }
 .w-rail i.on { background: var(--c2); }
-.w-body h1 { font: 600 30px/1.15 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; margin: 6px 0 6px; text-align: center; }
-.w-body h2 { font: 600 22px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; margin: 2px 0 6px; }
+.w-body h1 { font: 600 30px/1.15 var(--font-display); margin: 6px 0 6px; text-align: center; }
+.w-body h2 { font: 600 22px/1.2 var(--font-display); margin: 2px 0 6px; }
 .w-eyebrow { margin: 0; color: var(--c2); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
 .w-lead { color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
 .w-body h1 + .w-lead { text-align: center; font-size: 15px; }
@@ -84,3 +84,7 @@ html, body { background: transparent !important; overflow: hidden; }
 .w-btn:hover { background: rgba(255, 255, 255, .16); }
 .w-btn.primary { background: var(--c2); color: var(--c0); }
 .w-btn.primary:hover { background: color-mix(in srgb, var(--c2) 88%, #fff); }
+
+/* The top bar's address (tabs on top): the palette opens right over it. */
+.address-mode .palette { top: 4px; }
+.address-mode .backdrop { background: rgba(0, 0, 0, .22); }

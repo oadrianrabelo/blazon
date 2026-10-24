@@ -160,11 +160,31 @@ const SECTIONS = {
         el('h3', 'lead', 'Começar de um preset'),
         presets,
         group('Janela e barra lateral',
+          segmented('Abas', 'Na lateral, como no Crest, ou no topo, como no Safari (Ctrl+Shift+L).', [['vertical', 'Na lateral'], ['horizontal', 'No topo']], L('tabLayout'), setL('tabLayout')),
           segmented('Lado da barra', null, [[false, 'Esquerda'], [true, 'Direita']], S('sidebar_right'), setS('sidebar_right')),
           range('Largura da barra', null, 220, 400, 4, (v) => `${v}px`, S('sidebar_width'), setS('sidebar_width')),
-          toggle('Barra lateral flutuante', 'Esconde a barra; ela volta ao encostar o mouse na borda (Ctrl+Shift+S).', S('floating_sidebar'), setS('floating_sidebar')),
+          toggle('Esconder a barra de abas', 'A página ocupa a janela toda; a barra volta ao encostar o mouse na borda (Ctrl+Shift+S).', S('floating_sidebar'), setS('floating_sidebar')),
           toggle('Barra de título do Windows', 'Usa a moldura padrão em vez da janela sem bordas.', S('native_frame'), setS('native_frame')),
-          toggle('Faixas heráldicas', 'Mostra o padrão do brasão no fundo da barra.', L('banner'), setL('banner'))),
+          toggle('Faixas heráldicas', 'Mostra o padrão do brasão no fundo da barra.', L('banner'), setL('banner')),
+          range('Cantos da página', 'Arredondamento do cartão da página, do Peek e do painel.', 0, 24, 1, (v) => (v ? `${v}px` : 'Retos'), L('pageRadius'), setL('pageRadius'))),
+        group('Botões da janela',
+          windowButtonsPreview(),
+          segmented('Estilo', 'Windows clássico, o Windows redesenhado do Blazon, as bolinhas do Mac ou as bolinhas em grafite (coloridas ao passar o mouse).', [['windows', 'Windows'], ['fluent', 'Blazon'], ['mac', 'Mac'], ['graphite', 'Grafite']], L('windowControls'), (v) => { setL('windowControls')(v); render(); }),
+          segmented('Lado', 'Automático: Mac à esquerda, Windows à direita.', [['auto', 'Automático'], ['left', 'Esquerda'], ['right', 'Direita']], L('controlsSide'), (v) => { setL('controlsSide')(v); render(); })),
+        group('Barra de ferramentas',
+          ...TOOLBAR_BUTTONS.map(([key, name]) => toggle(name, key === 'settings' ? 'Sem o botão, abra com Ctrl+, ou pela paleta.' : null, () => !(appearance().hiddenButtons || []).includes(key), (on) => {
+            const off = new Set(appearance().hiddenButtons || []);
+            if (on) off.delete(key); else off.add(key);
+            saveLook({ hiddenButtons: [...off] });
+          }))),
+        textGroup(),
+        group('Materiais e movimento',
+          toggle('Liquid Glass', 'Menus, paleta, cartões e avisos de vidro que curva o que está atrás, como no macOS.', L('liquidGlass'), setL('liquidGlass')),
+          segmented('Intensidade do vidro', null, [['light', 'Leve'], ['normal', 'Normal'], ['strong', 'Forte']], L('glassStrength'), setL('glassStrength')),
+          segmented('Velocidade das animações', null, [['calm', 'Calma'], ['normal', 'Normal'], ['fast', 'Rápida'], ['instant', 'Sem animação']], L('motionSpeed'), setL('motionSpeed')),
+          toggle('Barra translúcida (Mica)', 'A barra lateral mostra o papel de parede desfocado, como a barra do Finder. Fica completo depois de reiniciar o Blazon.', L('mica'), setL('mica')),
+          toggle('Transição entre páginas', 'A página anterior esmaece ao trocar de aba e desliza ao trocar de Space.', L('pageTransitions'), setL('pageTransitions')),
+          toggle('Rolagem elástica', 'A lista de abas estica um pouco ao chegar ao fim, como no Mac.', L('elastic'), setL('elastic'))),
         group('Abas',
           segmented('Tamanho', null, [[0.9, 'Compacto'], [1, 'Normal'], [1.1, 'Grande'], [1.2, 'Enorme']], L('tabScale'), setL('tabScale')),
           segmented('Formato', null, [['square', 'Reto'], ['rounded', 'Arredondado'], ['pill', 'Pílula']], L('tabShape'), setL('tabShape')),
@@ -560,23 +580,36 @@ const SECTIONS = {
     title: 'Atalhos',
     icon: 'keys',
     render() {
-      const keys = [
-        ['Nova aba', 'Ctrl+T'], ['Nova janela', 'Ctrl+N'], ['Fechar aba', 'Ctrl+W'], ['Reabrir aba fechada', 'Ctrl+Shift+T'], ['Focar o endereço', 'Ctrl+L'],
-        ['Próxima / anterior', 'Ctrl+Tab / Ctrl+Shift+Tab'], ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'],
-        ['Histórico', 'Ctrl+H'], ['Paleta de comandos', 'Ctrl+K'], ['Peek (prévia do link)', 'Shift+clique'], ['Mostrar ou esconder a barra', 'Ctrl+Shift+S'], ['Voltar / avançar', 'Alt+← / Alt+→'],
-        ['Recarregar', 'F5'], ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],
+      const list = el('section', 'group');
+      list.append(el('h3', '', 'Seus atalhos'));
+      const note = el('p', 'keys-note');
+      note.hidden = true;
+      const draw = (items) => {
+        if (!items) { invoke('shortcuts').then(draw); return; }
+        list.querySelectorAll('.opt').forEach((r) => r.remove());
+        for (const s of items) list.append(shortcutRow(s, note, draw));
+      };
+      invoke('shortcuts').then(draw);
+      const reset = el('button', 'btn', 'Restaurar todos os padrões');
+      reset.onclick = async () => { await invoke('reset_shortcuts'); note.hidden = true; draw(await invoke('shortcuts')); };
+      const actions = el('div', 'row-btns');
+      actions.append(reset);
+      const fixed = [
+        ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'], ['Focar o endereço', 'F6'],
+        ['Peek (prévia do link)', 'Shift+clique'], ['Voltar / avançar', 'Alt+← / Alt+→'], ['Recarregar', 'F5'],
+        ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],
       ];
       const t = el('table', 'keys');
-      for (const [what, k] of keys) {
+      for (const [what, k] of fixed) {
         const tr = el('tr');
         const kd = el('td');
         kd.append(el('kbd', '', k));
         tr.append(el('td', '', what), kd);
         t.append(tr);
       }
-      const g = el('section', 'group');
+      const g = group('Fixos');
       g.append(t);
-      return [...header('Atalhos', 'Funcionam na barra lateral e dentro das páginas.'), g];
+      return [...header('Atalhos', 'Funcionam na barra lateral e dentro das páginas. Clique em Alterar e pressione a nova combinação; Esc cancela e Backspace desliga o atalho.'), note, list, actions, g];
     },
   },
   report: {
@@ -1023,6 +1056,66 @@ function memoryGroup() {
   return group('Memória', row('Uso por Space', 'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.', refresh), list);
 }
 
+// Appearance › Text: the interface font (bundled or installed), a live
+// sample, and the smoothing.
+let systemFonts = null;
+function textGroup() {
+  const a = appearance();
+  const t = typeOf(a);
+  const pick = (patch) => {
+    saveLook(patch);
+    storeType({ ...a, ...patch });
+    render();
+  };
+  const rows = [
+    select('Fonte da interface', 'A Inter é a fonte livre mais parecida com a San Francisco do Mac.', [
+      ['inter', 'Inter (parecida com a San Francisco)'], ['geist', 'Geist'], ['figtree', 'Figtree'], ['segoe', 'Segoe UI (Windows)'], ['installed', 'Uma fonte instalada no Windows…'],
+    ], () => t.font, (v) => pick({ uiFont: v })),
+  ];
+  if (t.font === 'installed') {
+    const input = el('input', 'font-input');
+    input.type = 'text';
+    input.placeholder = 'Nome da fonte';
+    input.value = t.installed;
+    input.setAttribute('list', 'system-fonts');
+    const list = el('datalist');
+    list.id = 'system-fonts';
+    const fill = (names) => list.replaceChildren(...names.map((n) => { const o = el('option'); o.value = n; return o; }));
+    if (systemFonts) fill(systemFonts);
+    else invoke('system_fonts').then((names) => { systemFonts = names; fill(names); });
+    input.onchange = () => pick({ installedFont: input.value.trim() });
+    const wrap = el('div', 'font-pick');
+    wrap.append(input, list);
+    rows.push(row('Fonte instalada', 'Digite ou escolha da lista das fontes deste computador.', wrap));
+  }
+  const sample = el('div', 'font-sample');
+  sample.append(el('b', '', 'Abas, Spaces e brasões'), el('span', '', 'A rápida raposa marrom pula sobre o cão preguiçoso · 0123456789'));
+  rows.push(sample);
+  rows.push(segmented('Suavização', 'Mac: tons de cinza em tudo, páginas incluídas, como no macOS. Windows: ClearType. Muda depois de reiniciar o Blazon.',
+    [['mac', 'Mac'], ['windows', 'Windows']], L('fontRendering'), (v) => pick({ fontRendering: v })));
+  return group('Texto', ...rows);
+}
+
+// A small window corner showing the chosen buttons where they will sit.
+function windowButtonsPreview() {
+  const a = appearance();
+  const style = a.windowControls || 'windows';
+  const mac = style === 'mac' || style === 'graphite';
+  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : mac ? 'left' : 'right';
+  const box = el('div', `wb-preview ${style} ${side}`);
+  const bar = el('div', 'wb-bar');
+  const keys = el('div', 'wb-keys');
+  const glyph = { min: '<path d="M6 12h12"/>', max: '<rect x="6" y="6" width="12" height="12" rx="2.5"/>', x: '<path d="m7 7 10 10M17 7 7 17"/>' };
+  for (const k of mac ? ['x', 'min', 'max'] : ['min', 'max', 'x']) {
+    const b = el('span', `wb-key ${k}`);
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${glyph[k]}</svg>`;
+    keys.append(b);
+  }
+  bar.append(keys, el('span', 'wb-addr'));
+  box.append(bar);
+  return box;
+}
+
 function accentRow() {
   const wrap = el('div', 'seg');
   wrap.style.background = 'none';
@@ -1039,6 +1132,68 @@ function accentRow() {
   return row('Cor de destaque própria', 'Substitui a cor do Space nas abas, botões e contornos.', wrap);
 }
 
+// Settings › Shortcuts: one row per command, recording the next key combo.
+const SHORTCUT_NAMES = {
+  newtab: 'Nova aba', close: 'Fechar aba', reopen: 'Reabrir aba fechada', palette: 'Paleta de comandos',
+  address: 'Focar o endereço', newwindow: 'Nova janela', history: 'Histórico', next: 'Próxima aba',
+  prev: 'Aba anterior', sidebar: 'Mostrar ou esconder as abas', tablayout: 'Abas verticais ou horizontais',
+  reader: 'Modo leitura', pin: 'Fixar ou soltar a aba', duplicate: 'Duplicar a aba', mute: 'Silenciar a aba',
+  settings: 'Abrir as configurações',
+};
+
+function comboOf(e) {
+  let k = e.key;
+  if (/^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+  else if (/^Digit[0-9]$/.test(e.code)) k = e.code.slice(5);
+  else if (k.length === 1) k = k.toUpperCase();
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(k)) return '';
+  return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+}
+
+let recording = null;
+
+function shortcutRow(s, note, redraw) {
+  const kbd = el('kbd', s.combo ? '' : 'off', s.combo || 'Desligado');
+  const change = el('button', 'btn', 'Alterar');
+  const reset = el('button', 'btn', 'Padrão');
+  reset.hidden = s.combo === s.default;
+  const wrap = el('div', 'row-btns keys-edit');
+  wrap.append(kbd, change, reset);
+  const save = async (combo) => {
+    try {
+      const taken = await invoke('set_shortcut', { id: s.id, combo });
+      note.hidden = !taken;
+      if (taken) note.textContent = `${combo} saiu de “${SHORTCUT_NAMES[taken] || taken}”, que agora está sem atalho.`;
+    } catch (err) {
+      note.hidden = false;
+      note.textContent = String(err);
+    }
+    redraw(await invoke('shortcuts'));
+  };
+  const stop = () => {
+    if (recording) removeEventListener('keydown', recording, true);
+    recording = null;
+  };
+  change.onclick = () => {
+    stop();
+    kbd.textContent = 'Pressione as teclas…';
+    kbd.classList.add('rec');
+    recording = (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.key === 'Escape') { stop(); redraw(null); return; }
+      if (e.key === 'Backspace' && !e.ctrlKey && !e.altKey) { stop(); save(''); return; }
+      const combo = comboOf(e);
+      if (!combo) return;
+      stop();
+      save(combo);
+    };
+    addEventListener('keydown', recording, true);
+  };
+  reset.onclick = () => save(s.default);
+  return row(SHORTCUT_NAMES[s.id] || s.id, s.combo !== s.default ? `Padrão: ${s.default}` : '', wrap);
+}
+
 // Rendering
 
 function applySpaceLook() {
@@ -1046,6 +1201,8 @@ function applySpaceLook() {
   if (!space) return;
   const { colors } = look(space);
   colors.forEach((c, i) => document.documentElement.style.setProperty(`--c${i}`, c));
+  applyLookVars(state.settings);
+  storeType(lookOf(state.settings));
 }
 
 function render() {

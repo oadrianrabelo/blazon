@@ -13,7 +13,9 @@
     "panel-*",
     "overlay",
     "overlay-*",
-    "quick-ui"
+    "quick-ui",
+    "fx",
+    "fx-*"
   ],
   "permissions": [
     "core:default",

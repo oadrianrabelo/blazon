@@ -75,14 +75,68 @@ const LOOK_DEFAULTS = {
   addressOutline: true,
   banner: true, // heraldic banner behind the sidebar
   accent: '', // custom accent overriding the Space's
+  liquidGlass: true, // refracting glass on menus, palette and cards
+  mica: false, // translucent sidebar showing the desktop (Windows 11 Mica)
+  windowControls: 'windows', // windows | fluent (Blazon's own) | mac (traffic lights) | graphite
+  controlsSide: 'auto', // auto (Mac left, Windows right) | left | right
+  hiddenButtons: [], // toolbar and footer buttons turned off (see TOOLBAR_BUTTONS)
+  pageRadius: 13, // page card corners, 0 = square
+  glassStrength: 'normal', // light | normal | strong
+  motionSpeed: 'normal', // calm | normal | fast | instant
+  elastic: true, // sidebar stretches at the ends of its scroll
+  pageTransitions: true, // pages cross-fade or slide when switching
+  tabLayout: 'vertical', // vertical (sidebar) | horizontal (top bar, like Safari)
+  fontRendering: 'mac', // text smoothing: mac (grayscale, a touch heavier) | windows (ClearType)
+  uiFont: '', // inter | geist | figtree | segoe | installed; '' = Inter (Segoe with Windows smoothing)
+  installedFont: '', // family name when uiFont is installed
 };
 
 const LOOK_PRESETS = {
   crest: { title: 'Clássico', hint: 'O visual original do Crest', look: {} },
-  compact: { title: 'Compacto', hint: 'Mais abas na tela', look: { tabScale: 0.9, tabShape: 'square', pinsPerRow: 6 } },
+  compact: { title: 'Compacto', hint: 'Mais abas na tela', look: { tabScale: 0.9, tabShape: 'square', pinsPerRow: 6, pageRadius: 6 } },
   soft: { title: 'Suave', hint: 'Abas em pílula com brilho', look: { tabShape: 'pill', selected: 'glow', followAccent: true } },
   minimal: { title: 'Mínimo', hint: 'Sem faixas nem fundos', look: { banner: false, pinFill: false, selected: 'outline', dimUnloaded: false } },
 };
+
+// Appearance › Toolbar: buttons that can be turned off, as [key, name, selector].
+const TOOLBAR_BUTTONS = [
+  ['nav', 'Voltar e avançar', '[data-nav="back"], [data-nav="forward"]'],
+  ['reload', 'Recarregar', '#reload'],
+  ['shield', 'Bloqueador de anúncios', '#shield'],
+  ['reader', 'Modo leitura', '#reader'],
+  ['newtab', 'Nova aba', '#new-tab'],
+  ['settings', 'Configurações', '#settings-btn'],
+  ['ext', 'Extensões', '#ext-btn'],
+  ['downloads', 'Downloads', '#downloads-btn'],
+  ['archive', 'Arquivo e histórico', '#history-btn'],
+];
+
+// Look options every interface page applies: page corners, glass strength
+// and animation speed (motion.css tokens scaled from their Crest values).
+const MOTION_TOKENS = ['--press', '--surface', '--hover', '--selection', '--dismissal', '--content-reveal', '--collection', '--disclosure', '--step',
+  '--toolbar', '--feedback', '--space-swipe', '--floating-pane', '--chrome', '--sidebar-retreat', '--loading', '--quick-peek', '--drag-preview', '--drag-source'];
+const GLASS_STRENGTH = { light: ['30%', '6px'], normal: ['46%', '9px'], strong: ['64%', '15px'] };
+const MOTION_SPEED = { calm: 1.3, normal: 1, fast: 0.65, instant: 0 };
+let lookVarsKey = null;
+function applyLookVars(settings) {
+  const a = lookOf(settings);
+  const key = JSON.stringify([a.pageRadius, a.glassStrength, a.motionSpeed]);
+  if (key === lookVarsKey) return;
+  lookVarsKey = key;
+  const root = document.documentElement;
+  root.style.setProperty('--page-radius', `${Number(a.pageRadius) || 0}px`);
+  const [amount, blur] = GLASS_STRENGTH[a.glassStrength] || GLASS_STRENGTH.normal;
+  root.style.setProperty('--lg-amount', amount);
+  root.style.setProperty('--lg-blur', blur);
+  const k = MOTION_SPEED[a.motionSpeed] ?? 1;
+  for (const t of MOTION_TOKENS) root.style.removeProperty(t);
+  root.style.removeProperty('--move');
+  if (k === 1) return;
+  const css = getComputedStyle(root);
+  const base = MOTION_TOKENS.map((t) => parseFloat(css.getPropertyValue(t)) || 0);
+  MOTION_TOKENS.forEach((t, i) => root.style.setProperty(t, `${(base[i] * k).toFixed(3)}s`));
+  if (k === 0) root.style.setProperty('--move', '0');
+}
 
 function lookOf(settings) {
   return { ...LOOK_DEFAULTS, ...(settings && settings.appearance) };

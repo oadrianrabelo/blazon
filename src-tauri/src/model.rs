@@ -132,6 +132,8 @@ pub(crate) struct Settings {
     /// The welcome flow ran. Defaults to true so existing installs skip it;
     /// a fresh install sets it to false.
     pub(crate) welcomed: bool,
+    /// Keyboard shortcuts changed in Settings: command id → combo ("" = off).
+    pub(crate) shortcuts: HashMap<String, String>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -162,6 +164,7 @@ impl Default for Settings {
             auto_update: true,
             backup_folder: String::new(),
             welcomed: true,
+            shortcuts: HashMap::new(),
         }
     }
 }
