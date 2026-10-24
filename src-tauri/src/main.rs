@@ -8,6 +8,7 @@ mod import;
 mod overlay;
 #[cfg(windows)]
 mod sqlite;
+mod updater;
 #[cfg(windows)]
 mod webview2;
 
@@ -209,6 +210,8 @@ struct Settings {
     archive_hours: u64,
     /// Interface language: auto, pt or en.
     language: String,
+    /// Look for a new version on GitHub once a day.
+    auto_update: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -236,6 +239,7 @@ impl Default for Settings {
             passwords: true,
             archive_hours: 0,
             language: "auto".into(),
+            auto_update: true,
         }
     }
 }
@@ -256,6 +260,8 @@ struct Data {
     archive: Vec<Archived>,
     /// Spaces shown in extra windows, reopened at startup.
     windows: Vec<String>,
+    /// When the last update check ran (Unix seconds).
+    last_update_check: u64,
     /// Locked Spaces opened with Windows Hello this session.
     #[serde(skip_deserializing)]
     unlocked: Vec<String>,
@@ -2663,6 +2669,59 @@ async fn new_window(app: AppHandle, space: Option<String>) -> Result<(), String>
     Ok(())
 }
 
+#[tauri::command]
+fn app_version() -> String {
+    env!("CARGO_PKG_VERSION").into()
+}
+
+#[tauri::command]
+async fn check_update(app: AppHandle) -> Result<Option<updater::Update>, String> {
+    with_data(&app, |d| d.last_update_check = now());
+    let found = tauri::async_runtime::spawn_blocking(updater::check).await.map_err(|e| e.to_string())?;
+    match &found {
+        Ok(Some(u)) => diag::info(&format!("atualização disponível: {}", u.version)),
+        Err(e) => diag::warn(&format!("verificação de atualização falhou: {e}")),
+        _ => {}
+    }
+    found
+}
+
+/// Downloads, verifies and starts the installer, then closes Blazon.
+#[tauri::command]
+async fn install_update(app: AppHandle) -> Result<(), String> {
+    // Looks the release up again here instead of trusting what the page sends.
+    let update = tauri::async_runtime::spawn_blocking(updater::check)
+        .await
+        .map_err(|e| e.to_string())??
+        .ok_or("Você já está na versão mais recente.")?;
+    diag::info(&format!("instalando a versão {}", update.version));
+    tauri::async_runtime::spawn_blocking(move || updater::install(&update)).await.map_err(|e| e.to_string())??;
+    EXITING.store(true, Ordering::Relaxed);
+    save_history(&app);
+    commit(&app);
+    app.exit(0);
+    Ok(())
+}
+
+/// Daily background check; tells every window when a new version exists.
+fn schedule_update_check(app: &AppHandle) {
+    let app = app.clone();
+    spawn(async move {
+        tokio_sleep(Duration::from_secs(20)).await;
+        let due = with_data(&app, |d| d.settings.auto_update && now().saturating_sub(d.last_update_check) > 86_400);
+        if !due {
+            return;
+        }
+        if let Ok(Some(update)) = check_update(app.clone()).await {
+            let _ = app.emit("update-available", update);
+        }
+    });
+}
+
+async fn tokio_sleep(d: Duration) {
+    let _ = tauri::async_runtime::spawn_blocking(move || std::thread::sleep(d)).await;
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -2742,6 +2801,9 @@ fn main() {
             open_panel,
             close_panel,
             open_default_apps,
+            app_version,
+            check_update,
+            install_update,
             new_window,
             downloads_list,
             download_action,
@@ -2903,6 +2965,7 @@ fn main() {
                     let _ = main.set_focus();
                 }
             });
+            schedule_update_check(app.handle());
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(Duration::from_secs(30));

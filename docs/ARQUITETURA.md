@@ -4,7 +4,7 @@ O Blazon é um app [Tauri 2](https://tauri.app) com várias webviews numa mesma 
 em Rust guarda o estado (Spaces, abas, pastas, configurações) e controla as webviews. A
 interface é HTML/CSS/JS puro, sem framework nem etapa de build.
 
-## Webviews de uma janela
+## Webviews de cada janela
 
 ```
 ┌──────────────────────────── janela "main" ─────────────────────────────┐
@@ -25,6 +25,19 @@ interface é HTML/CSS/JS puro, sem framework nem etapa de build.
 | `panel` | `ui/settings.html`, `settings.js` | sim |
 | `overlay` | `ui/overlay.html`, `overlay.js` | sim |
 | `tab-<id>`, `peek` | sites da internet, ou `ui/newtab.html` | **não** |
+
+### Várias janelas
+
+- A janela principal se chama `main`; as extras, `win-<n>`.
+- As webviews da interface de cada janela levam o sufixo dela: `ui-win-3`, `panel-win-3`,
+  `overlay-win-3`, `peek-win-3`.
+- `AppState.windows` diz que Space cada janela mostra. `Data.active_space` é sempre o Space da
+  janela focada, então os comandos continuam agindo "no Space atual".
+- `sync_windows` reconcilia os dois: se o Space ativo já está em outra janela, essa janela vem
+  para a frente.
+- `layout` posiciona cada janela. Abas de um Space que mudou de janela são movidas com
+  `reparent`.
+- `commit` envia a cada barra lateral o estado com o Space da janela dela.
 
 As permissões estão em `src-tauri/capabilities/default.json`: só as três webviews da interface
 podem chamar comandos. Os sites nunca têm acesso ao IPC.
@@ -57,6 +70,8 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `import.rs` | Importação: Arc, família Chromium, família Firefox e HTML de favoritos |
 | `sqlite.rs` | Leitura mínima de SQLite via `winsqlite3.dll` do Windows (histórico e favoritos do Firefox) |
 | `reader.js` + `vendor/Readability.js` | Modo leitura, injetado na aba |
+| `diag.rs` | Log em arquivo, relatório de travamento (panic hook), versões do Windows e do WebView2 |
+| `updater.rs` | Atualizações: última Release no GitHub, download via `curl.exe`, verificação SHA-256, instalador em modo passivo |
 
 ## Interface (`ui/`)
 
@@ -66,6 +81,8 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `settings.*` | Painel de configurações e Studio |
 | `overlay.*` | Paleta de comandos e barra do Peek |
 | `newtab.*` | Página inicial |
+| `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
+| `diag.js` | Envia erros de JavaScript da interface para o log |
 | `houses.js` | Paletas e padrões da barra das 9 casas, opções de aparência e presets |
 | `crest.js` | Gerador de brasões em SVG (formatos, campos, faixas, bordas, acabamentos, armas das casas) |
 | `charges.js` | As figuras heráldicas (caminhos SVG) |
@@ -80,6 +97,8 @@ Tudo fica em `%APPDATA%\app.blazon.browser\`:
 | `history.json` | Histórico por Space (até 5.000 entradas), salvo a cada 30 s e ao fechar |
 | `spaces\<id>\` | Pasta de dados do WebView2 de cada Space: cookies, cache, senhas |
 | `adblock\` | Listas de bloqueio baixadas (as do instalador ficam nos recursos do app) |
+| `logs\` | `blazon.log` (rotação em 1 MB), `crash.txt` do último travamento |
+| `state.broken-*.json` | Cópia de um `state.json` ilegível, guardada em vez de ser sobrescrita |
 
 - Instalações feitas com o nome anterior (`app.crest.windows`) são movidas automaticamente na
   primeira execução.

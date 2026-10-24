@@ -146,6 +146,13 @@ const I18N = (() => {
     'O Windows Hello (PIN, rosto ou digital) não está configurado neste PC.': 'Windows Hello (PIN, face or fingerprint) is not set up on this PC.',
     'Verificação cancelada.': 'Verification canceled.', 'Space bloqueado.': 'Space locked.', 'Só no Windows.': 'Windows only.',
     'Esta versão do WebView2 não suporta extensões.': "This WebView2 version doesn't support extensions.", 'Tempo esgotado.': 'Timed out.',
+    'Atualizações': 'Updates', 'Procurar atualizações': 'Check for updates', 'Procurar atualizações automaticamente': 'Check for updates automatically',
+    'Uma vez por dia, nas versões publicadas no GitHub. Nada é instalado sem você confirmar.': 'Once a day, from the versions published on GitHub. Nothing installs without your confirmation.',
+    'Agora': 'Now', 'Procurando…': 'Checking…', 'Você está na versão mais recente.': "You're on the latest version.", 'Você já está na versão mais recente.': "You're already on the latest version.",
+    'Baixando e verificando o instalador… o Blazon vai reabrir sozinho.': 'Downloading and verifying the installer… Blazon will reopen by itself.',
+    'Baixando a atualização…': 'Downloading the update…', 'Atualizar': 'Update', 'Novidades': "What's new", 'Nenhuma versão publicada ainda.': 'No version published yet.',
+    'O instalador baixado não confere com o publicado. Nada foi instalado.': "The downloaded installer doesn't match the published one. Nothing was installed.",
+    'A versão nova não tem instalador para Windows.': 'The new version has no Windows installer.',
     'Barra de favoritos': 'Bookmarks bar', 'Outros favoritos': 'Other bookmarks', 'Favoritos do celular': 'Mobile bookmarks', 'Menu de favoritos': 'Bookmarks menu',
   };
 
@@ -176,6 +183,9 @@ const I18N = (() => {
       .replace(/(\d+) abas/, '$1 tabs').replace(/(\d+) páginas do histórico/, '$1 history pages')}.`],
     [/^(Bom dia|Boa tarde|Boa noite) · (.+)$/, (m, g, day) => `${{ 'Bom dia': 'Good morning', 'Boa tarde': 'Good afternoon', 'Boa noite': 'Good evening' }[g]} · ${day}`],
     [/^Permissão (\d+)$/, 'Permission $1'],
+    [/^Versão (.+)$/, 'Version $1'],
+    [/^Blazon (.+) disponível\.$/, 'Blazon $1 is available.'],
+    [/^Instalar (.+)$/, 'Install $1'],
     [/^Bug: (.+)$/, 'Bug: $1'],
   ];
 

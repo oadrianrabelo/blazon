@@ -646,6 +646,13 @@ $('dl-clear').onclick = () => invoke('clear_downloads');
 invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
 
 invoke('get_state').then((s) => { state = s; render(); });
+listen('update-available', (e) => {
+  toast(`Blazon ${e.payload.version} disponível.`, [
+    ['Atualizar', () => { toast('Baixando a atualização…'); invoke('install_update').catch((err) => toast(String(err))); }, true],
+    ['Novidades', () => invoke('new_tab', { url: e.payload.page })],
+  ]);
+});
+
 invoke('take_crash_report').then((crash) => {
   if (crash) toast('O Blazon fechou inesperadamente na última vez. O relatório foi salvo.', [['Relatar', () => invoke('open_panel', { section: 'report' }), true]]);
 });

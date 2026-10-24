@@ -34,6 +34,16 @@ rustup target add x86_64-pc-windows-msvc
 cd src-tauri && cargo check --target x86_64-pc-windows-msvc && cargo clippy --target x86_64-pc-windows-msvc
 ```
 
+## Testes
+
+```sh
+npm test         # testes da interface (node --test) e do Rust (cargo test)
+```
+
+- **Rust**: endereços, rotas de links, reparo de dados, lado a lado, busca por Space, leitura de
+  `state.json` antigos, importação, bloqueador, versões.
+- **Interface**: todas as casas, figuras e opções do Studio geram SVG válido; tradução para inglês.
+
 ## Integração contínua
 
 `.github/workflows/build.yml` roda em `windows-latest` a cada push:
@@ -49,6 +59,36 @@ Numa tag `v*`, cria também uma **Release** com os instaladores.
 1. Atualize `version` em `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `package.json`,
    e acrescente a entrada no `CHANGELOG.md`.
 2. `git tag v0.2.0 && git push origin v0.2.0`.
+3. O CI publica a Release com `Blazon_<versão>_x64-setup.exe` e o `.msi`. Quem já tem o Blazon
+   instalado recebe o aviso de atualização em até um dia.
+
+### Como funciona a atualização
+
+- O app consulta a API do GitHub pela última Release (`updater.rs`).
+- Se ela for mais nova que a versão instalada, o app baixa o instalador NSIS com o `curl.exe` do
+  Windows.
+- O download é conferido com o SHA-256 que o GitHub publica para o arquivo.
+- O instalador roda com `/P /R /UPDATE`: sem perguntas, e reabre o Blazon no fim.
+- Não é preciso chave nem segredo. Se o repositório for renomeado, o GitHub redireciona a API.
+
+## Assinatura de código
+
+Sem assinatura, o Windows mostra "O Windows protegeu o computador" na primeira instalação
+(clique em **Mais informações → Executar assim mesmo**). Para assinar:
+
+1. Arranje um certificado de assinatura de código:
+   - [SignPath](https://signpath.org), gratuito para projetos open source;
+   - [Azure Trusted Signing](https://azure.microsoft.com/products/trusted-signing), barato e mensal;
+   - um certificado OV/EV de uma autoridade (Sectigo, DigiCert…).
+2. Com um `.pfx`, crie os segredos do repositório em **Settings → Secrets and variables →
+   Actions**:
+   - `WINDOWS_CERTIFICATE`: o `.pfx` em Base64 (`[Convert]::ToBase64String([IO.File]::ReadAllBytes("cert.pfx"))`);
+   - `WINDOWS_CERTIFICATE_PASSWORD`: a senha.
+3. O passo **Sign installers** do CI passa a assinar o `.exe` e o `.msi` sozinho. Sem os segredos,
+   o passo é pulado.
+
+Certificados EV ou o Azure Trusted Signing eliminam o aviso do SmartScreen na hora. Certificados
+OV ganham reputação aos poucos.
 
 ## Instalador
 

@@ -1,6 +1,22 @@
 # Changelog
 
-## 0.1.0 (em desenvolvimento)
+## 0.1.0
+
+### Uso diário e suporte
+- **Relatar problema**: log em arquivo, relatório de travamento, erros da interface e páginas
+  travadas registrados; relatório pronto para copiar ou abrir como issue no GitHub.
+- `state.json` ilegível vira cópia de backup em vez de ser sobrescrito.
+- **Atualização automática** pelas Releases do GitHub, com verificação SHA-256.
+- Assinatura de código opcional no CI.
+- **Testes automáticos** (Rust e interface) rodando no CI.
+- Ícone próprio do Blazon.
+
+### Recursos
+- **Várias janelas** (Ctrl+N, abrir Space em nova janela), reabertas ao iniciar.
+- **Downloads** com lista própria; **permissões de sites** por Space; **extensões**
+  descompactadas por Space.
+- Reordenar Spaces, busca por Space, cor e ícone de pastas, Voltar depois de reabrir o app.
+- **Interface em inglês** (automático, português ou inglês).
 
 ### Nome
 - O projeto passa a se chamar **Blazon**. Dados de instalações com o nome anterior são migrados

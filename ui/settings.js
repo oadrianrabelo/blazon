@@ -512,9 +512,37 @@ const SECTIONS = {
       logo.src = 'blazon.svg';
       logo.alt = '';
       logo.style.cssText = 'width:88px;height:88px;margin-bottom:8px';
+      const version = el('span', 'lead');
+      invoke('app_version').then((v) => { version.textContent = `Versão ${v}`; });
+      const status = el('p', 'lead');
+      const check = el('button', 'btn primary', 'Procurar atualizações');
+      check.onclick = async () => {
+        check.disabled = true;
+        status.textContent = 'Procurando…';
+        try {
+          const u = await invoke('check_update');
+          if (!u) status.textContent = 'Você está na versão mais recente.';
+          else {
+            status.textContent = `Blazon ${u.version} disponível.`;
+            const go = el('button', 'btn primary', `Instalar ${u.version}`);
+            go.onclick = async () => {
+              go.disabled = true;
+              status.textContent = 'Baixando e verificando o instalador… o Blazon vai reabrir sozinho.';
+              try { await invoke('install_update'); } catch (err) { status.textContent = String(err); go.disabled = false; }
+            };
+            status.append(document.createElement('br'), go);
+          }
+        } catch (err) { status.textContent = String(err); }
+        check.disabled = false;
+      };
+      const updates = group('Atualizações',
+        row('Procurar atualizações automaticamente', 'Uma vez por dia, nas versões publicadas no GitHub. Nada é instalado sem você confirmar.', (() => { const c = el('input', 'switch'); c.type = 'checkbox'; c.checked = state.settings.auto_update !== false; c.onchange = () => saveSettings({ auto_update: c.checked }); return c; })()),
+        row('Agora', null, check), status);
       return [
         logo,
         ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
+        version,
+        updates,
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
     },

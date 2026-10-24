@@ -45,6 +45,22 @@ No Studio, use **Bloquear com Windows Hello**. Depois disso:
 Para bloquear de novo tudo o que foi aberto, use a paleta → **Bloquear Spaces agora**.
 É preciso ter o Windows Hello configurado no PC.
 
+### Várias janelas
+
+- **Ctrl+N** (ou paleta → Nova janela) abre uma janela com um Space que ainda não está aberto
+  em nenhuma janela. Se todos já estiverem abertos, cria um Space novo.
+- Clique direito num brasão do rodapé → **Abrir em nova janela** leva aquele Space (e suas
+  abas) para uma janela própria.
+- Cada Space aparece em uma janela por vez. Escolher um Space que já está aberto em outra janela
+  traz essa janela para a frente.
+- As janelas extras reabrem na próxima vez. Fechar a janela principal fecha o Blazon.
+
+### Ordem e busca por Space
+
+- Arraste os brasões no rodapé para reordenar, ou use ↑/↓ no Studio.
+- No Studio, cada Space pode ter seu próprio mecanismo de busca. Isso vale para a barra, a
+  paleta e a página inicial.
+
 ## Studio de brasões
 
 Abra em Configurações → **Spaces e Studio**. Ao lado de cada mudança, você vê a prévia
@@ -70,7 +86,10 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
   busca e os sites mais visitados naquele Space.
 - **Fixar**: clique direito → Fixar. As fixadas ficam em blocos no topo e nunca dormem.
 - **Pastas**: clique direito numa área vazia da lista → Nova pasta, ou clique direito numa
-  aba → "Nova pasta com esta aba". Arraste abas para dentro e para fora.
+  aba → "Nova pasta com esta aba". Arraste abas para dentro e para fora. Clique direito na pasta
+  → **Cor e ícone…** escolhe uma cor ou um emoji.
+- **Voltar depois de reabrir**: cada aba guarda os últimos endereços. Depois de reiniciar o app, o
+  botão Voltar (Alt+←) continua funcionando.
 - **Reordenar**: arraste.
 - **Fechar**: ✕, clique do meio ou Ctrl+W.
 - **Reabrir**: Ctrl+Shift+T.
@@ -115,10 +134,54 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Permissões** (câmera, microfone, localização, notificações): cada site pede na primeira vez
   e a escolha fica salva no Space.
 
+## Downloads
+
+O botão de seta no rodapé abre a lista de downloads da sessão. Ali você vê o progresso e pode
+abrir o arquivo, mostrar na pasta, cancelar ou limpar a lista. Quando um download começa,
+aparece um aviso na barra. A pasta de cada Space se escolhe em Configurações → Privacidade.
+
+## Permissões de sites
+
+Em Configurações → Privacidade → **Permissões de sites**, escolha o Space para ver as
+permissões que os sites já pediram (câmera, microfone, localização, notificações, área de
+transferência…). Mude para Permitir, Bloquear ou **Perguntar de novo**.
+
+## Extensões
+
+Em Configurações → **Extensões**:
+- Instale extensões **descompactadas**, ou seja, a pasta que contém o `manifest.json`.
+- A instalação é por Space; ative, desative ou remova quando quiser.
+- O WebView2 não acessa a Chrome Web Store e suporta só parte das APIs de extensão: extensões
+  simples (tema, leitura, produtividade) costumam funcionar, as mais complexas podem não funcionar.
+- Para extensões que vêm como `.crx`: renomeie para `.zip`, extraia e escolha a pasta.
+
 ## Modo leitura
 
 Clique no ícone de livro na barra (ou paleta → Modo leitura). A página vira um texto limpo, com
 tipografia confortável que segue o tema claro/escuro do Windows. Clique de novo para voltar.
+
+## Relatar um problema
+
+Quando algo der errado, use **Configurações → Relatar problema** (ou a paleta):
+1. Descreva o que você fez e o que aconteceu.
+2. Clique em **Gerar relatório**. O relatório traz a versão, o Windows, o WebView2, as configurações
+   e o log recente.
+3. **Copiar** para colar na conversa, ou **Abrir issue no GitHub**, que já abre a issue preenchida.
+
+O Blazon registra automaticamente:
+- erros da interface;
+- travamentos do app (na próxima abertura aparece um aviso com o botão **Relatar**);
+- páginas que travam (aviso com **Recarregar**).
+
+O log fica em `%APPDATA%\app.blazon.browser\logs` e só guarda domínios, nunca endereços
+completos, títulos ou senhas.
+
+## Idioma e atualizações
+
+- **Idioma**: em Configurações → Geral, escolha Automático (segue o Windows), Português ou English.
+- **Atualizações**: o Blazon procura uma versão nova uma vez por dia e avisa na barra. Ao clicar em
+  Atualizar, ele baixa o instalador da Release no GitHub, confere o SHA-256, instala e reabre
+  sozinho. Também dá para procurar manualmente em Configurações → Sobre.
 
 ## Aparência
 
@@ -140,6 +203,7 @@ Em Configurações → Aparência você ajusta:
 | Atalho | Ação |
 | --- | --- |
 | Ctrl+T | Nova aba |
+| Ctrl+N | Nova janela |
 | Ctrl+W | Fechar aba |
 | Ctrl+Shift+T | Reabrir aba fechada |
 | Ctrl+K | Paleta de comandos |
