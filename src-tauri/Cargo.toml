@@ -19,8 +19,9 @@ adblock = { version = "0.13", default-features = false, features = ["embedded-do
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = { version = "0.62", features = ["Win32_System_Com"] }
+windows = { version = "0.62", features = ["Win32_System_Com", "Win32_System_WinRT", "Win32_Foundation", "Security_Credentials_UI", "Foundation"] }
 windows-core = "0.62"
+windows-future = "0.3"
 
 [profile.release]
 codegen-units = 1

@@ -182,6 +182,9 @@ const SECTIONS = {
         group('Abas',
           select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas nunca dormem.',
             [[0, 'Nunca'], [15, '15 minutos'], [30, '30 minutos'], [60, '1 hora'], [240, '4 horas']], S('sleep_minutes'), setS('sleep_minutes'))),
+        group('Arquivo',
+          select('Arquivar abas paradas após', 'Abas soltas sem uso vão para o Arquivo (botão no rodapé da barra). Fixadas e abas em pastas ficam.',
+            [[0, 'Nunca'], [12, '12 horas'], [24, '1 dia'], [72, '3 dias'], [168, '1 semana']], S('archive_hours'), setS('archive_hours'))),
         group('Navegador padrão',
           row('Usar o Crest para links', 'Escolha "Crest" em Navegador da Web nos Aplicativos padrão do Windows.', open)),
       ];
@@ -433,7 +436,7 @@ function renderStudio() {
   for (const s of state.spaces) {
     const b = el('button', 'space-card' + (s.id === space.id ? ' sel' : ''));
     const txt = el('div', '', s.name);
-    txt.append(el('small', '', s.private ? 'Privado' : (HOUSES[s.house]?.title || 'Personalizado')));
+    txt.append(el('small', '', [s.private ? 'Privado' : (HOUSES[s.house]?.title || 'Personalizado'), s.locked ? 'bloqueado' : ''].filter(Boolean).join(' · ')));
     b.append(svgNode(renderCrest(crestOf(s))), txt);
     b.onclick = () => { studioSpace = s.id; render(); };
     list.append(b);
@@ -500,6 +503,16 @@ function renderStudio() {
     };
     actions.append(del);
   }
+  const lockBtn = el('button', 'btn', space.locked ? 'Remover bloqueio' : 'Bloquear com Windows Hello');
+  lockBtn.title = 'Pede PIN, rosto ou digital antes de mostrar as abas deste Space.';
+  lockBtn.onclick = async () => {
+    try {
+      await invoke('set_space_lock', { id: space.id, locked: !space.locked });
+      space.locked = !space.locked;
+      render();
+    } catch (err) { alert(err); }
+  };
+  if (!space.private) actions.append(lockBtn);
   meta.append(name, actions);
   head.append(pc, mini, meta);
 

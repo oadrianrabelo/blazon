@@ -72,6 +72,9 @@ const COMMANDS = [
   ['Pausar ou retomar o bloqueador neste site', '', () => invoke('toggle_site_blocking')],
   ['Silenciar ou ativar som da aba', '', () => tab() && invoke('toggle_mute', { id: tab().id })],
   ['Privacidade e bloqueador', '', () => invoke('open_panel', { section: 'privacy' })],
+  ['Modo leitura', '', () => invoke('reader_mode')],
+  ['Arquivo de abas', '', () => invoke('run_command', { cmd: 'history' })],
+  ['Bloquear Spaces agora', '', () => invoke('lock_now')],
   ['Recarregar', 'F5', () => invoke('nav', { action: 'reload' })],
   ['Histórico', 'Ctrl+H', () => invoke('run_command', { cmd: 'history' })],
   ['Mostrar ou esconder a barra lateral', 'Ctrl+Shift+S', () => invoke('run_command', { cmd: 'sidebar' })],
@@ -107,7 +110,8 @@ async function refresh() {
     const words = ql.split(/\s+/).filter(Boolean);
     const hit = (...xs) => words.every((w) => xs.some((x) => (x || '').toLowerCase().includes(w)));
     const spaceName = (id) => state.spaces.find((s) => s.id === id)?.name || '';
-    const tabs = state.tabs.filter((t) => t.url && hit(t.title, t.url, spaceName(t.space))).slice(0, q ? 6 : 8);
+    const hidden = (id) => state.spaces.some((s) => s.id === id && s.locked) && !(state.unlocked || []).includes(id);
+    const tabs = state.tabs.filter((t) => t.url && !hidden(t.space) && hit(t.title, t.url, spaceName(t.space))).slice(0, q ? 6 : 8);
     for (const t of tabs) {
       add('Abas abertas', { url: t.url, title: t.title || host(t.url), sub: `${spaceName(t.space)} · ${host(t.url)}`, run: () => invoke('activate_tab', { id: t.id }) });
     }

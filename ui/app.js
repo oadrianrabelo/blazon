@@ -23,6 +23,8 @@ const ICONS = {
   shieldOff: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="M4 4l16 16"/>',
   sound: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
   muted: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="m22 9-6 6M16 9l6 6"/>',
+  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M8 7h7"/>',
+  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
@@ -314,6 +316,11 @@ function render() {
     const b = el('button', 'dot' + (s.id === state.active_space ? ' active' : ''));
     b.title = `${s.name} (Ctrl+Shift+${i + 1})`;
     b.append(emblem(s));
+    if (s.locked && !(state.unlocked || []).includes(s.id)) {
+      const lock = icon('lock');
+      lock.classList.add('lock');
+      b.append(lock);
+    }
     b.onclick = () => invoke('switch_space', { id: s.id });
     b.ondblclick = () => openStudio(s);
     spaces.append(b);
@@ -403,15 +410,12 @@ $('pinned').addEventListener('drop', (e) => {
   if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true, folder: null });
 });
 
-// History dialog
+// Archive and history dialog
 const DAY = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
 let historySeq = 0;
-async function loadHistory() {
-  const seq = ++historySeq;
-  const items = await invoke('history_list', { query: $('history-q').value });
-  if (seq !== historySeq) return;
-  const ul = $('history-list');
-  ul.replaceChildren();
+let historyTab = 'archive';
+
+function dayList(ul, items, onPick) {
   let lastDay = '';
   for (const v of items) {
     const day = DAY.format(new Date(v.time * 1000));
@@ -419,26 +423,53 @@ async function loadHistory() {
     const li = el('li');
     li.title = v.url;
     li.append(el('span', 'title', v.title || host(v.url)), el('span', 'url', host(v.url)));
-    li.onclick = () => { $('history').close(); invoke('new_tab', { url: v.url }); };
+    li.onclick = () => { $('history').close(); onPick(v); };
     ul.append(li);
   }
   if (!items.length) ul.append(el('li', 'day', 'Nada por aqui.'));
 }
-function openHistory() {
-  if ($('history').open) return;
+
+async function loadHistory() {
+  const seq = ++historySeq;
+  const q = $('history-q').value.toLowerCase();
+  $('ht-archive').classList.toggle('sel', historyTab === 'archive');
+  $('ht-history').classList.toggle('sel', historyTab === 'history');
+  $('history-clear').textContent = historyTab === 'archive' ? 'Esvaziar' : 'Limpar';
+  const ul = $('history-list');
+  if (historyTab === 'archive') {
+    const items = state.archive
+      .filter((a) => a.space === state.active_space && (!q || a.url.toLowerCase().includes(q) || a.title.toLowerCase().includes(q)))
+      .reverse();
+    ul.replaceChildren();
+    dayList(ul, items, (a) => invoke('restore_archived', { url: a.url, space: a.space }));
+    return;
+  }
+  const items = await invoke('history_list', { query: $('history-q').value });
+  if (seq !== historySeq) return;
+  ul.replaceChildren();
+  dayList(ul, items, (v) => invoke('new_tab', { url: v.url }));
+}
+function openHistory(tab) {
+  if (typeof tab === 'string') historyTab = tab;
+  if ($('history').open) return loadHistory();
   $('history-q').value = '';
   loadHistory();
   $('history').showModal();
   $('history-q').focus();
 }
-$('history-btn').onclick = openHistory;
+$('history-btn').onclick = () => openHistory('archive');
+$('ht-archive').onclick = () => { historyTab = 'archive'; loadHistory(); };
+$('ht-history').onclick = () => { historyTab = 'history'; loadHistory(); };
 $('history-q').addEventListener('input', loadHistory);
 $('history-clear').onclick = async () => {
-  if (!confirm(`Limpar todo o histórico do Space "${activeSpace().name}"?`)) return;
-  await invoke('clear_history');
+  const what = historyTab === 'archive' ? 'o arquivo' : 'todo o histórico';
+  if (!confirm(`Limpar ${what} do Space "${activeSpace().name}"?`)) return;
+  await invoke(historyTab === 'archive' ? 'clear_archive' : 'clear_history');
+  if (historyTab === 'archive') state.archive = state.archive.filter((a) => a.space !== state.active_space);
   loadHistory();
 };
-listen('open-history', openHistory);
+$('reader').onclick = () => invoke('reader_mode');
+listen('open-history', () => openHistory('history'));
 
 // Spaces are created and styled in Crest Studio (settings panel).
 async function newSpace() {
@@ -481,7 +512,7 @@ document.addEventListener('keydown', (e) => {
     if (s) invoke('switch_space', { id: s.id });
   } else if (k === 't' && e.shiftKey) invoke('reopen_tab');
   else if (k === 't') invoke('new_tab', {});
-  else if (k === 'h') openHistory();
+  else if (k === 'h') openHistory('history');
   else if (k === 'k') invoke('open_overlay', { mode: 'palette', url: null });
   else if (k === 's' && e.shiftKey) invoke('set_settings', { settings: { ...state.settings, floating_sidebar: !state.settings.floating_sidebar } });
   else if (k === 'w' && activeTab()) invoke('close_tab', { id: activeTab().id });

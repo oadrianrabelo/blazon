@@ -615,6 +615,7 @@ dependencies = [
  "webview2-com",
  "windows",
  "windows-core",
+ "windows-future",
 ]
 
 [[package]]

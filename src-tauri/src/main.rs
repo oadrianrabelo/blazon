@@ -1,6 +1,8 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod blocker;
+#[cfg(windows)]
+mod hello;
 mod import;
 mod overlay;
 #[cfg(windows)]
@@ -99,6 +101,9 @@ struct Space {
     /// Crest Studio arms and sidebar look, owned by the UI; null follows `house`.
     #[serde(default)]
     look: serde_json::Value,
+    /// Needs Windows Hello before its tabs are shown.
+    #[serde(default)]
+    locked: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -122,7 +127,7 @@ struct Tab {
     /// Whether the tab has a live webview; sleeping tabs reload on activation.
     #[serde(default, skip_deserializing)]
     awake: bool,
-    #[serde(skip)]
+    #[serde(default)]
     last_active: u64,
 }
 
@@ -184,6 +189,8 @@ struct Settings {
     adblock_allow: Vec<String>,
     /// Offer to save passwords and autofill forms (WebView2's own store).
     passwords: bool,
+    /// Hours before an idle tab (not pinned, not in a folder) is archived; 0 disables.
+    archive_hours: u64,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -209,6 +216,7 @@ impl Default for Settings {
             adblock: true,
             adblock_allow: vec![],
             passwords: true,
+            archive_hours: 0,
         }
     }
 }
@@ -225,6 +233,46 @@ struct Data {
     active_tab: HashMap<String, u64>,
     next_id: u64,
     settings: Settings,
+    /// Closed and auto-archived tabs, newest last.
+    archive: Vec<Archived>,
+    /// Locked Spaces opened with Windows Hello this session.
+    #[serde(skip_deserializing)]
+    unlocked: Vec<String>,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Archived {
+    space: String,
+    url: String,
+    title: String,
+    time: u64,
+}
+
+const ARCHIVE_LIMIT: usize = 300;
+
+impl Data {
+    fn archive_tab(&mut self, tab: &Tab) {
+        if tab.url.is_empty() || self.is_private(&tab.space) {
+            return;
+        }
+        self.archive
+            .retain(|a| !(a.space == tab.space && a.url == tab.url));
+        self.archive.push(Archived {
+            space: tab.space.clone(),
+            url: tab.url.clone(),
+            title: tab.title.clone(),
+            time: now(),
+        });
+        if self.archive.len() > ARCHIVE_LIMIT {
+            let extra = self.archive.len() - ARCHIVE_LIMIT;
+            self.archive.drain(..extra);
+        }
+    }
+
+    fn is_locked(&self, space: &str) -> bool {
+        self.spaces.iter().any(|s| s.id == space && s.locked)
+            && !self.unlocked.iter().any(|u| u == space)
+    }
 }
 
 impl Data {
@@ -272,6 +320,7 @@ impl Data {
                 house: "winter".into(),
                 downloads: String::new(),
                 look: serde_json::Value::Null,
+                locked: false,
             });
         }
         let spaces: Vec<String> = self
@@ -945,8 +994,56 @@ async fn new_tab(app: AppHandle, url: Option<String>) {
     }
 }
 
+/// Asks for Windows Hello when `space` is locked; true when it may be shown.
+async fn ensure_unlocked(app: &AppHandle, space: &str) -> bool {
+    if !with_data(app, |d| d.is_locked(space)) {
+        return true;
+    }
+    let name = with_data(app, |d| {
+        d.spaces
+            .iter()
+            .find(|s| s.id == space)
+            .map(|s| s.name.clone())
+            .unwrap_or_default()
+    });
+    if !verify_hello(app, &format!("Abrir o Space \"{name}\" no Crest")).await {
+        return false;
+    }
+    with_data(app, |d| d.unlocked.push(space.to_string()));
+    true
+}
+
+async fn verify_hello(app: &AppHandle, message: &str) -> bool {
+    #[cfg(windows)]
+    {
+        let Some(hwnd) = window(app)
+            .and_then(|w| w.hwnd().ok())
+            .map(|h| h.0 as isize)
+        else {
+            return false;
+        };
+        let message = message.to_string();
+        tauri::async_runtime::spawn_blocking(move || hello::verify(hwnd, &message))
+            .await
+            .unwrap_or(false)
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (app, message);
+        false
+    }
+}
+
 #[tauri::command]
 async fn activate_tab(app: AppHandle, id: u64) {
+    let Some(space) = with_data(&app, |d| {
+        d.tabs.iter().find(|t| t.id == id).map(|t| t.space.clone())
+    }) else {
+        return;
+    };
+    if !ensure_unlocked(&app, &space).await {
+        return;
+    }
     let ok = with_data(&app, |d| {
         let space = d.tabs.iter().find(|t| t.id == id)?.space.clone();
         d.active_space = space.clone();
@@ -973,6 +1070,9 @@ async fn close_tab(app: AppHandle, id: u64) {
             .map(|t| t.url.clone())
             .unwrap_or_default();
         d.unsplit(id);
+        if let Some(tab) = d.tabs.iter().find(|t| t.id == id).cloned() {
+            d.archive_tab(&tab);
+        }
         if !url.is_empty() {
             let mut closed = state(&app).closed.lock().unwrap();
             closed.push((space.clone(), url));
@@ -1289,6 +1389,7 @@ async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
                         house: HOUSES[h].into(),
                         downloads: String::new(),
                         look: serde_json::Value::Null,
+                        locked: false,
                     });
                     for e in sp.pinned {
                         push_tab(d, &sid, e, true, None);
@@ -1383,6 +1484,7 @@ async fn add_space(
             house,
             downloads: String::new(),
             look: look.unwrap_or_default(),
+            locked: false,
         });
         d.active_space = id.clone();
         id
@@ -1393,6 +1495,9 @@ async fn add_space(
 
 #[tauri::command]
 async fn switch_space(app: AppHandle, id: String) {
+    if !ensure_unlocked(&app, &id).await {
+        return;
+    }
     let empty = with_data(&app, |d| {
         if !d.spaces.iter().any(|s| s.id == id) {
             return None;
@@ -1580,6 +1685,142 @@ async fn set_space_downloads(app: AppHandle, id: String, path: String) {
     commit(&app);
 }
 
+/// Locks or unlocks a Space; either way needs Windows Hello first.
+#[tauri::command]
+async fn set_space_lock(app: AppHandle, id: String, locked: bool) -> Result<(), String> {
+    #[cfg(windows)]
+    if !tauri::async_runtime::spawn_blocking(hello::available)
+        .await
+        .unwrap_or(false)
+    {
+        return Err(
+            "O Windows Hello (PIN, rosto ou digital) não está configurado neste PC.".into(),
+        );
+    }
+    if !verify_hello(
+        &app,
+        if locked {
+            "Bloquear este Space no Crest"
+        } else {
+            "Desbloquear este Space no Crest"
+        },
+    )
+    .await
+    {
+        return Err("Verificação cancelada.".into());
+    }
+    with_data(&app, |d| {
+        if let Some(s) = d.spaces.iter_mut().find(|s| s.id == id) {
+            s.locked = locked;
+        }
+        if !d.unlocked.contains(&id) {
+            d.unlocked.push(id.clone());
+        }
+    });
+    commit(&app);
+    Ok(())
+}
+
+/// Locks every locked Space again and leaves them if one is showing.
+#[tauri::command]
+async fn lock_now(app: AppHandle) {
+    let fallback = with_data(&app, |d| {
+        d.unlocked.clear();
+        if !d.is_locked(&d.active_space) {
+            return None;
+        }
+        d.spaces.iter().find(|s| !s.locked).map(|s| s.id.clone())
+    });
+    match fallback {
+        Some(id) => switch_space(app, id).await,
+        None => commit(&app),
+    }
+}
+
+#[tauri::command]
+async fn restore_archived(app: AppHandle, url: String, space: String) {
+    if !ensure_unlocked(&app, &space).await {
+        return;
+    }
+    let ok = with_data(&app, |d| {
+        d.archive.retain(|a| !(a.space == space && a.url == url));
+        let ok = d.spaces.iter().any(|s| s.id == space);
+        if ok {
+            d.active_space = space.clone();
+        }
+        ok
+    });
+    if ok {
+        open_tab(&app, url).await;
+        focus_active(&app);
+    }
+}
+
+#[tauri::command]
+async fn clear_archive(app: AppHandle) {
+    with_data(&app, |d| {
+        let space = d.active_space.clone();
+        d.archive.retain(|a| a.space != space);
+    });
+    commit(&app);
+}
+
+const READER_JS: &str = include_str!("reader.js");
+const READABILITY_JS: &str = include_str!("vendor/Readability.js");
+
+/// Toggles reader mode on the active tab.
+#[tauri::command]
+async fn reader_mode(app: AppHandle) {
+    let Some(id) = with_data(&app, |d| d.active_tab_id()) else {
+        return;
+    };
+    if let Some(wv) = app.get_webview(&label(id)) {
+        let _ = wv.eval(READER_JS.replace("/*READABILITY*/", READABILITY_JS));
+    }
+}
+
+/// Archives tabs idle longer than the archive setting.
+fn archive_idle_tabs(app: &AppHandle) {
+    let gone = with_data(app, |d| {
+        let limit = d.settings.archive_hours * 3600;
+        if limit == 0 {
+            return vec![];
+        }
+        let visible = d.visible();
+        let cutoff = now().saturating_sub(limit);
+        let idle: Vec<Tab> = d
+            .tabs
+            .iter()
+            .filter(|t| {
+                !t.pinned
+                    && t.folder.is_none()
+                    && !visible.contains(&t.id)
+                    && t.last_active > 0
+                    && t.last_active < cutoff
+                    && !t.audio
+            })
+            .cloned()
+            .collect();
+        for t in &idle {
+            d.archive_tab(t);
+            d.unsplit(t.id);
+            if d.active_tab.get(&t.space) == Some(&t.id) {
+                d.active_tab.remove(&t.space);
+            }
+        }
+        d.tabs.retain(|t| !idle.iter().any(|i| i.id == t.id));
+        idle.iter().map(|t| t.id).collect::<Vec<_>>()
+    });
+    for id in &gone {
+        if let Some(wv) = app.get_webview(&label(*id)) {
+            let _ = wv.close();
+        }
+    }
+    if !gone.is_empty() {
+        commit(app);
+    }
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -1662,6 +1903,11 @@ fn main() {
             toggle_site_blocking,
             pick_folder,
             set_space_downloads,
+            set_space_lock,
+            lock_now,
+            restore_archived,
+            clear_archive,
+            reader_mode,
             reopen_tab,
             suggest,
             history_list,
@@ -1730,6 +1976,15 @@ fn main() {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
             let native_frame = data.settings.native_frame;
+            let started = now();
+            for t in data.tabs.iter_mut().filter(|t| t.last_active == 0) {
+                t.last_active = started;
+            }
+            if data.is_locked(&data.active_space.clone()) {
+                if let Some(open) = data.spaces.iter().find(|s| !s.locked).map(|s| s.id.clone()) {
+                    data.active_space = open;
+                }
+            }
             blocker::configure(data.settings.adblock, &data.settings.adblock_allow);
             blocker::load(
                 app.path().resource_dir().ok().map(|d| d.join("adblock")),
@@ -1781,6 +2036,7 @@ fn main() {
                 std::thread::sleep(Duration::from_secs(30));
                 save_history(&handle);
                 sleep_idle_tabs(&handle);
+                archive_idle_tabs(&handle);
             });
             Ok(())
         })

@@ -147,9 +147,16 @@ dialog menu .danger { margin-right: auto; }
 .history-list li { padding: 6px 5px; border-radius: 7px; }
 .history-list li:hover { background: var(--hover); }
 .history-list .title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.history-list .day { color: var(--muted); font-size: 11px; font-weight: 600; padding: 10px 5px 3px; text-transform: capitalize; }
+.history-list .day { color: var(--muted); font-size: 11px; font-weight: 600; padding: 10px 5px 3px; }
+.history-list .day::first-letter { text-transform: uppercase; }
 .history-list .day:hover { background: none; }
 [hidden] { display: none !important; }
+.seg-tabs { display: flex; gap: 2px; background: var(--field); border-radius: 8px; padding: 2px; margin-bottom: 10px; }
+.seg-tabs button { flex: 1; padding: 5px; border-radius: 6px; color: var(--muted); }
+.seg-tabs button.sel { background: var(--active); color: var(--fg); }
+#reader svg { width: 15px; height: 15px; }
+.dot { position: relative; }
+.dot .lock { position: absolute; right: 1px; bottom: 1px; width: 11px; height: 11px; color: var(--fg); background: var(--c0); border-radius: 50%; padding: 1px; }
 .banner.solid > * { display: none; }
 .tab .sound { width: 22px; height: 22px; color: var(--c2); }
 .tab .sound svg { width: 13px; height: 13px; }
