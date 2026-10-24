@@ -84,7 +84,8 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 
 - **Nova aba**: Ctrl+T ou "＋ Nova aba". A página inicial mostra o brasão do Space, uma
   busca e os sites mais visitados naquele Space.
-- **Fixar**: clique direito → Fixar. As fixadas ficam em blocos no topo e nunca dormem.
+- **Fixar**: clique direito → Fixar. As fixadas ficam em blocos no topo e não dormem enquanto o
+  Space estiver aberto numa janela.
 - **Pastas**: clique direito numa área vazia da lista → Nova pasta, ou clique direito numa
   aba → "Nova pasta com esta aba". Arraste abas para dentro e para fora. Clique direito na pasta
   → **Cor e ícone…** escolhe uma cor ou um emoji.
@@ -97,7 +98,15 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
   desfazer, clique direito → "Desfazer lado a lado".
 - **Som**: o ícone de alto-falante aparece quando a aba toca áudio. Clique nele para silenciar.
 - **Abas dormindo**: depois de um tempo sem uso (padrão: 30 min), a aba libera memória e
-  recarrega quando você volta. O prazo fica em Configurações → Geral.
+  recarrega quando você volta. O prazo fica em Configurações → Geral. Abas tocando som não
+  dormem.
+- **Memória**: Spaces que não estão abertos em nenhuma janela dormem por completo, fixadas
+  incluídas, e liberam o processo deles. Configurações → Geral → **Memória** mostra quanto cada
+  Space usa e tem o botão **Dormir agora**.
+- **Tocando agora**: abas com som aparecem num cartão acima do rodapé, com botões de mudo e de
+  ir até a aba, mesmo quando estão em outra pasta.
+- **Traduzir página**: clique direito na aba → Traduzir página (ou paleta). A página abre pelo
+  Google Tradutor no idioma da interface.
 - **Arquivo**: abas fechadas vão para o Arquivo (ícone de caixa no rodapé), junto com abas
   paradas, se você ativar Configurações → Geral → "Arquivar abas paradas após". Clique num item
   para restaurá-lo. A aba **Histórico** do mesmo diálogo mostra tudo o que você visitou.
@@ -122,7 +131,8 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Links de outros apps**: com o Blazon como navegador padrão, eles abrem como abas na
   janela já aberta.
 - **Rotas**: em Configurações → Links você manda endereços com um trecho (ex.: `figma.com`)
-  sempre para um Space, e escolhe o Space padrão para o resto.
+  sempre para um Space, e escolhe o Space padrão para o resto. Em "Abrir em" também dá para
+  escolher **Peek**: o link de outro app abre como prévia flutuante, sem virar aba.
 
 ## Privacidade
 
@@ -159,6 +169,30 @@ Em Configurações → **Extensões**:
 
 Clique no ícone de livro na barra (ou paleta → Modo leitura). A página vira um texto limpo, com
 tipografia confortável que segue o tema claro/escuro do Windows. Clique de novo para voltar.
+
+## Backup e sincronização
+
+Em **Configurações → Backup**:
+- **Exportar backup** salva um arquivo `.json` com Spaces, looks do Studio, abas, pastas,
+  arquivo, histórico e configurações. Cookies e logins ficam de fora (eles moram no perfil do
+  WebView2 de cada Space). Spaces privados não levam abas.
+- **Restaurar** tem dois modos:
+  - **Substituir tudo** troca os dados atuais pelos do backup e reinicia o Blazon;
+  - **Mesclar** acrescenta os Spaces do backup (com abas, pastas e histórico) aos que você já tem.
+- **Backup automático**: escolha uma pasta (por exemplo, dentro do OneDrive ou do Google Drive).
+  O Blazon mantém `blazon-backup.json` atualizado, no máximo a cada 10 minutos e só quando algo
+  mudou, e guarda as 5 últimas cópias datadas. Em outro computador, restaure esse arquivo para
+  levar tudo junto.
+
+## Acessibilidade
+
+- Toda a barra lateral funciona pelo teclado: **F6** alterna entre a barra de endereço, a lista
+  de abas e a página.
+- Na lista de abas: setas ↑/↓, Home e End movem o foco; Enter ou Espaço abre a aba; Delete fecha;
+  Shift+F10 ou a tecla de menu abre o menu da aba.
+- Nas pastas: Enter, → e ← abrem e fecham.
+- Botões de ícone têm nomes para leitores de tela (Narrador, NVDA), e o foco do teclado aparece
+  com um contorno.
 
 ## Relatar um problema
 
@@ -208,6 +242,7 @@ Em Configurações → Aparência você ajusta:
 | Ctrl+Shift+T | Reabrir aba fechada |
 | Ctrl+K | Paleta de comandos |
 | Ctrl+L | Barra de endereço |
+| F6 | Endereço → abas → página |
 | Ctrl+H | Histórico |
 | Ctrl+Tab / Ctrl+Shift+Tab | Próxima / anterior |
 | Ctrl+1 … 8, Ctrl+9 | Aba pela posição, última aba |

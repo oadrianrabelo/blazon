@@ -30,6 +30,10 @@ outro navegador junto.
   Zen, LibreWolf e outros (todos os perfis); Spaces do Arc; e arquivo HTML de favoritos.
 - **Personalização completa** da aparência: presets, barra flutuante, formato e tamanho das
   abas, cores, zoom padrão e mais.
+- **Backup** em arquivo e backup automático numa pasta (OneDrive, Google Drive…) para levar tudo
+  a outro computador.
+- **Traduzir página**, painel de memória por Space, cartão "Tocando agora" e navegação completa
+  pelo teclado.
 - **Várias janelas**, downloads, permissões por site, extensões descompactadas, português e inglês.
 - **Atualiza sozinho** pelas Releases do GitHub e tem um botão **Relatar problema** que monta um
   relatório pronto para enviar.

@@ -70,11 +70,12 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `history.rs` | Histórico, sugestões, página inicial e mesclagem de histórico importado |
 | `importer.rs` | Aplica importações no estado (o parsing fica em `import.rs`) |
 | `downloads.rs` | Lista de downloads |
-| `profile.rs` | Permissões de sites e extensões por Space |
+| `profile.rs` | Permissões de sites, extensões e uso de memória por Space |
+| `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
 | `overlay.rs` | Paleta e Peek |
 | `blocker.rs` | Bloqueador: motor `adblock` (Brave), listas EasyList/EasyPrivacy, atualização semanal via `curl.exe`, CSS para esconder anúncios |
-| `webview2.rs` | APIs COM do WebView2: filtro de requisições (bloqueio), áudio e mudo, pasta de downloads, senhas e preenchimento |
+| `webview2.rs` | APIs COM do WebView2: filtro de requisições (bloqueio), áudio e mudo, pasta de downloads, senhas e preenchimento, memória dos processos |
 | `hello.rs` | Windows Hello (`UserConsentVerifier`) para Spaces bloqueados |
 | `import.rs` | Importação: Arc, família Chromium, família Firefox e HTML de favoritos |
 | `sqlite.rs` | Leitura mínima de SQLite via `winsqlite3.dll` do Windows (histórico e favoritos do Firefox) |

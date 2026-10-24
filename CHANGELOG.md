@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1
+
+- **Backup e sincronização**: exportar e restaurar (substituir tudo ou mesclar), e backup
+  automático numa pasta como a do OneDrive, com 5 cópias datadas.
+- **Memória**: Spaces fora de qualquer janela dormem por completo; painel com o uso de cada Space
+  e "Dormir agora". Abas tocando som não dormem mais.
+- **Traduzir página** pelo menu da aba ou pela paleta.
+- **Tocando agora**: cartão na barra lateral com as abas que tocam som.
+- Rotas de links podem abrir no **Peek**.
+- **Acessibilidade**: navegação completa pelo teclado (F6, setas, Enter, Delete, Shift+F10),
+  nomes para leitores de tela e contorno de foco.
+- Código do app dividido em módulos.
+
 ## 0.1.0
 
 ### Uso diário e suporte
