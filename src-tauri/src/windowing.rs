@@ -176,6 +176,35 @@ pub(crate) fn layout_rects(
 /// dialog of the top bar can spread over the page card (see `set_page_hidden`).
 static COVERED: Mutex<Vec<String>> = Mutex::new(Vec::new());
 
+/// Page webviews currently asked to use little memory (see set_memory_low).
+static LOW_MEMORY: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// A recreated page starts at normal memory again.
+pub(crate) fn forget_memory_state(label: &str) {
+    LOW_MEMORY.lock().unwrap().retain(|l| l != label);
+}
+
+/// Hidden pages that aren't playing sound keep little in memory; the call is
+/// only made when a page's state changes.
+fn memory_for(wv: &tauri::Webview, label: &str, visible: bool, audio: bool) {
+    let low = !visible && !audio;
+    let mut lows = LOW_MEMORY.lock().unwrap();
+    let was = lows.iter().any(|l| l == label);
+    if low == was {
+        return;
+    }
+    if low {
+        lows.push(label.to_string());
+    } else {
+        lows.retain(|l| l != label);
+    }
+    drop(lows);
+    #[cfg(windows)]
+    webview2::set_memory_low(wv, low);
+    #[cfg(not(windows))]
+    let _ = wv;
+}
+
 /// The top bar is too short for its menus and dialogs: while one is open the
 /// UI shows a picture of the page (page_snapshot) and the live page steps aside.
 #[tauri::command]
@@ -234,6 +263,9 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
     };
     let panel = s.panel.lock().unwrap().get(wl).cloned();
     let covered = COVERED.lock().unwrap().iter().any(|l| l == wl);
+    let audible: Vec<u64> = with_data(app, |d| {
+        d.tabs.iter().filter(|t| t.audio).map(|t| t.id).collect()
+    });
     let (ui_l, panel_l, overlay_l, peek_l) = (
         ui_of(wl),
         panel_of(wl),
@@ -343,9 +375,14 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
                 let _ = wv.hide();
             } else {
                 let _ = wv.show();
+                memory_for(&wv, &l, true, false);
             }
         } else {
             let _ = wv.hide();
+            if let Some(id) = l.strip_prefix("tab-").and_then(|n| n.parse::<u64>().ok()) {
+                let audio = audible.contains(&id);
+                memory_for(&wv, &l, false, audio);
+            }
         }
     }
 }
@@ -434,6 +471,13 @@ pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
         .decorations(native_frame)
         // A see-through window only when the material is on (shadows stay otherwise).
         .transparent(mica)
+        // Dark from the first frame, so opening a window never flashes white
+        // before the sidebar paints.
+        .background_color(if mica {
+            tauri::window::Color(0, 0, 0, 0)
+        } else {
+            tauri::window::Color(30, 40, 51, 255)
+        })
         .build()?;
     if mica {
         apply_material(&win, true);
@@ -468,6 +512,7 @@ pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
         WindowEvent::CloseRequested { .. } if label == WINDOW => {
             EXITING.store(true, Ordering::Relaxed);
             save_history(&handle);
+            save_now(&handle);
             // The main window closes the whole browser.
             handle.exit(0);
         }

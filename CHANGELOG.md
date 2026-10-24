@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.6
+
+Desempenho e qualidade de vida:
+- **Trocar de aba sem espera**: a foto da página para a transição é tirada quando o botão do mouse
+  desce sobre a aba (ou o Space), então a troca começa no instante do clique. Pelo teclado, a
+  foto nunca segura a troca por mais de um instante.
+- **Menos trabalho a cada página que carrega**: título, endereço, ícone e carregamento viram uma
+  atualização só por quadro, e o `state.json` é gravado no máximo a cada meio segundo, compacto,
+  em vez de reescrito inteiro a cada mudança.
+- **Barra lateral mais leve**: redesenha no máximo uma vez por quadro e só quando algo visível
+  mudou; a aparência só é reaplicada quando as opções mudam; ícones de sites já carregados
+  aparecem na hora, sem piscar a letra, e sites sem ícone não são consultados de novo.
+- **Menos RAM**: abas escondidas (e a camada de transição entre trocas) pedem ao WebView2 para
+  usar pouca memória; abas tocando som ficam como estão.
+- **Sem piscadas**: os cantos arredondados das páginas só são refeitos quando o tamanho muda, e a
+  janela abre escura desde o primeiro quadro, sem flash branco.
+- **Liquid Glass** reaproveita os filtros de tamanhos parecidos e guarda no máximo 32.
+- Restaurar um backup não pode mais ser sobrescrito por uma gravação atrasada, e uma falha ao
+  restaurar não deixa o Blazon sem salvar.
+- Com ícones grandes, o rodapé mantém o tamanho e o seletor de Spaces cabe.
+- O teste no Windows mede o tempo das trocas de aba e a memória usada.
+
 ## 0.1.5
 
 - **Pastas dentro de pastas**: favoritos importados viram uma árvore. A Barra de favoritos é uma

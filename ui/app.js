@@ -72,15 +72,25 @@ function applyLook(space) {
 }
 
 // Look & feel options (settings.appearance)
+// Applied again only when the options (or the pin count they depend on)
+// change: redoing it on every redraw restyled the whole sidebar.
+let appliedLook = null;
 function applyAppearance(settings) {
+  const b = document.body.classList;
+  if (!settings.floating_sidebar) b.remove('collapsed');
+  else if (!b.contains('collapsed') && !$('sidebar').matches(':hover') && document.activeElement !== $('address')) b.add('collapsed');
+  const pinCount = state.tabs.filter((t) => t.space === state.active_space && t.pinned && t.folder == null).length;
   const a = lookOf(settings);
   const root = document.documentElement.style;
+  // applyLook sets the Space's colors on every redraw; the custom accent goes on top.
+  if (a.accent) root.setProperty('--c2', a.accent);
+  const key = JSON.stringify([settings, pinCount]);
+  if (key === appliedLook) return;
+  appliedLook = key;
   root.setProperty('--tab-scale', a.tabScale);
   root.setProperty('--icon-scale', { small: 0.88, large: 1.18, huge: 1.36 }[a.iconSize] || 1);
   root.setProperty('--radius', { square: '3px', rounded: '9px', pill: '999px' }[a.tabShape] || '9px');
   root.setProperty('--sidebar-w', `${Math.min(420, Math.max(200, settings.sidebar_width || 264))}px`);
-  if (a.accent) root.setProperty('--c2', a.accent);
-  const b = document.body.classList;
   if (window.Glass) Glass.setEnabled(a.liquidGlass !== false);
   const mac = a.windowControls === 'mac' || a.windowControls === 'graphite';
   b.toggle('mac-controls', mac);
@@ -114,9 +124,7 @@ function applyAppearance(settings) {
   b.toggle('no-address-outline', !a.addressOutline);
   b.toggle('no-banner', !a.banner);
   b.toggle('floating', !!settings.floating_sidebar);
-  if (!settings.floating_sidebar) b.remove('collapsed');
-  else if (!b.contains('collapsed') && !$('sidebar').matches(':hover') && document.activeElement !== $('address')) b.add('collapsed');
-  const pins = state.tabs.filter((t) => t.space === state.active_space && t.pinned && t.folder == null).length;
+  const pins = pinCount;
   let cols = a.pinsPerRow;
   if (!cols) cols = Math.ceil(pins / Math.ceil(pins / 4 || 1)) || 4;
   root.setProperty('--pin-cols', a.stretchPins ? `repeat(${cols}, 1fr)` : `repeat(${cols}, 52px)`);
@@ -133,13 +141,22 @@ function tabTitle(t) {
   return t.title || host(t.url) || 'Nova aba';
 }
 
+// Site icons: once a host's icon has loaded it is drawn straight away on every
+// redraw (from the image cache, no letter flashing first); a host without one
+// isn't asked again.
+const favState = new Map();
 function favicon(t) {
   const box = el('span', 'fav', (tabTitle(t)[0] || '•').toUpperCase());
   const h = host(t.url);
-  if (h) {
-    const img = new Image();
-    img.onload = () => { box.textContent = ''; box.style.background = 'none'; box.append(img); };
-    img.src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(h)}.ico`;
+  if (!h || favState.get(h) === 'fail') return box;
+  const img = new Image();
+  img.decoding = 'async';
+  img.src = `https://icons.duckduckgo.com/ip3/${encodeURIComponent(h)}.ico`;
+  const show = () => { box.textContent = ''; box.style.background = 'none'; box.append(img); };
+  if (favState.get(h) === 'ok') show();
+  else {
+    img.onload = () => { favState.set(h, 'ok'); show(); };
+    img.onerror = () => favState.set(h, 'fail');
   }
   return box;
 }
@@ -309,6 +326,9 @@ function tabEvents(node, t) {
     }
   };
   node.onclick = () => invoke('activate_tab', { id: t.id });
+  // The transition's picture of the current page is taken while the button is
+  // still down, so the switch starts the moment the click lands.
+  node.addEventListener('pointerdown', (e) => { if (e.button === 0 && t.id !== activeTab()?.id) invoke('prepare_switch'); });
   node.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
   node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
 }
@@ -553,6 +573,7 @@ let shownActive = null;
 let shownLoading = null;
 
 function render() {
+  shownView = viewKey();
   const space = activeSpace();
   const current = activeTab();
   const spaceChanged = shownSpace !== null && shownSpace !== state.active_space;
@@ -711,6 +732,7 @@ function render() {
       b.append(lock);
     }
     b.onclick = () => invoke('switch_space', { id: s.id });
+    b.onpointerdown = (ev) => { if (ev.button === 0 && s.id !== state.active_space) invoke('prepare_switch'); };
     b.ondblclick = () => openStudio(s);
     b.oncontextmenu = (ev) => {
       ev.preventDefault();
@@ -765,7 +787,28 @@ function glideTo(from, node, layer) {
   Motion.glide(from, to, layer, { background: look.backgroundColor, boxShadow: look.boxShadow, borderRadius: look.borderRadius });
 }
 
-listen('state', (e) => { state = e.payload; syncKeymap(); if (!drag?.started) render(); });
+listen('state', (e) => { state = e.payload; syncKeymap(); scheduleRender(); });
+
+// Redraws at most once a frame, and only when something the sidebar shows
+// changed: a page loading in another Space, history and the like don't
+// rebuild the tab list.
+let renderQueued = false;
+let shownView = null;
+function viewKey() {
+  const s = state.active_space;
+  return JSON.stringify([s, state.active_tab[s], state.spaces, state.splits, state.unlocked, state.settings,
+    state.folders.filter((f) => f.space === s),
+    state.tabs.map((t) => (t.space === s ? [t.id, t.title, t.url, t.loading, t.audio, t.muted, t.awake, t.pinned, t.folder] : t.audio ? [t.id, t.title, t.space] : 0))]);
+}
+function scheduleRender() {
+  if (renderQueued) return;
+  renderQueued = true;
+  requestAnimationFrame(() => {
+    renderQueued = false;
+    if (drag?.started || !state) return;
+    if (viewKey() !== shownView) render();
+  });
+}
 listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
 // Window controls (borderless frame)

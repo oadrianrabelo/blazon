@@ -193,6 +193,25 @@ try {
   await invoke('close_overlay');
   await sleep(1000);
 
+  // Performance: how long tab switches take (picture taken on pointer down,
+  // as the sidebar does) and how much memory Blazon uses.
+  const now = await invoke('get_state');
+  const awake = now.tabs.filter((t) => t.space === now.active_space && t.awake).map((t) => t.id).slice(0, 2);
+  if (awake.length === 2) {
+    const times = [];
+    for (let i = 0; i < 6; i++) {
+      await invoke('prepare_switch');
+      await sleep(150);
+      const t0 = Date.now();
+      await invoke('activate_tab', { id: awake[i % 2] });
+      times.push(Date.now() - t0);
+      await sleep(700);
+    }
+    console.log(`  troca de aba: ${times.join(', ')} ms`);
+  }
+  const memory = await invoke('memory_usage');
+  console.log(`  memória: ${memory.map((m) => `${m.name} ${m.mb} MB`).join(' · ')}`);
+
   // A link from another app, opened in the Quick Window.
   const s = await invoke('get_state');
   await invoke('set_settings', { settings: { ...s.settings, external_space: 'quick' } });

@@ -37,7 +37,7 @@ interface é HTML/CSS/JS puro, sem framework nem etapa de build.
   para a frente.
 - `layout` posiciona cada janela. Abas de um Space que mudou de janela são movidas com
   `reparent`.
-- `commit` envia a cada barra lateral o estado com o Space da janela dela.
+- `commit` junta as mudanças: em até um quadro (12 ms) envia a cada barra lateral o estado com o Space da janela dela, e uma thread grava o `state.json` no máximo a cada meio segundo (e na hora ao fechar o navegador).
 
 As permissões estão em `src-tauri/capabilities/default.json`: só as três webviews da interface
 podem chamar comandos. Os sites nunca têm acesso ao IPC.
@@ -115,7 +115,7 @@ Tudo fica em `%APPDATA%\app.blazon.browser\`:
 
 | Arquivo/pasta | Conteúdo |
 | --- | --- |
-| `state.json` | Spaces, abas, pastas, lado a lado, Arquivo e configurações; salvo a cada mudança, com escrita atômica |
+| `state.json` | Spaces, abas, pastas, lado a lado, Arquivo e configurações; salvo no máximo a cada meio segundo depois de uma mudança, com escrita atômica |
 | `history.json` | Histórico por Space (até 5.000 entradas), salvo a cada 30 s e ao fechar |
 | `spaces\<id>\` | Pasta de dados do WebView2 de cada Space: cookies, cache, senhas |
 | `adblock\` | Listas de bloqueio baixadas (as do instalador ficam nos recursos do app) |
@@ -131,7 +131,7 @@ Tudo fica em `%APPDATA%\app.blazon.browser\`:
 1. A interface chama um comando (`invoke('activate_tab', …)`).
 2. O Rust muda `Data` dentro de `with_data`, que trava o mutex só durante a mudança.
 3. `apply_layout` cria, mostra, esconde e posiciona as webviews.
-4. `commit` salva `state.json` e emite o evento `state` para `ui` e `panel`, que redesenham.
+4. `commit` agenda o evento `state` para `ui` e `panel` e a gravação do `state.json`; a barra lateral redesenha no próximo quadro, só se algo que ela mostra mudou.
 
 Os campos `look` dos Spaces e `appearance` das configurações são JSON livres, controlados pela
 interface. Assim, novas opções visuais não exigem mudanças no Rust.

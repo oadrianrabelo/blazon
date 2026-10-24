@@ -99,6 +99,7 @@ pub(crate) async fn install_update(app: AppHandle) -> Result<(), String> {
     EXITING.store(true, Ordering::Relaxed);
     save_history(&app);
     commit(&app);
+    save_now(&app);
     app.exit(0);
     Ok(())
 }

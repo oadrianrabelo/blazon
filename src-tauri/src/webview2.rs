@@ -203,6 +203,24 @@ pub fn install(
     });
 }
 
+/// Pages out of sight ask WebView2 to keep little in memory (it trims caches
+/// and can page their memory out); pages coming back return to normal.
+pub fn set_memory_low(wv: &Webview, low: bool) {
+    let _ = wv.with_webview(move |pv| unsafe {
+        if let Ok(c19) = pv
+            .controller()
+            .CoreWebView2()
+            .and_then(|c| c.cast::<ICoreWebView2_19>())
+        {
+            let _ = c19.SetMemoryUsageTargetLevel(if low {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_LOW
+            } else {
+                COREWEBVIEW2_MEMORY_USAGE_TARGET_LEVEL_NORMAL
+            });
+        }
+    });
+}
+
 pub fn set_muted(wv: &Webview, muted: bool) {
     let _ = wv.with_webview(move |pv| unsafe {
         if let Ok(c8) = pv
@@ -653,6 +671,10 @@ pub async fn capture_jpeg(wv: &Webview) -> Option<Vec<u8>> {
 
 /// Rounds a page card's corners (Crest's 13pt page radius) by clipping the
 /// window that hosts the webview. Called after every resize.
+/// Last region given to each page's container window: (width, height, diameter).
+type Shapes = HashMap<isize, (i32, i32, i32)>;
+static SHAPED: std::sync::Mutex<Option<Shapes>> = std::sync::Mutex::new(None);
+
 pub fn round_corners(wv: &Webview, radius: f64) {
     use windows::Win32::{
         Foundation::{HWND, RECT},
@@ -669,6 +691,20 @@ pub fn round_corners(wv: &Webview, radius: f64) {
         let mut r = RECT::default();
         if GetClientRect(host, &mut r).is_err() {
             return;
+        }
+        // Layout runs often with nothing moved; setting the same region again
+        // repaints the page and shows as a flicker, so only changes are applied.
+        {
+            let mut guard = SHAPED.lock().unwrap();
+            let shaped = guard.get_or_insert_with(HashMap::new);
+            let key = host.0 as isize;
+            if shaped.get(&key) == Some(&(r.right, r.bottom, d)) {
+                return;
+            }
+            if shaped.len() > 256 {
+                shaped.clear();
+            }
+            shaped.insert(key, (r.right, r.bottom, d));
         }
         // The window owns the region from here on.
         let rgn = CreateRoundRectRgn(0, 0, r.right + 1, r.bottom + 1, d, d);
