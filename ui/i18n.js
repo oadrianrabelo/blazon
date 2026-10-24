@@ -181,7 +181,7 @@ const I18N = (() => {
 
   const stored = () => { try { return localStorage.getItem('blazon.lang'); } catch { return null; } };
   const resolve = (pref) => (pref === 'pt' || pref === 'en' ? pref : (navigator.language || 'pt').toLowerCase().startsWith('pt') ? 'pt' : 'en');
-  let lang = stored() || resolve('auto');
+  let lang = ['pt', 'en'].includes(stored()) ? stored() : resolve('auto');
   document.documentElement.lang = lang === 'pt' ? 'pt-BR' : 'en';
 
   function t(s) {

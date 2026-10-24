@@ -31,6 +31,11 @@ jobs:
           mkdir -p src-tauri/adblock
           curl -sSfL -o src-tauri/adblock/easylist.txt https://easylist.to/easylist/easylist.txt
           curl -sSfL -o src-tauri/adblock/easyprivacy.txt https://easylist.to/easylist/easyprivacy.txt
+      - name: Test UI logic
+        run: node --test tests/ui.test.mjs
+      - name: Test Rust
+        working-directory: src-tauri
+        run: cargo test --locked
       - run: npx tauri build
       - uses: actions/upload-artifact@v4
         with:

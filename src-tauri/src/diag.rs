@@ -181,3 +181,22 @@ pub fn webview2_version() -> String {
         "n/d".into()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn timestamp_is_iso_like() {
+        let t = super::timestamp();
+        assert_eq!(t.len(), 20, "{t}");
+        assert!(t.ends_with('Z') && &t[4..5] == "-" && &t[10..11] == " ");
+    }
+
+    #[test]
+    fn host_never_includes_the_path() {
+        assert_eq!(
+            super::host("https://mail.google.com/mail/u/0/#inbox"),
+            "mail.google.com"
+        );
+        assert_eq!(super::host("not a url"), "(local)");
+    }
+}

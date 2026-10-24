@@ -2915,3 +2915,139 @@ fn main() {
         .run(tauri::generate_context!())
         .expect("error while running Blazon");
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const DDG: &str = "https://duckduckgo.com/?q=";
+
+    #[test]
+    fn address_bar_input() {
+        assert_eq!(to_url("example.com", DDG), "https://example.com/");
+        assert_eq!(to_url("https://a.com/x?y=1", DDG), "https://a.com/x?y=1");
+        assert_eq!(to_url("localhost:3000", DDG), "http://localhost:3000/");
+        assert_eq!(
+            to_url("rust lang", DDG),
+            "https://duckduckgo.com/?q=rust+lang"
+        );
+        assert_eq!(to_url("c++", DDG), "https://duckduckgo.com/?q=c%2B%2B");
+        assert_eq!(to_url("  ", DDG), "");
+    }
+
+    fn space(id: &str) -> Space {
+        Space {
+            id: id.into(),
+            name: id.into(),
+            color: "#000000".into(),
+            private: false,
+            house: String::new(),
+            downloads: String::new(),
+            look: serde_json::Value::Null,
+            locked: false,
+            search: String::new(),
+        }
+    }
+
+    fn tab(id: u64, space: &str) -> Tab {
+        Tab {
+            id,
+            space: space.into(),
+            url: format!("https://{id}.com/"),
+            title: String::new(),
+            pinned: false,
+            folder: None,
+            loading: false,
+            audio: false,
+            muted: false,
+            awake: false,
+            last_active: 0,
+            trail: vec![],
+            trail_nav: false,
+        }
+    }
+
+    #[test]
+    fn link_routes_pick_the_right_space() {
+        let mut d = Data {
+            spaces: vec![space("home"), space("work")],
+            active_space: "home".into(),
+            ..Default::default()
+        };
+        d.settings.routes = vec![Route {
+            pattern: "figma.com".into(),
+            space: "work".into(),
+        }];
+        assert_eq!(route_space(&d, "https://www.figma.com/file/1"), "work");
+        assert_eq!(route_space(&d, "https://example.com/"), "home");
+        d.settings.external_space = "work".into();
+        assert_eq!(route_space(&d, "https://example.com/"), "work");
+    }
+
+    #[test]
+    fn repair_drops_orphans_and_private_tabs() {
+        let mut private = space("secret");
+        private.private = true;
+        let mut d = Data {
+            spaces: vec![space("home"), private],
+            tabs: vec![tab(1, "home"), tab(2, "gone"), tab(3, "secret")],
+            splits: vec![[1, 2]],
+            active_space: "gone".into(),
+            ..Default::default()
+        };
+        d.repair();
+        assert_eq!(d.tabs.iter().map(|t| t.id).collect::<Vec<_>>(), [1]);
+        assert!(d.splits.is_empty());
+        assert_eq!(d.active_space, "home");
+        assert!(d.next_id >= 1);
+    }
+
+    #[test]
+    fn repair_creates_a_space_when_empty() {
+        let mut d = Data::default();
+        d.repair();
+        assert_eq!(d.spaces.len(), 1);
+        assert_eq!(d.active_space, d.spaces[0].id);
+    }
+
+    #[test]
+    fn split_view_shows_both_tabs() {
+        let mut d = Data {
+            spaces: vec![space("home")],
+            tabs: vec![tab(1, "home"), tab(2, "home")],
+            active_space: "home".into(),
+            ..Default::default()
+        };
+        d.active_tab.insert("home".into(), 2);
+        assert_eq!(d.visible_in("home"), [2]);
+        d.splits.push([1, 2]);
+        assert_eq!(d.visible_in("home"), [1, 2]);
+        d.unsplit(1);
+        assert_eq!(d.visible_in("home"), [2]);
+    }
+
+    #[test]
+    fn space_search_overrides_global() {
+        let mut work = space("work");
+        work.search = "https://kagi.com/search?q=".into();
+        let d = Data {
+            spaces: vec![space("home"), work],
+            ..Default::default()
+        };
+        assert_eq!(d.search_for("work"), "https://kagi.com/search?q=");
+        assert_eq!(d.search_for("home"), d.settings.search);
+    }
+
+    #[test]
+    fn old_state_files_still_load() {
+        // A state.json from the first versions, without the newer fields.
+        let old = r##"{"spaces":[{"id":"personal","name":"Pessoal","color":"#3b82f6"}],
+            "tabs":[{"id":1,"space":"personal","url":"https://a.com/","title":"A"}],
+            "active_space":"personal","active_tab":{"personal":1},"next_id":1,
+            "settings":{"sidebar_right":false,"search":"https://duckduckgo.com/?q="}}"##;
+        let d: Data = serde_json::from_str(old).expect("old state loads");
+        assert_eq!(d.tabs.len(), 1);
+        assert_eq!(d.settings.sleep_minutes, 30);
+        assert!(d.settings.adblock);
+    }
+}

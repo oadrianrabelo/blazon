@@ -770,3 +770,88 @@ fn read_arc(json: &Value, budget: &mut usize) -> Vec<Space> {
     }
     spaces
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn bookmarks_html_keeps_folder_paths_and_skips_scripts() {
+        let html = r#"<DL><p>
+            <DT><H3>Barra de favoritos</H3>
+            <DL><p>
+                <DT><A HREF="https://github.com/">GitHub</A>
+                <DT><H3>Dev &amp; Docs</H3>
+                <DL><p>
+                    <DT><A HREF="https://doc.rust-lang.org/">Rust</A>
+                    <DT><A HREF="javascript:void(0)">bookmarklet</A>
+                </DL><p>
+            </DL><p>
+            <DT><A HREF="https://news.ycombinator.com/">HN</A>
+        </DL>"#;
+        let mut budget = 100;
+        let folders = parse_bookmarks_html(html, &mut budget);
+        let names: Vec<&str> = folders.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(
+            names,
+            [
+                "Barra de favoritos",
+                "Barra de favoritos / Dev & Docs",
+                "Favoritos importados"
+            ]
+        );
+        assert_eq!(folders[1].tabs.len(), 1, "javascript: links are dropped");
+        assert_eq!(folders[0].tabs[0].url, "https://github.com/");
+    }
+
+    #[test]
+    fn chromium_bookmarks_flatten_nested_folders() {
+        let json = json!({ "roots": { "bookmark_bar": { "children": [
+            { "type": "url", "name": "A", "url": "https://a.com/" },
+            { "type": "folder", "name": "Work", "children": [{ "type": "url", "name": "B", "url": "https://b.com/" }] }
+        ]}, "other": { "children": [] } } });
+        let mut budget = 100;
+        let folders = read_bookmarks(&json, &mut budget);
+        assert_eq!(folders.len(), 2);
+        assert_eq!(folders[1].name, "Barra de favoritos / Work");
+    }
+
+    #[test]
+    fn import_budget_caps_entries() {
+        let children: Vec<Value> = (0..10)
+            .map(|i| json!({ "type": "url", "name": "x", "url": format!("https://{i}.com/") }))
+            .collect();
+        let json = json!({ "roots": { "bookmark_bar": { "children": children } } });
+        let mut budget = 3;
+        let folders = read_bookmarks(&json, &mut budget);
+        assert_eq!(folders[0].tabs.len(), 3);
+    }
+
+    #[test]
+    fn arc_spaces_pins_folders_and_tabs() {
+        let arc = json!({ "sidebar": { "containers": [{ "global": {} }, {
+            "items": [
+                "f1", { "childrenIds": ["t1"], "data": { "itemContainer": {} } },
+                "t1", { "title": "Mail", "childrenIds": [], "data": { "tab": { "savedURL": "https://mail.google.com", "savedTitle": "Gmail" } } },
+                "p1", { "childrenIds": ["fold", "t2"], "data": { "itemContainer": {} } },
+                "fold", { "title": "Projeto", "childrenIds": ["t3"], "data": { "list": {} } },
+                "t3", { "childrenIds": [], "data": { "tab": { "savedURL": "https://figma.com", "savedTitle": "Figma" } } },
+                "t2", { "childrenIds": [], "data": { "tab": { "savedURL": "https://notion.so", "savedTitle": "Notion" } } },
+                "u1", { "childrenIds": ["t4"], "data": { "itemContainer": {} } },
+                "t4", { "childrenIds": [], "data": { "tab": { "savedURL": "https://news.ycombinator.com", "savedTitle": "HN" } } }
+            ],
+            "topAppsContainerIDs": [{ "default": true }, "f1"],
+            "spaces": ["s1", { "title": "Work", "profile": { "default": true }, "containerIDs": ["pinned", "p1", "unpinned", "u1"] }]
+        }] } });
+        let mut budget = 100;
+        let spaces = read_arc(&arc, &mut budget);
+        assert_eq!(spaces.len(), 1);
+        let s = &spaces[0];
+        assert_eq!(s.name, "Work");
+        assert_eq!(s.pinned[0].title, "Gmail");
+        assert_eq!(s.tabs[0].title, "HN");
+        let folders: Vec<&str> = s.folders.iter().map(|f| f.name.as_str()).collect();
+        assert_eq!(folders, ["Fixadas", "Projeto"]);
+    }
+}
