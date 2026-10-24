@@ -62,13 +62,24 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `main.rs` | Modelo de dados (`Data`, `Space`, `Tab`, `Folder`, `Settings`), comandos, layout das webviews, persistência, histórico, sono e arquivo de abas, rotas de links, instância única |
-| `overlay.rs` | Paleta e Peek |
+| `main.rs` | Estado do app (`AppState`), `commit`, comandos gerais, script de atalhos das páginas e a inicialização |
+| `model.rs` | Modelo de dados (`Data`, `Space`, `Tab`, `Folder`, `Settings`…) e regras de reparo |
+| `tabs.rs` | Webviews das abas, navegação, fixar, pastas, lado a lado, sono, arquivo, modo leitura |
+| `spaces.rs` | Criar, trocar, ordenar e bloquear Spaces; rotas de links |
+| `windowing.rs` | Janelas, layout das webviews, painel de configurações, barra flutuante |
+| `history.rs` | Histórico, sugestões, página inicial e mesclagem de histórico importado |
+| `importer.rs` | Aplica importações no estado (o parsing fica em `import.rs`) |
+| `downloads.rs` | Lista de downloads |
+| `profile.rs` | Permissões de sites, extensões e uso de memória por Space |
+| `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
+| `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
+| `overlay.rs` | Paleta e Peek; fotos da página (`CapturePreview`) para o vidro da paleta e a animação do Peek |
 | `blocker.rs` | Bloqueador: motor `adblock` (Brave), listas EasyList/EasyPrivacy, atualização semanal via `curl.exe`, CSS para esconder anúncios |
-| `webview2.rs` | APIs COM do WebView2: filtro de requisições (bloqueio), áudio e mudo, pasta de downloads, senhas e preenchimento |
+| `webview2.rs` | APIs COM do WebView2: filtro de requisições (bloqueio), áudio e mudo, pasta de downloads, senhas e preenchimento, memória dos processos |
 | `hello.rs` | Windows Hello (`UserConsentVerifier`) para Spaces bloqueados |
 | `import.rs` | Importação: Arc, família Chromium, família Firefox e HTML de favoritos |
 | `sqlite.rs` | Leitura mínima de SQLite via `winsqlite3.dll` do Windows (histórico e favoritos do Firefox) |
+| `error.js` | Página de site fora do ar, injetada quando a navegação falha por rede |
 | `reader.js` + `vendor/Readability.js` | Modo leitura, injetado na aba |
 | `diag.rs` | Log em arquivo, relatório de travamento (panic hook), versões do Windows e do WebView2 |
 | `updater.rs` | Atualizações: última Release no GitHub, download via `curl.exe`, verificação SHA-256, instalador em modo passivo |
@@ -81,6 +92,8 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `settings.*` | Painel de configurações e Studio |
 | `overlay.*` | Paleta de comandos e barra do Peek |
 | `newtab.*` | Página inicial |
+| `motion.css`, `motion.js` | Animações do Crest: os tempos do `CrestMotion`, molas do SwiftUI convertidas em curvas `linear()`, reordenação estilo FLIP, seleção que desliza, troca de Space, painéis flutuantes e o modo de movimento reduzido do Windows |
+| `welcome.js` | Boas-vindas da primeira abertura (no overlay, sobre a janela inteira) |
 | `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
 | `diag.js` | Envia erros de JavaScript da interface para o log |
 | `houses.js` | Paletas e padrões da barra das 9 casas, opções de aparência e presets |

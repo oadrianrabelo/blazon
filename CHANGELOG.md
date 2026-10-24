@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.1.1
+
+- **Backup e sincronização**: exportar e restaurar (substituir tudo ou mesclar), e backup
+  automático numa pasta como a do OneDrive, com 5 cópias datadas.
+- **Memória**: Spaces fora de qualquer janela dormem por completo; painel com o uso de cada Space
+  e "Dormir agora". Abas tocando som não dormem mais.
+- **Traduzir página** pelo menu da aba ou pela paleta.
+- **Tocando agora**: cartão na barra lateral com as abas que tocam som.
+- Rotas de links podem abrir no **Peek**.
+- **Acessibilidade**: navegação completa pelo teclado (F6, setas, Enter, Delete, Shift+F10),
+  nomes para leitores de tela e contorno de foco.
+- **Animações do Crest**: os mesmos tempos e molas do Crest em abas, seleção, troca de Space
+  (com gesto de dois dedos no touchpad), pastas, carregamento na barra de endereço, menus,
+  paleta, Peek, configurações e página inicial; vidro nos menus. Respeita "Efeitos de animação"
+  do Windows.
+- **Arrastar como no Mac**: a aba levanta, as outras abrem espaço e ela assenta no lugar.
+- **Paleta de vidro** sobre a página e **Peek** que cresce e encolhe.
+- **Boas-vindas** na primeira abertura, como o setup do Crest: casa, Spaces, importação e navegador
+  padrão.
+- **Página de site fora do ar** no estilo do Crest, no lugar da página do Edge.
+- Código do app dividido em módulos.
+
 ## 0.1.0
 
 ### Uso diário e suporte

@@ -32,7 +32,6 @@ const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2'
 
 const $ = (id) => document.getElementById(id);
 let state = null;
-let dragId = null;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -120,21 +119,163 @@ function favicon(t) {
 const activeSpace = () => state.spaces.find((s) => s.id === state.active_space);
 const activeTab = () => state.tabs.find((t) => t.id === state.active_tab[state.active_space]);
 
-function dragTarget(node, t, pinned) {
-  node.draggable = true;
-  node.addEventListener('dragstart', () => { dragId = t ? t.id : null; });
-  node.addEventListener('dragover', (e) => { e.preventDefault(); node.classList.add('drop-before'); });
-  node.addEventListener('dragleave', () => node.classList.remove('drop-before'));
-  node.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    node.classList.remove('drop-before');
-    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned, folder: t ? t.folder ?? null : null });
-    dragId = null;
+// Drag and drop, Crest style: the tab lifts under the pointer, the others
+// make room for it, and it settles into its new place when dropped.
+let drag = null;
+function dragTarget(node, t) {
+  node.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('.close, .sound')) return;
+    drag = { t, node, x: e.clientX, y: e.clientY, pointer: e.pointerId, started: false };
   });
 }
 
+function dragRoots() { return [$('pinned'), $('folders'), $('tabs')]; }
+
+function startDrag(e) {
+  drag.started = true;
+  hideMenu();
+  const r = drag.node.getBoundingClientRect();
+  drag.dx = e.clientX - r.left;
+  drag.dy = e.clientY - r.top;
+  const ghost = drag.node.cloneNode(true);
+  ghost.removeAttribute('data-key');
+  ghost.classList.add('drag-ghost');
+  Object.assign(ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
+  document.body.append(ghost);
+  drag.ghost = ghost;
+  drag.kind = drag.node.classList.contains('pin') ? 'pin' : 'row';
+  drag.placeholder = makePlaceholder(drag.kind, drag.t.folder ?? null);
+  drag.node.after(drag.placeholder);
+  drag.node.hidden = true;
+  document.body.classList.add('dragging');
+  try { $('sidebar').setPointerCapture(drag.pointer); } catch { /* pointer already gone */ }
+}
+
+function makePlaceholder(kind, folder) {
+  const p = el(kind === 'pin' ? 'button' : 'li', (kind === 'pin' ? 'pin' : 'tab') + ' placeholder' + (folder != null ? ' in-folder' : ''));
+  p.dataset.key = drag.node.dataset.key;
+  if (folder != null) p.dataset.folder = folder;
+  if (kind === 'row') p.style.height = `${drag.kind === 'row' ? drag.node.offsetHeight || 34 : 34}px`;
+  return p;
+}
+
+// Where the dragged tab would land under the pointer.
+function dropSpot(e) {
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  if (!hit || !$('sidebar').contains(hit) || hit.closest('.placeholder')) return null;
+  const pin = hit.closest('#pinned .pin');
+  if (pin && pin !== drag.node) {
+    const r = pin.getBoundingClientRect();
+    return { kind: 'pin', parent: $('pinned'), ref: e.clientX < r.left + r.width / 2 ? pin : pin.nextElementSibling, folder: null };
+  }
+  if (hit.closest('#pinned')) return { kind: 'pin', parent: $('pinned'), ref: null, folder: null };
+  const row = hit.closest('#folders .tab, #tabs .tab');
+  if (row && row !== drag.node) {
+    const r = row.getBoundingClientRect();
+    const folder = row.dataset.folder != null ? Number(row.dataset.folder) : null;
+    return { kind: 'row', parent: row.parentNode, ref: e.clientY < r.top + r.height / 2 ? row : row.nextElementSibling, folder };
+  }
+  const head = hit.closest('.folder');
+  if (head) {
+    const folder = Number(head.dataset.key.slice(1));
+    if (!head.classList.contains('open')) return { into: head, folder };
+    return { kind: 'row', parent: $('folders'), ref: head.nextElementSibling, folder };
+  }
+  if (hit.closest('.new-tab')) return { kind: 'row', parent: $('tabs'), ref: $('tabs').firstElementChild, folder: null };
+  if (hit.closest('#scroll')) return { kind: 'row', parent: $('tabs'), ref: null, folder: null };
+  return null;
+}
+
+function moveDrag(e) {
+  Object.assign(drag.ghost.style, { left: `${e.clientX - drag.dx}px`, top: `${e.clientY - drag.dy}px` });
+  const spot = dropSpot(e);
+  if (!spot) return;
+  document.querySelectorAll('.folder.drop-into').forEach((n) => n.classList.remove('drop-into'));
+  drag.into = null;
+  if (spot.into) {
+    spot.into.classList.add('drop-into');
+    drag.into = spot.folder;
+    return;
+  }
+  const ph = drag.placeholder;
+  let ref = spot.ref;
+  while (ref === drag.node || ref === ph) ref = ref.nextElementSibling;
+  const sameKind = (ph.classList.contains('pin') ? 'pin' : 'row') === spot.kind;
+  const inPlace = sameKind && ph.parentNode === spot.parent && (ph.nextElementSibling === ref
+    || (ph.nextElementSibling === drag.node && drag.node.nextElementSibling === ref));
+  if (inPlace && String(ph.dataset.folder ?? '') === String(spot.folder ?? '')) return;
+  // The others slide out of the way (CrestMotion.collection).
+  const before = Motion.snapshot(...dragRoots());
+  const next = sameKind ? ph : makePlaceholder(spot.kind, spot.folder);
+  if (!sameKind) ph.remove();
+  next.classList.toggle('in-folder', spot.folder != null);
+  if (spot.folder != null) next.dataset.folder = spot.folder; else delete next.dataset.folder;
+  spot.parent.insertBefore(next, ref);
+  drag.placeholder = next;
+  before.delete(next.dataset.key);
+  Motion.play(before, dragRoots());
+}
+
+function endDrag(drop) {
+  const d = drag;
+  drag = null;
+  if (!d?.started) return;
+  document.body.classList.remove('dragging');
+  document.querySelectorAll('.folder.drop-into').forEach((n) => n.classList.remove('drop-into'));
+  let args = null;
+  if (drop && d.into != null) args = { before: null, pinned: false, folder: d.into };
+  else if (drop) {
+    const ph = d.placeholder;
+    let next = ph.nextElementSibling;
+    while (next === d.node) next = next.nextElementSibling;
+    args = { before: next?.dataset.tab ? Number(next.dataset.tab) : null, pinned: ph.parentNode === $('pinned'), folder: ph.dataset.folder != null ? Number(ph.dataset.folder) : null };
+  }
+  // The lifted tab settles onto its slot (CrestMotion.dragPreview), or back home.
+  document.body.classList.add('just-dragged');
+  setTimeout(() => document.body.classList.remove('just-dragged'), 0);
+  if (!args) d.node.after(d.placeholder);
+  const target = d.into != null ? document.querySelector(`.folder[data-key="f${d.into}"]`) : d.placeholder;
+  const home = (target || d.placeholder).getBoundingClientRect();
+  const g = d.ghost;
+  const from = g.getBoundingClientRect();
+  g.animate([{ left: `${from.left}px`, top: `${from.top}px` }, { left: `${home.left}px`, top: `${home.top}px`, scale: 1, opacity: d.into != null ? 0 : 1 }],
+    { duration: Motion.reduced.matches ? 0 : Motion.ms('--drag-preview'), easing: Motion.ease('--smooth'), fill: 'forwards' }).onfinish = () => {
+    g.remove();
+    if (args) invoke('move_tab', { id: d.t.id, ...args }).then(() => { if (d.placeholder.isConnected) render(); });
+    else render();
+  };
+}
+
+addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    startDrag(e);
+  }
+  moveDrag(e);
+});
+addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.pointer) endDrag(true); });
+addEventListener('pointercancel', () => endDrag(false));
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag?.started) { e.preventDefault(); endDrag(false); } }, true);
+// A click right after a drag must not activate the tab underneath.
+addEventListener('click', (e) => { if (document.body.classList.contains('just-dragged')) { e.stopPropagation(); e.preventDefault(); } }, true);
+
 function tabEvents(node, t) {
+  // Keyboard: reachable with Tab/arrows, Enter opens, Delete closes, menu key opens the menu.
+  node.tabIndex = -1;
+  node.dataset.tab = t.id;
+  node.setAttribute('role', node.tagName === 'LI' ? 'option' : 'button');
+  node.setAttribute('aria-label', tabTitle(t));
+  node.setAttribute('aria-selected', String(t.id === activeTab()?.id));
+  node.onkeydown = (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); invoke('activate_tab', { id: t.id }); }
+    else if (e.key === 'Delete') { e.preventDefault(); invoke('close_tab', { id: t.id }); }
+    else if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) {
+      e.preventDefault();
+      const r = node.getBoundingClientRect();
+      tabMenu({ clientX: r.left + 20, clientY: r.bottom, preventDefault() {}, stopPropagation() {} }, t);
+    }
+  };
   node.onclick = () => invoke('activate_tab', { id: t.id });
   node.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
   node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
@@ -154,7 +295,7 @@ function showMenu(e, items) {
     b.onclick = () => { hideMenu(); it.run(); };
     m.append(b);
   }
-  m.hidden = false;
+  Motion.show(m);
   // Stay inside the sidebar: the page card covers the rest of the window.
   const bar = $('sidebar').getBoundingClientRect();
   const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
@@ -162,7 +303,7 @@ function showMenu(e, items) {
   m.style.left = `${x}px`;
   m.style.top = `${Math.max(6, y)}px`;
 }
-function hideMenu() { $('ctx').hidden = true; }
+function hideMenu() { Motion.hide($('ctx')); }
 addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
 addEventListener('blur', hideMenu);
 addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
@@ -193,6 +334,7 @@ function tabMenu(e, t) {
     for (const o of others) items.push({ label: tabTitle(o), icon: 'split', run: () => invoke('split_tab', { id: t.id, with: o.id }) });
   }
   items.push('-',
+    { label: 'Traduzir página', icon: 'book', run: () => invoke('activate_tab', { id: t.id }).then(() => invoke('translate_page', { target: I18N.lang() })) },
     { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
     { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
     { label: 'Fechar', icon: 'x', run: () => invoke('close_tab', { id: t.id }) });
@@ -236,9 +378,21 @@ $('scroll').addEventListener('contextmenu', (e) => {
   showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
 });
 
+// Motion: what was on screen before this render (see motion.js).
+let shownSpace = null;
+let shownActive = null;
+let shownLoading = null;
+
 function render() {
   const space = activeSpace();
   const current = activeTab();
+  const spaceChanged = shownSpace !== null && shownSpace !== state.active_space;
+  const listRoots = [$('pinned'), $('folders'), $('tabs'), $('now-playing'), $('spaces')];
+  const before = spaceChanged ? null : Motion.snapshot(...listRoots);
+  const activeNode = document.querySelector('#sidebar [aria-selected="true"]');
+  const activeChanged = shownActive !== (current?.id ?? null);
+  const fromActive = activeChanged && activeNode ? activeNode.getBoundingClientRect() : null;
+  const fromDot = spaceChanged ? document.querySelector('#spaces .dot.active')?.getBoundingClientRect() : null;
   I18N.sync(state.settings.language);
   applyLook(space);
   applyAppearance(state.settings);
@@ -260,6 +414,13 @@ function render() {
     : paused ? `Bloqueador pausado em ${site}. Clique para retomar.` : `Bloqueando anúncios${site ? ` em ${site}` : ''}. Clique para pausar neste site.`;
   $('shield').disabled = !site || !state.settings.adblock;
   const loading = !!current?.loading;
+  const form = $('address-form');
+  form.classList.toggle('loading', loading);
+  if (!loading && shownLoading === current?.id) {
+    form.classList.add('done');
+    setTimeout(() => form.classList.remove('done'), 600);
+  }
+  shownLoading = loading ? current.id : null;
   setIcon($('reload'), loading ? 'x' : 'reload');
   $('reload').dataset.nav = loading ? 'stop' : 'reload';
   $('reload').title = loading ? 'Parar' : 'Recarregar (F5)';
@@ -273,6 +434,7 @@ function render() {
   const tabRow = (t, extra) => {
     const active = current && t.id === current.id;
     const li = el('li', 'tab' + extra + (active ? ' active' : '') + (t.loading ? ' loading' : '') + (t.awake ? '' : ' asleep'));
+    li.dataset.key = `t${t.id}`;
     li.title = t.url || 'Nova aba';
     const close = el('button', 'icon close');
     close.append(icon('x'));
@@ -293,7 +455,8 @@ function render() {
     }
     li.append(close);
     tabEvents(li, t);
-    dragTarget(li, t, false);
+    if (t.folder != null) li.dataset.folder = t.folder;
+    dragTarget(li, t);
     return li;
   };
 
@@ -301,6 +464,7 @@ function render() {
   folders.replaceChildren();
   for (const f of state.folders.filter((x) => x.space === state.active_space)) {
     const head = el('li', 'folder' + (f.open ? ' open' : ''));
+    head.dataset.key = `f${f.id}`;
     const chev = icon('chev');
     chev.classList.add('chev');
     if (f.icon) head.append(el('span', 'emoji', f.icon));
@@ -313,16 +477,18 @@ function render() {
     if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
     head.append(chev);
     head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
+    head.tabIndex = -1;
+    head.setAttribute('role', 'treeitem');
+    head.setAttribute('aria-expanded', String(f.open));
+    head.setAttribute('aria-label', `Pasta ${f.name}`);
+    head.onkeydown = (e) => {
+      if (e.key === 'Enter' || e.key === ' ' || (e.key === 'ArrowRight' && !f.open) || (e.key === 'ArrowLeft' && f.open)) {
+        e.preventDefault();
+        invoke('update_folder', { id: f.id, open: !f.open });
+      }
+    };
     head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
     head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
-    head.addEventListener('dragover', (e) => { e.preventDefault(); head.classList.add('drop-before'); });
-    head.addEventListener('dragleave', () => head.classList.remove('drop-before'));
-    head.addEventListener('drop', (e) => {
-      e.preventDefault();
-      head.classList.remove('drop-before');
-      if (dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: false, folder: f.id });
-      dragId = null;
-    });
     folders.append(head);
     if (!f.open) continue;
     for (const t of tabs.filter((x) => x.folder === f.id)) folders.append(tabRow(t, ' in-folder'));
@@ -333,20 +499,24 @@ function render() {
     if (t.folder != null) continue;
     if (t.pinned) {
       const b = el('button', 'pin' + (active ? ' active' : '') + (t.awake ? '' : ' asleep'));
+      b.dataset.key = `t${t.id}`;
       b.title = tabTitle(t);
       b.append(favicon(t));
       tabEvents(b, t);
-      dragTarget(b, t, true);
+      dragTarget(b, t);
       pinned.append(b);
       continue;
     }
     list.append(tabRow(t, ''));
   }
 
+  renderNowPlaying();
+
   const spaces = $('spaces');
   spaces.replaceChildren();
   state.spaces.forEach((s, i) => {
     const b = el('button', 'dot' + (s.id === state.active_space ? ' active' : ''));
+    b.dataset.key = `s${s.id}`;
     b.title = `${s.name} (Ctrl+Shift+${i + 1})`;
     b.append(emblem(s));
     if (s.locked && !(state.unlocked || []).includes(s.id)) {
@@ -378,9 +548,37 @@ function render() {
     });
     spaces.append(b);
   });
+
+  // Motion: the new Space slides in from its side of the pager; otherwise rows
+  // move to their new places and the selection glides to the new tab.
+  const sidebar = $('sidebar');
+  if (spaceChanged) {
+    const from = state.spaces.findIndex((s) => s.id === shownSpace);
+    const to = state.spaces.findIndex((s) => s.id === state.active_space);
+    Motion.swipe([$('pinned'), document.querySelector('.space-head'), $('scroll')], to >= from ? 1 : -1);
+    const dot = document.querySelector('#spaces .dot.active');
+    if (dot) glideTo(fromDot, dot, sidebar);
+  } else if (before) {
+    Motion.play(before, listRoots, sidebar);
+    const node = document.querySelector('#sidebar [aria-selected="true"]');
+    if (fromActive && node) glideTo(fromActive, node, sidebar);
+  }
+  shownSpace = state.active_space;
+  shownActive = current?.id ?? null;
 }
 
-listen('state', (e) => { state = e.payload; render(); });
+// Hands the selected look from one row to another (Crest's matched geometry).
+function glideTo(from, node, layer) {
+  if (!from || Motion.reduced.matches) return;
+  const to = node.getBoundingClientRect();
+  const look = getComputedStyle(node);
+  if (look.backgroundColor === 'rgba(0, 0, 0, 0)' && look.boxShadow === 'none') return;
+  const duration = Motion.ms('--feedback') * 1.2;
+  node.animate([{ backgroundColor: 'transparent', boxShadow: 'none' }, { backgroundColor: 'transparent', boxShadow: 'none', offset: 0.8 }, {}], { duration });
+  Motion.glide(from, to, layer, { background: look.backgroundColor, boxShadow: look.boxShadow, borderRadius: look.borderRadius });
+}
+
+listen('state', (e) => { state = e.payload; if (!drag?.started) render(); });
 listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
 // Window controls (borderless frame)
@@ -405,7 +603,8 @@ function showSuggestions() {
     li.onmousedown = (e) => { e.preventDefault(); pick(s); };
     ul.append(li);
   });
-  ul.hidden = suggestions.length === 0;
+  if (!suggestions.length) ul.hidden = true;
+  else if (ul.hidden) Motion.show(ul);
 }
 
 function hideSuggestions() {
@@ -452,16 +651,13 @@ $('address').addEventListener('keydown', (e) => {
 });
 
 document.querySelectorAll('[data-nav]').forEach((b) => {
-  b.onclick = () => invoke('nav', { action: b.dataset.nav });
+  b.onclick = () => {
+    if (b.dataset.nav === 'reload') Motion.pulse(b, 'm-reload');
+    invoke('nav', { action: b.dataset.nav });
+  };
 });
 $('new-tab').onclick = () => invoke('new_tab', {});
 $('shield').onclick = () => invoke('toggle_site_blocking');
-dragTarget($('new-tab'), null, false);
-$('new-tab').draggable = false;
-$('pinned').addEventListener('dragover', (e) => e.preventDefault());
-$('pinned').addEventListener('drop', (e) => {
-  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true, folder: null });
-});
 
 // Archive and history dialog
 const DAY = new Intl.DateTimeFormat(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long' });
@@ -541,17 +737,81 @@ $('settings-btn').onclick = () => invoke('open_panel', { section: 'look' });
 
 // Floating sidebar: hidden to an edge strip, revealed on hover.
 let peekTimer = null;
+let retreatTimer = null;
 function peek(on) {
   clearTimeout(peekTimer);
+  clearTimeout(retreatTimer);
   if (!state?.settings.floating_sidebar) return;
   document.body.classList.toggle('collapsed', !on);
-  invoke('sidebar_peek', { on });
+  // The page is drawn above this view, so it reclaims the space only after
+  // the sidebar has retreated (CrestMotion.sidebarRetreat).
+  if (on) invoke('sidebar_peek', { on });
+  else retreatTimer = setTimeout(() => invoke('sidebar_peek', { on }), Motion.ms('--sidebar-retreat'));
 }
 $('edge').addEventListener('mouseenter', () => peek(true));
 $('sidebar').addEventListener('mouseenter', () => clearTimeout(peekTimer));
 $('sidebar').addEventListener('mouseleave', () => {
   const busy = document.activeElement === $('address') || !$('ctx').hidden || document.querySelector('dialog[open]');
   if (!busy) peekTimer = setTimeout(() => peek(false), 350);
+});
+
+// A horizontal touchpad swipe over the sidebar pages between Spaces, like
+// Crest's Space pager; past the first or last Space the content shakes.
+let swipeX = 0;
+let swipeReset = null;
+let swipeLocked = false;
+$('sidebar').addEventListener('wheel', (e) => {
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  e.preventDefault();
+  if (swipeLocked) return;
+  swipeX += e.deltaX;
+  clearTimeout(swipeReset);
+  swipeReset = setTimeout(() => { swipeX = 0; }, 160);
+  if (Math.abs(swipeX) < 90) return;
+  const i = state.spaces.findIndex((s) => s.id === state.active_space) + Math.sign(swipeX);
+  swipeX = 0;
+  swipeLocked = true;
+  setTimeout(() => { swipeLocked = false; }, 450);
+  if (i < 0 || i >= state.spaces.length) {
+    for (const node of [$('pinned'), document.querySelector('.space-head'), $('scroll')]) Motion.pulse(node, 'm-shake');
+  } else invoke('switch_space', { id: state.spaces[i].id });
+}, { passive: false });
+
+// Accessibility: icon buttons get spoken names, arrows move between tabs,
+// F6 cycles address bar → tab list → page.
+function labelIconButtons(root) {
+  root.querySelectorAll('button[title]').forEach((b) => {
+    if (!b.textContent.trim()) b.setAttribute('aria-label', b.title.replace(/\s*\(.*\)$/, ''));
+  });
+}
+new MutationObserver(() => labelIconButtons(document.body)).observe(document.body, { childList: true, subtree: true });
+labelIconButtons(document.body);
+
+function tabNodes() {
+  return [...document.querySelectorAll('#pinned [data-tab], #folders .folder, #folders [data-tab], #tabs [data-tab]')];
+}
+function focusTabList() {
+  const nodes = tabNodes();
+  const target = nodes.find((n) => n.getAttribute('aria-selected') === 'true') || nodes[0];
+  if (target) { nodes.forEach((n) => { n.tabIndex = -1; }); target.tabIndex = 0; target.focus(); }
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'F6') {
+    e.preventDefault();
+    if (document.activeElement === $('address')) focusTabList();
+    else if (document.activeElement && document.activeElement.closest('#pinned, #folders, #tabs')) invoke('run_command', { cmd: 'focuspage' });
+    else { $('address').focus(); $('address').select(); }
+    return;
+  }
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(e.key)) return;
+  const nodes = tabNodes();
+  const i = nodes.indexOf(document.activeElement);
+  if (i < 0) return;
+  e.preventDefault();
+  const next = e.key === 'Home' ? 0 : e.key === 'End' ? nodes.length - 1 : Math.max(0, Math.min(nodes.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)));
+  nodes[i].tabIndex = -1;
+  nodes[next].tabIndex = 0;
+  nodes[next].focus();
 });
 
 // Shortcuts while the sidebar itself has focus.
@@ -582,6 +842,31 @@ document.addEventListener('keydown', (e) => {
   e.preventDefault();
 });
 
+// "Now playing": tabs making sound in any Space, with mute and go-to.
+function renderNowPlaying() {
+  const box = $('now-playing');
+  const playing = state.tabs.filter((t) => t.audio || (t.muted && t.awake));
+  if (!playing.length) Motion.hide(box);
+  else if (box.hidden || box.classList.contains('m-leaving')) Motion.show(box, 'rise');
+  if (!playing.length) return;
+  box.replaceChildren();
+  for (const t of playing.slice(0, 3)) {
+    const item = el('div', 'np-item');
+    item.dataset.key = `np${t.id}`;
+    const go = el('button', 'np-title');
+    const space = state.spaces.find((s) => s.id === t.space);
+    go.append(favicon(t), el('span', 'title', tabTitle(t)));
+    go.title = `${tabTitle(t)} · ${space ? space.name : ''}`;
+    go.onclick = () => invoke('activate_tab', { id: t.id });
+    const mute = el('button', 'icon');
+    mute.append(icon(t.muted ? 'muted' : 'sound'));
+    mute.title = t.muted ? 'Ativar som' : 'Silenciar aba';
+    mute.onclick = () => invoke('toggle_mute', { id: t.id });
+    item.append(go, mute);
+    box.append(item);
+  }
+}
+
 // Toasts: crash notices and other one-off messages.
 function toast(text, actions = []) {
   $('toast-text').textContent = text;
@@ -589,10 +874,10 @@ function toast(text, actions = []) {
   box.replaceChildren();
   for (const [label, run, primary] of [...actions, ['Fechar', () => {}]]) {
     const b = el('button', primary ? 'primary' : '', label);
-    b.onclick = () => { $('toast').hidden = true; run(); };
+    b.onclick = () => { Motion.hide($('toast')); run(); };
     box.append(b);
   }
-  $('toast').hidden = false;
+  Motion.show($('toast'), 'rise');
 }
 
 listen('tab-crashed', (e) => {
@@ -639,13 +924,19 @@ listen('downloads', (e) => {
   const before = downloads.length;
   downloads = e.payload;
   drawDownloads();
+  if (downloads.length > before) Motion.pulse($('downloads-btn'), 'm-bounce');
   if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
 });
 $('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };
 $('dl-clear').onclick = () => invoke('clear_downloads');
 invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
 
-invoke('get_state').then((s) => { state = s; render(); });
+invoke('get_state').then((s) => {
+  state = s;
+  render();
+  // First run: Crest-style welcome flow over the whole window.
+  if (!s.settings.welcomed) setTimeout(() => invoke('open_overlay', { mode: 'welcome' }), 300);
+});
 listen('update-available', (e) => {
   toast(`Blazon ${e.payload.version} disponível.`, [
     ['Atualizar', () => { toast('Baixando a atualização…'); invoke('install_update').catch((err) => toast(String(err))); }, true],

@@ -12,6 +12,7 @@ const ICONS = {
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
   puzzle: '<path d="M10 3a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6Z"/>',
+  backup: '<path d="M4 7a2 2 0 0 1 2-2h4l2 2h6a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M12 10v6M9 13l3 3 3-3"/>',
   bug: '<path d="M8 6a4 4 0 0 1 8 0v1H8Z"/><rect x="6" y="7" width="12" height="13" rx="6"/><path d="M12 11v9M3 13h3M18 13h3M4 7l2.5 2M20 7l-2.5 2M4 20l2.5-2.5M20 20l-2.5-2.5"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
@@ -196,8 +197,9 @@ const SECTIONS = {
         group('Idioma',
           select('Idioma da interface', null, [['auto', 'Automático'], ['pt', 'Português'], ['en', 'English']], () => state.settings.language || 'auto', setS('language'))),
         group('Abas',
-          select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas nunca dormem.',
+          select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas e abas tocando som ficam acordadas no Space aberto.',
             [[0, 'Nunca'], [15, '15 minutos'], [30, '30 minutos'], [60, '1 hora'], [240, '4 horas']], S('sleep_minutes'), setS('sleep_minutes'))),
+        memoryGroup(),
         group('Arquivo',
           select('Arquivar abas paradas após', 'Abas soltas sem uso vão para o Arquivo (botão no rodapé da barra). Fixadas e abas em pastas ficam.',
             [[0, 'Nunca'], [12, '12 horas'], [24, '1 dia'], [72, '3 dias'], [168, '1 semana']], S('archive_hours'), setS('archive_hours'))),
@@ -311,6 +313,49 @@ const SECTIONS = {
       ];
     },
   },
+  backup: {
+    title: 'Backup',
+    icon: 'backup',
+    render() {
+      const run = async (button, call) => {
+        button.disabled = true;
+        try { alert(await call()); } catch (err) { if (!/Nenhum arquivo/.test(String(err))) alert(String(err)); }
+        button.disabled = false;
+      };
+      const exp = el('button', 'btn primary', 'Exportar backup…');
+      exp.onclick = () => run(exp, async () => `Backup salvo em ${await invoke('export_backup')}`);
+      const merge = el('button', 'btn', 'Mesclar…');
+      merge.onclick = () => run(merge, () => invoke('restore_backup', { mode: 'merge' }));
+      const replace = el('button', 'btn danger', 'Substituir tudo…');
+      replace.onclick = () => {
+        if (!confirm('Substituir todos os Spaces, abas, histórico e configurações pelos do backup? O Blazon vai reiniciar.')) return;
+        run(replace, () => invoke('restore_backup', { mode: 'replace' }));
+      };
+      const restoreWrap = el('div', 'seg');
+      restoreWrap.style.background = 'none';
+      restoreWrap.append(merge, replace);
+      const folder = state.settings.backup_folder || '';
+      const pick = el('button', 'btn', folder ? 'Trocar pasta…' : 'Escolher pasta…');
+      pick.onclick = async () => { const p = await invoke('pick_folder'); if (p) { saveSettings({ backup_folder: p }); render(); } };
+      const autoWrap = el('div', 'seg');
+      autoWrap.style.background = 'none';
+      autoWrap.append(pick);
+      if (folder) {
+        const off = el('button', 'btn danger', 'Desligar');
+        off.onclick = () => { saveSettings({ backup_folder: '' }); render(); };
+        autoWrap.append(off);
+      }
+      const last = state.last_backup ? new Intl.DateTimeFormat(I18N.locale(), { dateStyle: 'short', timeStyle: 'short' }).format(new Date(state.last_backup * 1000)) : null;
+      return [
+        ...header('Backup', 'Spaces, Studio, abas, pastas, Arquivo, histórico e configurações num arquivo. Logins e cookies ficam no perfil de cada Space e não entram.'),
+        group('Agora', row('Exportar', 'Salva um arquivo .json onde você escolher.', exp)),
+        group('Restaurar',
+          row('De um arquivo de backup', 'Mesclar acrescenta os Spaces do backup aos atuais. Substituir troca tudo e reinicia o Blazon.', restoreWrap)),
+        group('Backup automático',
+          row(folder || 'Desligado', folder ? `Atualizado a cada 10 minutos quando algo muda, com as 5 últimas cópias diárias.${last ? ` Último: ${last}.` : ''}` : 'Escolha uma pasta. Dentro do OneDrive, Google Drive ou Dropbox, o backup chega aos seus outros PCs: lá, use Restaurar.', autoWrap)),
+      ];
+    },
+  },
   links: {
     title: 'Links',
     icon: 'link',
@@ -359,7 +404,7 @@ const SECTIONS = {
       return [
         ...header('Links', 'Como o Blazon abre links de outros apps e prévias rápidas.'),
         group('Links de outros apps',
-          select('Abrir em', 'Quando nenhuma rota combina.', [['', 'Space atual'], ...spaces], S('external_space'), setS('external_space'))),
+          select('Abrir em', 'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.', [['', 'Space atual'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
         routesGroup,
         group('Peek',
           select('Abrir prévia com', 'Clique num link segurando a tecla para ver numa janela flutuante. Esc fecha.', [['shift', 'Shift + clique'], ['alt', 'Alt + clique'], ['off', 'Desligado']], S('peek_modifier'), setS('peek_modifier'))),
@@ -538,11 +583,14 @@ const SECTIONS = {
       const updates = group('Atualizações',
         row('Procurar atualizações automaticamente', 'Uma vez por dia, nas versões publicadas no GitHub. Nada é instalado sem você confirmar.', (() => { const c = el('input', 'switch'); c.type = 'checkbox'; c.checked = state.settings.auto_update !== false; c.onchange = () => saveSettings({ auto_update: c.checked }); return c; })()),
         row('Agora', null, check), status);
+      const again = el('button', 'btn', 'Rever boas-vindas');
+      again.onclick = () => invoke('close_panel').then(() => invoke('open_overlay', { mode: 'welcome' }));
       return [
         logo,
         ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
         version,
         updates,
+        group('Primeiros passos', row('Tela de boas-vindas', 'Escolher a casa, criar Spaces e importar de outros navegadores.', again)),
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
     },
@@ -868,6 +916,33 @@ function permissionsGroup() {
   return g;
 }
 
+// Memory per Space: each Space runs its own WebView2 processes.
+function memoryGroup() {
+  const list = el('div');
+  const load = async () => {
+    list.replaceChildren(el('p', 'lead', 'Carregando…'));
+    const rows = await invoke('memory_usage');
+    list.replaceChildren();
+    if (!rows.length) list.append(el('p', 'lead', 'Nenhum Space com abas carregadas.'));
+    for (const r of rows) {
+      const hint = r.space ? `${r.awake} abas carregadas` : null;
+      const right = el('div', 'seg');
+      right.style.background = 'none';
+      right.append(el('span', 'lead', `${r.mb} MB`));
+      if (r.space && r.awake) {
+        const sleep = el('button', 'btn', 'Dormir agora');
+        sleep.onclick = async () => { await invoke('sleep_space', { space: r.space }); setTimeout(load, 1500); };
+        right.append(sleep);
+      }
+      list.append(row(r.name, hint, right));
+    }
+  };
+  const refresh = el('button', 'btn', 'Medir de novo');
+  refresh.onclick = load;
+  load();
+  return group('Memória', row('Uso por Space', 'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.', refresh), list);
+}
+
 function accentRow() {
   const wrap = el('div', 'seg');
   wrap.style.background = 'none';
@@ -909,7 +984,12 @@ function render() {
   const key = section.startsWith('spaces:') ? 'spaces' : section;
   main.replaceChildren(...(SECTIONS[key] || SECTIONS.look).render());
   main.scrollTop = top;
+  // A new page or Studio step settles in; edits on the same page stay still.
+  const view = key === 'spaces' ? `spaces:${studioSpace}:${studioStep}` : key;
+  if (shownView !== null && shownView !== view) Motion.enter(main);
+  shownView = view;
 }
+let shownView = null;
 
 $('close').append(icon('x'));
 $('close').onclick = () => invoke('close_panel');

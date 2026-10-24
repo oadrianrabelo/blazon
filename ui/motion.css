@@ -1,0 +1,72 @@
+/* Motion, ported from Crest's CrestMotion tokens (CrestShared/DesignSystem/Tokens/CrestMotion.swift).
+ * SwiftUI's springs become CSS linear() curves sampled from the same physics:
+ *   snappy = spring(bounce: .15), smooth = spring(bounce: 0).
+ * A spring keeps moving after its nominal duration, so durations below are the
+ * nominal Crest value × the settle factor (1.29 snappy, 1.35 smooth).
+ * Windows' "Animation effects" off (prefers-reduced-motion) keeps fades and drops movement. */
+
+@property --c0 { syntax: '<color>'; inherits: true; initial-value: #1e2833; }
+@property --c1 { syntax: '<color>'; inherits: true; initial-value: #3e4e5e; }
+@property --c2 { syntax: '<color>'; inherits: true; initial-value: #86adc4; }
+
+:root {
+  --snappy: linear(0, 0.047, 0.156, 0.289, 0.426, 0.552, 0.661, 0.752, 0.825, 0.881, 0.922, 0.952, 0.974, 0.988, 0.997, 1.002, 1.005, 1.006, 1.006, 1.006, 1.005, 1.004, 1.003, 1.003, 1);
+  --smooth: linear(0, 0.05, 0.158, 0.286, 0.413, 0.527, 0.626, 0.707, 0.774, 0.826, 0.868, 0.9, 0.925, 0.943, 0.958, 0.969, 0.977, 0.983, 0.987, 0.991, 0.993, 0.995, 0.996, 0.997, 1);
+  --press: .14s;            /* easeOut */
+  --surface: .12s;          /* easeInOut */
+  --hover: .14s;            /* easeInOut */
+  --selection: .2s;         /* easeInOut */
+  --dismissal: .18s;        /* easeOut */
+  --content-reveal: .12s;   /* easeOut */
+  --collection: .284s;      /* snappy .22 */
+  --disclosure: .258s;      /* snappy .20 */
+  --step: .387s;            /* snappy .30 */
+  --toolbar: .31s;          /* snappy .24 */
+  --feedback: .284s;        /* snappy .22 */
+  --space-swipe: .413s;     /* snappy .32 */
+  --floating-pane: .324s;   /* smooth .24 */
+  --chrome: .378s;          /* smooth .28 */
+  --sidebar-retreat: .405s; /* smooth .30 */
+  --loading: .297s;         /* smooth .22 */
+  --quick-peek: .459s;      /* smooth .34 */
+  --drag-preview: .243s;    /* smooth .18 */
+  --drag-source: .258s;     /* snappy .20 */
+  --move: 1;                /* 0 when motion is reduced */
+  --pressed-scale: .975;    /* CrestButtonMetrics.pressedScale */
+  --icon-pressed-scale: .94;
+  transition: --c0 var(--space-swipe) var(--snappy), --c1 var(--space-swipe) var(--snappy), --c2 var(--space-swipe) var(--snappy);
+}
+@media (prefers-reduced-motion: reduce) {
+  :root { --move: 0; --pressed-scale: 1; --icon-pressed-scale: 1; }
+}
+
+/* Hover, selection and press feedback on every control. */
+button, .tab, .pin, .folder, .dot, .row, .house, .np-title {
+  transition: background-color var(--hover) ease-in-out, color var(--hover) ease-in-out,
+    box-shadow var(--selection) ease-in-out, opacity var(--selection) ease-in-out, transform var(--press) ease-out;
+}
+button:active:not(:disabled), .tab:active, .folder:active { transform: scale(var(--pressed-scale)); }
+.icon:active:not(:disabled), .pin:active, .dot:active { transform: scale(var(--icon-pressed-scale)); }
+button:disabled { opacity: .42; }
+
+/* Presentations: floating panes scale up from .985 (Crest's .opacity + .scale(0.985)). */
+@keyframes m-pane-in { from { opacity: 0; transform: scale(calc(1 - .015 * var(--move))); } }
+@keyframes m-pane-out { to { opacity: 0; transform: scale(calc(1 - .015 * var(--move))); } }
+@keyframes m-rise-in { from { opacity: 0; transform: translateY(calc(12px * var(--move))); } }
+@keyframes m-rise-out { to { opacity: 0; transform: translateY(calc(12px * var(--move))); } }
+@keyframes m-drop-in { from { opacity: 0; transform: translateY(calc(-6px * var(--move))); } }
+@keyframes m-fade-in { from { opacity: 0; } }
+@keyframes m-fade-out { to { opacity: 0; } }
+.m-leaving { pointer-events: none; }
+
+/* Reload: a quarter turn out and back (BrowserReloadFeedbackIcon). */
+@keyframes m-reload { 50% { transform: rotate(calc(90deg * var(--move))); animation-timing-function: ease-in; } }
+.m-reload svg { animation: m-reload .24s ease-out; }
+
+/* Symbol bounce, e.g. the downloads icon when a download starts. */
+@keyframes m-bounce { 30% { transform: scale(calc(1 + .22 * var(--move))); } 60% { transform: scale(calc(1 - .06 * var(--move))); } }
+.m-bounce svg { animation: m-bounce .5s var(--smooth); }
+
+/* Boundary shake when a Space swipe has nowhere to go. */
+@keyframes m-shake { 20% { transform: translateX(calc(-6px * var(--move))); } 45% { transform: translateX(calc(5px * var(--move))); } 70% { transform: translateX(calc(-3px * var(--move))); } }
+.m-shake { animation: m-shake .36s ease-in-out; }

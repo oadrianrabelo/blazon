@@ -1,6 +1,6 @@
 [package]
 name = "blazon"
-version = "0.1.0"
+version = "0.1.1"
 description = "Blazon - a lightweight Windows browser with Spaces and heraldic crests"
 edition = "2021"
 license = "MPL-2.0"
@@ -12,6 +12,7 @@ tauri-build = { version = "2", features = [] }
 tauri = { version = "2.12", features = ["unstable"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.22"
 url = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
@@ -19,7 +20,7 @@ adblock = { version = "0.13", default-features = false, features = ["embedded-do
 
 [target.'cfg(windows)'.dependencies]
 webview2-com = "0.39"
-windows = { version = "0.62", features = ["Win32_System_Com", "Win32_System_WinRT", "Win32_Foundation", "Security_Credentials_UI", "Foundation"] }
+windows = { version = "0.62", features = ["Win32_System_Com", "Win32_System_WinRT", "Win32_Foundation", "Win32_System_ProcessStatus", "Win32_System_Threading", "Security_Credentials_UI", "Win32_UI_Shell", "Foundation"] }
 windows-core = "0.62"
 windows-future = "0.3"
 

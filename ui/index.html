@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>Blazon</title>
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="motion.css">
 </head>
 <body>
   <div id="banner" class="banner" aria-hidden="true"></div>
@@ -30,7 +31,7 @@
       <ul id="suggest" class="suggest" hidden></ul>
     </form>
 
-    <div id="pinned" class="pinned"></div>
+    <div id="pinned" class="pinned" role="toolbar" aria-label="Fixadas"></div>
 
     <div class="space-head">
       <button id="space-name" class="space-name" title="Editar Space"></button>
@@ -38,11 +39,12 @@
     </div>
 
     <div class="scroll" id="scroll">
-      <ul id="folders" class="tabs"></ul>
+      <ul id="folders" class="tabs" role="tree" aria-label="Pastas"></ul>
       <button id="new-tab" class="row new-tab" title="Nova aba (Ctrl+T)"><span data-i="plus"></span>Nova aba</button>
-      <ul id="tabs" class="tabs"></ul>
+      <ul id="tabs" class="tabs" role="listbox" aria-label="Abas"></ul>
     </div>
 
+    <div id="now-playing" class="now-playing" hidden aria-label="Tocando agora"></div>
     <footer data-tauri-drag-region>
       <button id="settings-btn" class="icon" data-i="gear" title="Configurações"></button>
       <div class="switcher">
@@ -91,6 +93,7 @@
   <script src="houses.js"></script>
   <script src="charges.js"></script>
   <script src="crest.js"></script>
+  <script src="motion.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
