@@ -239,6 +239,7 @@ $('scroll').addEventListener('contextmenu', (e) => {
 function render() {
   const space = activeSpace();
   const current = activeTab();
+  I18N.sync(state.settings.language);
   applyLook(space);
   applyAppearance(state.settings);
   document.body.classList.toggle('right', !!state.settings.sidebar_right);
@@ -463,7 +464,7 @@ $('pinned').addEventListener('drop', (e) => {
 });
 
 // Archive and history dialog
-const DAY = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
+const DAY = new Intl.DateTimeFormat(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long' });
 let historySeq = 0;
 let historyTab = 'archive';
 

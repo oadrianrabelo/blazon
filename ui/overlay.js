@@ -219,6 +219,7 @@ async function startPeek() {
 
 invoke('get_state').then((s) => {
   state = s;
+  I18N.sync(state.settings.language);
   applySpaceLook();
   if (mode === 'peek') startPeek();
   else startPalette();

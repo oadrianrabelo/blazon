@@ -193,6 +193,8 @@ const SECTIONS = {
       open.onclick = () => invoke('open_default_apps');
       return [
         ...header('Geral', 'Memória, inicialização e navegador padrão.'),
+        group('Idioma',
+          select('Idioma da interface', null, [['auto', 'Automático'], ['pt', 'Português'], ['en', 'English']], () => state.settings.language || 'auto', setS('language'))),
         group('Abas',
           select('Dormir abas em segundo plano após', 'Libera memória; a aba recarrega quando você volta. Fixadas nunca dormem.',
             [[0, 'Nunca'], [15, '15 minutos'], [30, '30 minutos'], [60, '1 hora'], [240, '4 horas']], S('sleep_minutes'), setS('sleep_minutes'))),
@@ -879,6 +881,6 @@ function render() {
 $('close').append(icon('x'));
 $('close').onclick = () => invoke('close_panel');
 addEventListener('keydown', (e) => { if (e.key === 'Escape') invoke('close_panel'); });
-listen('state', (e) => { const first = !state; state = e.payload; if (first) render(); else applySpaceLook(); });
+listen('state', (e) => { const first = !state; state = e.payload; I18N.sync(state.settings.language); if (first) render(); else applySpaceLook(); });
 listen('section', (e) => { section = e.payload; render(); });
-invoke('get_state').then((s) => { state = s; render(); });
+invoke('get_state').then((s) => { state = s; I18N.sync(state.settings.language); render(); });

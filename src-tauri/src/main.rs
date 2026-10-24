@@ -207,6 +207,8 @@ struct Settings {
     passwords: bool,
     /// Hours before an idle tab (not pinned, not in a folder) is archived; 0 disables.
     archive_hours: u64,
+    /// Interface language: auto, pt or en.
+    language: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -233,6 +235,7 @@ impl Default for Settings {
             adblock_allow: vec![],
             passwords: true,
             archive_hours: 0,
+            language: "auto".into(),
         }
     }
 }
@@ -562,10 +565,11 @@ fn set_visit_title(app: &AppHandle, space: &str, url: &str, title: &str) {
 
 /// What the start page shows: the Space's look and its most visited sites.
 fn start_page_data(app: &AppHandle, space: &str) -> String {
-    let (sp, search) = with_data(app, |d| {
+    let (sp, search, lang) = with_data(app, |d| {
         (
             d.spaces.iter().find(|s| s.id == space).cloned(),
             d.search_for(space).to_string(),
+            d.settings.language.clone(),
         )
     });
     let mut by_host: HashMap<String, (u32, Visit)> = HashMap::new();
@@ -595,7 +599,7 @@ fn start_page_data(app: &AppHandle, space: &str) -> String {
         .take(8)
         .map(|(_, v)| serde_json::json!({ "url": v.url, "title": v.title }))
         .collect();
-    serde_json::json!({ "space": sp, "search": search, "sites": sites }).to_string()
+    serde_json::json!({ "space": sp, "search": search, "sites": sites, "lang": lang }).to_string()
 }
 
 fn save_history(app: &AppHandle) {

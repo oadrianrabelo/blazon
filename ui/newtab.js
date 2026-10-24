@@ -3,7 +3,7 @@ const $ = (id) => document.getElementById(id);
 
 function greeting() {
   const h = new Date().getHours();
-  const day = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
+  const day = new Intl.DateTimeFormat(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date());
   return `${h < 5 ? 'Boa noite' : h < 12 ? 'Bom dia' : h < 18 ? 'Boa tarde' : 'Boa noite'} · ${day}`;
 }
 
@@ -21,7 +21,8 @@ function favicon(url, label) {
   return box;
 }
 
-window.crestStart = ({ space, search, sites }) => {
+window.crestStart = ({ space, search, sites, lang }) => {
+  I18N.sync(lang);
   if (space) {
     const { colors, pattern } = look(space);
     colors.forEach((c, i) => document.documentElement.style.setProperty(`--c${i}`, c));
