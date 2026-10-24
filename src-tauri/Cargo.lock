@@ -304,7 +304,7 @@ dependencies = [
 
 [[package]]
 name = "blazon"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "adblock",
  "base64 0.22.1",

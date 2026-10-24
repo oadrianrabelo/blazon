@@ -113,8 +113,6 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Memória**: Spaces que não estão abertos em nenhuma janela dormem por completo, fixadas
   incluídas, e liberam o processo deles. Configurações → Geral → **Memória** mostra quanto cada
   Space usa e tem o botão **Dormir agora**.
-- **Tocando agora**: abas com som aparecem num cartão acima do rodapé, com botões de mudo e de
-  ir até a aba, mesmo quando estão em outra pasta.
 - **Traduzir página**: clique direito na aba → Traduzir página (ou paleta). A página abre pelo
   Google Tradutor no idioma da interface.
 - **Arquivo**: abas fechadas vão para o Arquivo (ícone de caixa no rodapé), junto com abas
@@ -140,6 +138,9 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
   "Abrir como aba", "Copiar link" ou Esc para fechar. A tecla muda em Configurações → Links.
 - **Links de outros apps**: com o Blazon como navegador padrão, eles abrem como abas na
   janela já aberta.
+- **Janela rápida**: em Configurações → Links → Abrir em, escolha **Janela rápida**. O link abre
+  numa janela pequena, sem trazer o navegador para frente. No alto, escolha o Space e clique em
+  **Abrir no Blazon** para levar a página como aba, ou feche a janela.
 - **Rotas**: em Configurações → Links você manda endereços com um trecho (ex.: `figma.com`)
   sempre para um Space, e escolhe o Space padrão para o resto. Em "Abrir em" também dá para
   escolher **Peek**: o link de outro app abre como prévia flutuante, sem virar aba.
@@ -185,6 +186,17 @@ erro do próprio site (404, 500) e avisos de certificado continuam como vêm.
 
 Clique no ícone de livro na barra (ou paleta → Modo leitura). A página vira um texto limpo, com
 tipografia confortável que segue o tema claro/escuro do Windows. Clique de novo para voltar.
+
+## Widgets e downloads
+
+- Acima do rodapé fica um **baralho de cartões**: um para cada aba tocando som (com mudo e ir
+  para a aba) e um quando há atualização. Deslize para os lados, use os pontos ou as setas.
+- Ao começar um download, o ícone voa até o botão de downloads.
+
+## Primeiros passos
+
+Um guia com prática que não mexe nas suas abas: fixar, pastas, limpar abas soltas, lado a lado,
+paleta e Peek. Abre depois das boas-vindas e em **Configurações → Sobre → Abrir guia**.
 
 ## Backup e sincronização
 

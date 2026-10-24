@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.2
+
+Mais perto do Crest do Mac:
+- **Baralho de widgets** na barra lateral: "Tocando agora" e o aviso de atualização viram cartões
+  de vidro empilhados; deslize para os lados, use os pontos ou as setas.
+- **Download que voa** da página até o botão de downloads.
+- **Primeiros passos**: guia com cinco lições e uma barra de prática (fixar, pastas, limpar,
+  lado a lado, paleta e Peek), aberto depois das boas-vindas e em Configurações → Sobre.
+- **Janela rápida** para links de outros apps (Configurações → Links → Abrir em): uma janela
+  pequena onde você escolhe o Space e abre a página como aba.
+- **Cantos arredondados** no cartão da página, no painel, no Peek e na janela rápida.
+
 ## 0.1.1
 
 - **Backup e sincronização**: exportar e restaurar (substituir tudo ou mesclar), e backup
