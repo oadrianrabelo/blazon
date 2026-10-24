@@ -157,3 +157,23 @@ pub fn set_muted(wv: &Webview, muted: bool) {
         }
     });
 }
+
+/// Whether the page has its own history to go back to.
+pub async fn can_go_back(wv: &Webview) -> bool {
+    let (tx, rx) = std::sync::mpsc::channel();
+    let _ = wv.with_webview(move |pv| unsafe {
+        let mut b = BOOL::default();
+        let ok = pv
+            .controller()
+            .CoreWebView2()
+            .and_then(|c| c.CanGoBack(&mut b))
+            .is_ok();
+        let _ = tx.send(ok && b.as_bool());
+    });
+    tauri::async_runtime::spawn_blocking(move || {
+        rx.recv_timeout(std::time::Duration::from_secs(2))
+            .unwrap_or(true)
+    })
+    .await
+    .unwrap_or(true)
+}

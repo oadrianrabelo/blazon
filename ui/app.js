@@ -198,8 +198,33 @@ function tabMenu(e, t) {
   showMenu(e, items);
 }
 
+const FOLDER_COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#3b82f6', '#6366f1', '#a855f7', '#ec4899', '#a3a3a3', '#f5f5f4', '#78716c'];
+let folderEditing = null;
+let folderColor = '';
+function openFolderDialog(f) {
+  folderEditing = f;
+  folderColor = f.color || '';
+  const box = $('fd-colors');
+  box.replaceChildren();
+  for (const c of FOLDER_COLORS) {
+    const b = el('button', c === folderColor ? 'sel' : '');
+    b.type = 'button';
+    b.style.background = c;
+    b.onclick = () => { folderColor = c; [...box.children].forEach((x) => x.classList.toggle('sel', x === b)); };
+    box.append(b);
+  }
+  $('fd-icon').value = f.icon || '';
+  $('folder-dialog').showModal();
+}
+$('fd-reset').onclick = () => { invoke('update_folder', { id: folderEditing.id, color: '', icon: '' }); $('folder-dialog').close(); };
+$('folder-dialog').addEventListener('close', () => {
+  if ($('folder-dialog').returnValue !== 'save' || !folderEditing) return;
+  invoke('update_folder', { id: folderEditing.id, color: folderColor, icon: $('fd-icon').value.trim() });
+});
+
 function folderMenu(e, f) {
   showMenu(e, [
+    { label: 'Cor e ícone…', icon: 'edit', run: () => openFolderDialog(f) },
     { label: 'Renomear', icon: 'edit', run: () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); } },
     { label: 'Excluir pasta (mantém as abas)', icon: 'x', run: () => invoke('delete_folder', { id: f.id }) },
   ]);
@@ -276,7 +301,13 @@ function render() {
     const head = el('li', 'folder' + (f.open ? ' open' : ''));
     const chev = icon('chev');
     chev.classList.add('chev');
-    head.append(icon('folder'), el('span', 'title', f.name));
+    if (f.icon) head.append(el('span', 'emoji', f.icon));
+    else {
+      const fi = icon('folder');
+      if (f.color) fi.style.color = f.color;
+      head.append(fi);
+    }
+    head.append(el('span', 'title', f.name));
     if (window.folderCounts) head.append(el('span', 'count', String(tabs.filter((x) => x.folder === f.id).length)));
     head.append(chev);
     head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
@@ -323,6 +354,19 @@ function render() {
     }
     b.onclick = () => invoke('switch_space', { id: s.id });
     b.ondblclick = () => openStudio(s);
+    // Drag to reorder Spaces.
+    b.draggable = true;
+    b.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/space', s.id); });
+    b.addEventListener('dragover', (ev) => { if (ev.dataTransfer.types.includes('text/space')) { ev.preventDefault(); b.classList.add('drop-before'); } });
+    b.addEventListener('dragleave', () => b.classList.remove('drop-before'));
+    b.addEventListener('drop', (ev) => {
+      b.classList.remove('drop-before');
+      const id = ev.dataTransfer.getData('text/space');
+      if (!id || id === s.id) return;
+      ev.preventDefault();
+      const from = state.spaces.findIndex((x) => x.id === id);
+      invoke('move_space', { id, to: from < i ? i - 1 : i });
+    });
     spaces.append(b);
   });
 }

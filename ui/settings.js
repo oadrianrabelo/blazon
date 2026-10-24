@@ -32,6 +32,15 @@ function el(tag, cls, text) {
 // Repository for problem reports (GitHub redirects it if the repository is renamed).
 const REPO_URL = 'https://github.com/oadrianrabelo/crest-windows-vibe-coded';
 let reportDraft = '';
+const SEARCH_ENGINES = [
+  ['https://duckduckgo.com/?q=', 'DuckDuckGo'],
+  ['https://www.google.com/search?q=', 'Google'],
+  ['https://www.bing.com/search?q=', 'Bing'],
+  ['https://search.brave.com/search?q=', 'Brave Search'],
+  ['https://www.startpage.com/do/search?q=', 'Startpage'],
+  ['https://www.ecosia.org/search?q=', 'Ecosia'],
+  ['https://kagi.com/search?q=', 'Kagi'],
+];
 let state = null;
 let section = decodeURIComponent(location.hash.slice(1)) || 'look';
 
@@ -198,15 +207,7 @@ const SECTIONS = {
     title: 'Busca',
     icon: 'search',
     render() {
-      const engines = [
-        ['https://duckduckgo.com/?q=', 'DuckDuckGo'],
-        ['https://www.google.com/search?q=', 'Google'],
-        ['https://www.bing.com/search?q=', 'Bing'],
-        ['https://search.brave.com/search?q=', 'Brave Search'],
-        ['https://www.startpage.com/do/search?q=', 'Startpage'],
-        ['https://www.ecosia.org/search?q=', 'Ecosia'],
-        ['https://kagi.com/search?q=', 'Kagi'],
-      ];
+      const engines = SEARCH_ENGINES;
       const known = engines.some(([u]) => u === state.settings.search);
       const custom = el('input');
       custom.type = 'url';
@@ -609,7 +610,22 @@ function renderStudio() {
     } catch (err) { alert(err); }
   };
   if (!space.private) actions.append(lockBtn);
-  meta.append(name, actions);
+  const engines = [['', 'Busca padrão do Blazon'], ...SEARCH_ENGINES];
+  const search = el('select');
+  for (const [v, l] of engines) { const o = el('option', '', l); o.value = v; search.append(o); }
+  search.value = engines.some(([v]) => v === (space.search || '')) ? (space.search || '') : '';
+  search.title = 'Mecanismo de busca usado neste Space';
+  search.onchange = () => { space.search = search.value; invoke('set_space_search', { id: space.id, search: search.value }); };
+  const order = el('div', 'row-btns');
+  const idx = state.spaces.indexOf(space);
+  for (const [label, to] of [['↑ Subir', idx - 1], ['↓ Descer', idx + 1]]) {
+    const b = el('button', 'btn', label);
+    b.disabled = to < 0 || to >= state.spaces.length;
+    b.onclick = async () => { await invoke('move_space', { id: space.id, to }); state = await invoke('get_state'); render(); };
+    order.append(b);
+  }
+  order.append(search);
+  meta.append(name, actions, order);
   head.append(pc, mini, meta);
 
   const steps = el('div', 'steps');

@@ -107,6 +107,9 @@ struct Space {
     /// Needs Windows Hello before its tabs are shown.
     #[serde(default)]
     locked: bool,
+    /// Search engine for this Space; empty uses the global one.
+    #[serde(default)]
+    search: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -132,6 +135,12 @@ struct Tab {
     awake: bool,
     #[serde(default)]
     last_active: u64,
+    /// Recent addresses of this tab, so Back works after the app restarts
+    /// (WebView2 can't restore a tab's own history).
+    #[serde(default)]
+    trail: Vec<String>,
+    #[serde(skip)]
+    trail_nav: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -141,6 +150,11 @@ struct Folder {
     name: String,
     #[serde(default)]
     open: bool,
+    /// Custom folder color (hex) and icon (an emoji); empty uses the defaults.
+    #[serde(default)]
+    color: String,
+    #[serde(default)]
+    icon: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -272,6 +286,15 @@ impl Data {
         }
     }
 
+    /// Search engine prefix for a Space.
+    fn search_for(&self, space: &str) -> &str {
+        self.spaces
+            .iter()
+            .find(|s| s.id == space && !s.search.is_empty())
+            .map(|s| s.search.as_str())
+            .unwrap_or(&self.settings.search)
+    }
+
     fn is_locked(&self, space: &str) -> bool {
         self.spaces.iter().any(|s| s.id == space && s.locked)
             && !self.unlocked.iter().any(|u| u == space)
@@ -324,6 +347,7 @@ impl Data {
                 downloads: String::new(),
                 look: serde_json::Value::Null,
                 locked: false,
+                search: String::new(),
             });
         }
         let spaces: Vec<String> = self
@@ -434,7 +458,7 @@ fn start_page_data(app: &AppHandle, space: &str) -> String {
     let (sp, search) = with_data(app, |d| {
         (
             d.spaces.iter().find(|s| s.id == space).cloned(),
-            d.settings.search.clone(),
+            d.search_for(space).to_string(),
         )
     });
     let mut by_host: HashMap<String, (u32, Visit)> = HashMap::new();
@@ -696,6 +720,16 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
             }
             let mut title = String::new();
             update_tab(app, id, |t| {
+                if !loading && !t.url.is_empty() && t.url != url {
+                    if t.trail_nav {
+                        t.trail_nav = false;
+                    } else {
+                        t.trail.push(t.url.clone());
+                        if t.trail.len() > 15 {
+                            t.trail.remove(0);
+                        }
+                    }
+                }
                 t.url = url.clone();
                 t.loading = loading;
                 title = t.title.clone();
@@ -899,6 +933,8 @@ async fn open_tab(app: &AppHandle, url: String) {
             muted: false,
             awake: false,
             last_active: now(),
+            trail: vec![],
+            trail_nav: false,
         });
         d.active_tab.insert(space, id);
     });
@@ -992,7 +1028,7 @@ async fn get_state(app: AppHandle) -> Data {
 #[tauri::command]
 async fn new_tab(app: AppHandle, url: Option<String>) {
     let url = with_data(&app, |d| {
-        to_url(url.as_deref().unwrap_or(""), &d.settings.search)
+        to_url(url.as_deref().unwrap_or(""), d.search_for(&d.active_space))
     });
     let blank = url.is_empty();
     open_tab(&app, url).await;
@@ -1212,7 +1248,10 @@ async fn clear_history(app: AppHandle) {
 #[tauri::command]
 async fn navigate(app: AppHandle, input: String) {
     let (id, url) = with_data(&app, |d| {
-        (d.active_tab_id(), to_url(&input, &d.settings.search))
+        (
+            d.active_tab_id(),
+            to_url(&input, d.search_for(&d.active_space)),
+        )
     });
     let Some(id) = id else {
         return new_tab(app, Some(input)).await;
@@ -1226,6 +1265,18 @@ async fn navigate(app: AppHandle, input: String) {
     }
 }
 
+async fn can_go_back(wv: &tauri::Webview) -> bool {
+    #[cfg(windows)]
+    {
+        webview2::can_go_back(wv).await
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = wv;
+        true
+    }
+}
+
 #[tauri::command]
 async fn nav(app: AppHandle, action: String) {
     let Some(id) = with_data(&app, |d| d.active_tab_id()) else {
@@ -1234,6 +1285,19 @@ async fn nav(app: AppHandle, action: String) {
     let Some(wv) = app.get_webview(&label(id)) else {
         return;
     };
+    if action == "back" && !can_go_back(&wv).await {
+        // Fresh webview (e.g. after a restart): go back through the saved trail.
+        let prev = with_data(&app, |d| {
+            let t = d.tabs.iter_mut().find(|t| t.id == id)?;
+            let prev = t.trail.pop()?;
+            t.trail_nav = true;
+            Some(prev)
+        });
+        if let Some(u) = prev.and_then(|p| Url::parse(&p).ok()) {
+            let _ = wv.navigate(u);
+        }
+        return;
+    }
     let _ = match action.as_str() {
         "back" => wv.eval("history.back()"),
         "forward" => wv.eval("history.forward()"),
@@ -1293,6 +1357,8 @@ async fn split_tab(app: AppHandle, id: u64, with: Option<u64>) {
                 muted: false,
                 awake: false,
                 last_active: now(),
+                trail: vec![],
+                trail_nav: false,
             });
             o
         }),
@@ -1354,6 +1420,8 @@ fn push_tab(d: &mut Data, space: &str, e: import::Entry, pinned: bool, folder: O
         muted: false,
         awake: false,
         last_active: 0,
+        trail: vec![],
+        trail_nav: false,
     });
 }
 
@@ -1365,6 +1433,8 @@ fn push_folders(d: &mut Data, space: &str, folders: Vec<import::Folder>) {
             space: space.into(),
             name: f.name,
             open: false,
+            color: String::new(),
+            icon: String::new(),
         });
         for e in f.tabs {
             push_tab(d, space, e, false, Some(fid));
@@ -1433,6 +1503,7 @@ fn apply_import(app: &AppHandle, imported: import::Imported, new_space: Option<S
                     downloads: String::new(),
                     look: serde_json::Value::Null,
                     locked: false,
+                    search: String::new(),
                 });
                 sid
             }
@@ -1455,6 +1526,7 @@ fn apply_import(app: &AppHandle, imported: import::Imported, new_space: Option<S
                 downloads: String::new(),
                 look: serde_json::Value::Null,
                 locked: false,
+                search: String::new(),
             });
             for e in sp.pinned {
                 push_tab(d, &sid, e, true, None);
@@ -1524,6 +1596,29 @@ async fn import_html(app: AppHandle, new_space: Option<String>) -> Result<String
 }
 
 #[tauri::command]
+async fn set_space_search(app: AppHandle, id: String, search: String) {
+    with_data(&app, |d| {
+        if let Some(s) = d.spaces.iter_mut().find(|s| s.id == id) {
+            s.search = search;
+        }
+    });
+    commit(&app);
+}
+
+/// Moves a Space to position `to` in the switcher.
+#[tauri::command]
+async fn move_space(app: AppHandle, id: String, to: usize) {
+    with_data(&app, |d| {
+        if let Some(i) = d.spaces.iter().position(|s| s.id == id) {
+            let s = d.spaces.remove(i);
+            let to = to.min(d.spaces.len());
+            d.spaces.insert(to, s);
+        }
+    });
+    commit(&app);
+}
+
+#[tauri::command]
 async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
     with_data(&app, |d| {
         let id = d.new_id();
@@ -1533,6 +1628,8 @@ async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
             space,
             name,
             open: true,
+            color: String::new(),
+            icon: String::new(),
         });
         if let Some(t) = d.tabs.iter_mut().find(|t| Some(t.id) == tab) {
             t.folder = Some(id);
@@ -1543,9 +1640,22 @@ async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
 }
 
 #[tauri::command]
-async fn update_folder(app: AppHandle, id: u64, name: Option<String>, open: Option<bool>) {
+async fn update_folder(
+    app: AppHandle,
+    id: u64,
+    name: Option<String>,
+    open: Option<bool>,
+    color: Option<String>,
+    icon: Option<String>,
+) {
     with_data(&app, |d| {
         if let Some(f) = d.folders.iter_mut().find(|f| f.id == id) {
+            if let Some(color) = color {
+                f.color = color;
+            }
+            if let Some(icon) = icon {
+                f.icon = icon.chars().take(4).collect();
+            }
             if let Some(name) = name {
                 f.name = name;
             }
@@ -1600,6 +1710,7 @@ async fn add_space(
             downloads: String::new(),
             look: look.unwrap_or_default(),
             locked: false,
+            search: String::new(),
         });
         d.active_space = id.clone();
         id
@@ -2099,6 +2210,8 @@ fn main() {
             delete_folder,
             duplicate_tab,
             split_tab,
+            set_space_search,
+            move_space,
             unsplit_tab,
             import_sources,
             import_browser,
@@ -2150,6 +2263,8 @@ fn main() {
                     muted: false,
                     awake: false,
                     last_active: 0,
+                    trail: vec![],
+                    trail_nav: false,
                 });
                 data.active_tab.insert(space, id);
             }
@@ -2169,6 +2284,8 @@ fn main() {
                     muted: false,
                     awake: false,
                     last_active: 0,
+                    trail: vec![],
+                    trail_nav: false,
                 });
                 data.active_tab.insert(space, id);
             }
