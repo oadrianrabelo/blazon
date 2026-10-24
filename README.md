@@ -33,6 +33,8 @@ inteiro junto.
   abas para a pasta), e menu de contexto nas abas: fixar, mover, duplicar, copiar link.
 - **Lado a lado** (Split View): clique direito numa aba → "Lado a lado com…"
   mostra duas abas em cartões vizinhos.
+- **Página inicial** com o brasão e as cores do Space, busca e os sites mais
+  visitados naquele Space.
 - **Importar** do Arc (cada Space vira um Space, com favoritos, pastas e abas
   fixadas) ou dos favoritos do Chrome, Edge, Brave e Vivaldi, em
   Configurações → Importar.
@@ -75,7 +77,9 @@ Estrutura:
 
 - `src-tauri/src/main.rs`: núcleo (Spaces, abas, webviews, persistência em
   `%APPDATA%\app.crest.windows\state.json`).
-- `ui/`: barra lateral em HTML/CSS/JS puro, mais a página de nova aba.
+- `src-tauri/src/import.rs`: leitura do Arc e de favoritos do Chromium.
+- `ui/`: barra lateral (`index.html`, `app.js`), página inicial (`newtab.*`) e
+  casas do Crest Studio (`houses.js`, `crests/`), em HTML/CSS/JS puro.
 
 ## Ainda não tem
 

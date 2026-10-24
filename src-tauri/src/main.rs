@@ -100,6 +100,12 @@ struct Visit {
     url: String,
     title: String,
     time: u64,
+    #[serde(default = "one")]
+    count: u32,
+}
+
+fn one() -> u32 {
+    1
 }
 
 #[derive(Clone, Serialize)]
@@ -236,14 +242,14 @@ fn record_visit(app: &AppHandle, space: &str, url: &str, title: &str) {
     }
     let s = state(app);
     let mut h = s.history.lock().unwrap();
-    let title = match h.iter().position(|v| v.space == space && v.url == url) {
+    let (title, count) = match h.iter().position(|v| v.space == space && v.url == url) {
         Some(i) => {
             let old = h.remove(i);
-            if title.is_empty() { old.title } else { title.to_string() }
+            (if title.is_empty() { old.title } else { title.to_string() }, old.count.saturating_add(1))
         }
-        None => title.to_string(),
+        None => (title.to_string(), 1),
     };
-    h.push(Visit { space: space.into(), url: url.into(), title, time: now() });
+    h.push(Visit { space: space.into(), url: url.into(), title, time: now(), count });
     if h.len() > HISTORY_LIMIT {
         let extra = h.len() - HISTORY_LIMIT;
         h.drain(..extra);
@@ -257,6 +263,28 @@ fn set_visit_title(app: &AppHandle, space: &str, url: &str, title: &str) {
         v.title = title.into();
         s.history_dirty.store(true, Ordering::Relaxed);
     }
+}
+
+/// What the start page shows: the Space's look and its most visited sites.
+fn start_page_data(app: &AppHandle, space: &str) -> String {
+    let (sp, search) = with_data(app, |d| (d.spaces.iter().find(|s| s.id == space).cloned(), d.settings.search.clone()));
+    let mut by_host: HashMap<String, (u32, Visit)> = HashMap::new();
+    for v in state(app).history.lock().unwrap().iter().filter(|v| v.space == space) {
+        let Some(host) = Url::parse(&v.url).ok().and_then(|u| u.host_str().map(String::from)) else { continue };
+        let e = by_host.entry(host).or_insert((0, v.clone()));
+        e.0 += v.count;
+        if v.count > e.1.count {
+            e.1 = v.clone();
+        }
+    }
+    let mut top: Vec<(u32, Visit)> = by_host.into_values().collect();
+    top.sort_by(|a, b| b.0.cmp(&a.0));
+    let sites: Vec<_> = top
+        .into_iter()
+        .take(8)
+        .map(|(_, v)| serde_json::json!({ "url": v.url, "title": v.title }))
+        .collect();
+    serde_json::json!({ "space": sp, "search": search, "sites": sites }).to_string()
 }
 
 fn save_history(app: &AppHandle) {
@@ -412,9 +440,13 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
         .devtools(true)
         .on_page_load(move |wv, payload| {
             let url = payload.url();
-            let url = if is_newtab(url) { String::new() } else { url.to_string() };
+            let newtab = is_newtab(url);
+            let url = if newtab { String::new() } else { url.to_string() };
             let loading = matches!(payload.event(), PageLoadEvent::Started);
             let app = wv.app_handle();
+            if newtab && !loading {
+                let _ = wv.eval(format!("window.crestStart && window.crestStart({})", start_page_data(app, &space)));
+            }
             let mut title = String::new();
             update_tab(app, id, |t| {
                 t.url = url.clone();

@@ -2,21 +2,6 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 
-// Crest Studio houses: sidebar palette (field, middle, lower) and banner pattern,
-// from Crest's SpaceHouse/Tincture definitions.
-const HOUSES = {
-  winter: { title: 'Winter', colors: ['#1e2833', '#3e4e5e', '#86adc4'], pattern: 'diagonal' },
-  lion: { title: 'Lion', colors: ['#3c0e1a', '#722030', '#c9a254'], pattern: 'chevron' },
-  storm: { title: 'Storm', colors: ['#151824', '#313848', '#b08f4a'], pattern: 'quartered' },
-  dragon: { title: 'Dragon', colors: ['#1a100d', '#7a1e12', '#be4438'], pattern: 'bands' },
-  meadow: { title: 'Meadow', colors: ['#152318', '#345738', '#bca766'], pattern: 'lozenges' },
-  iron: { title: 'Iron', colors: ['#0e1a1c', '#2c3a3c', '#9c9781'], pattern: 'stripes' },
-  river: { title: 'River', colors: ['#0f1e2e', '#22486c', '#a85c41'], pattern: 'split' },
-  sun: { title: 'Sun', colors: ['#35160b', '#8b3d1b', '#d09e65'], pattern: 'gradient' },
-  vigil: { title: 'Vigil', colors: ['#101112', '#272a2e', '#7b838c'], pattern: 'checkered' },
-};
-const TILED = ['stripes', 'checkered', 'lozenges', 'gradient'];
-
 const ICONS = {
   back: '<path d="m15 18-6-6 6-6"/>',
   forward: '<path d="m9 18 6-6-6-6"/>',
@@ -36,7 +21,6 @@ const ICONS = {
   split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
-const SHIELD = 'M15.68 17.24L84.32 17.24L84.32 46.88Q84.32 78.08 50 87.44Q15.68 78.08 15.68 46.88Z';
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
 
 const $ = (id) => document.getElementById(id);
@@ -61,25 +45,6 @@ function setIcon(node, name) {
   node.replaceChildren(icon(name));
 }
 
-// Colors
-
-function hexRgb(h) {
-  const n = parseInt(h.slice(1), 16);
-  return [n >> 16, (n >> 8) & 255, n & 255];
-}
-function mix(a, b, t) {
-  const x = hexRgb(a);
-  const y = hexRgb(b);
-  return '#' + x.map((v, i) => Math.round(v * t + y[i] * (1 - t)).toString(16).padStart(2, '0')).join('');
-}
-
-function look(space) {
-  const h = HOUSES[space.house];
-  if (h) return h;
-  const c = /^#[0-9a-f]{6}$/i.test(space.color) ? space.color : '#3b82f6';
-  return { colors: [mix(c, '#0b0d10', 0.22), mix(c, '#0b0d10', 0.5), c], pattern: 'diagonal' };
-}
-
 function emblem(space) {
   if (HOUSES[space.house]) {
     const img = new Image();
@@ -101,21 +66,6 @@ function applyLook(space) {
   banner.className = `banner ${pattern}` + (TILED.includes(pattern) ? ' tiles' : '');
   banner.style.backgroundImage = tileImage(pattern, colors);
   if (!banner.children.length) banner.append(el('div', 'p-mid'), el('div', 'p-low'));
-}
-
-// Crest's tiled banners: a 53px cell (sidebar width / 5), softened to keep the tabs readable.
-function tileImage(pattern, [, c1, c2]) {
-  const s = 53;
-  const cell = (x, y, fill) => `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${fill}" fill-opacity=".2"/>`;
-  const lozenge = (x, y, fill) =>
-    `<path d="M${x + s / 2} ${y}L${x + s} ${y + s / 2}L${x + s / 2} ${y + s}L${x} ${y + s / 2}Z" fill="${fill}" fill-opacity=".2"/>`;
-  let body;
-  if (pattern === 'stripes') body = cell(0, 0, c1) + cell(0, s, c1);
-  else if (pattern === 'checkered') body = cell(0, 0, c1) + cell(s, s, c1);
-  else if (pattern === 'lozenges') body = lozenge(0, 0, c1) + lozenge(s, 0, c2) + lozenge(0, s, c2) + lozenge(s, s, c1);
-  else return '';
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${2 * s}" height="${2 * s}">${body}</svg>`;
-  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
 // Rendering
