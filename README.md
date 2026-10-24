@@ -33,6 +33,9 @@ inteiro junto.
   abas para a pasta), e menu de contexto nas abas: fixar, mover, duplicar, copiar link.
 - **Lado a lado** (Split View): clique direito numa aba → "Lado a lado com…"
   mostra duas abas em cartões vizinhos.
+- **Importar** do Arc (cada Space vira um Space, com favoritos, pastas e abas
+  fixadas) ou dos favoritos do Chrome, Edge, Brave e Vivaldi, em
+  Configurações → Importar.
 - **Navegador padrão**: o instalador `.exe` registra o Crest no Windows. Para
   usar, escolha-o em Configurações → Aplicativos → Aplicativos padrão. Links de
   outros apps abrem como abas na janela já aberta.

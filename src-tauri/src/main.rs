@@ -1,5 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod import;
+
 use std::{
     collections::HashMap,
     fs,
@@ -829,6 +831,65 @@ async fn unsplit_tab(app: AppHandle, id: u64) {
 }
 
 #[tauri::command]
+async fn import_sources() -> Vec<import::Source> {
+    import::sources()
+}
+
+const HOUSES: [&str; 9] = ["winter", "lion", "storm", "dragon", "meadow", "iron", "river", "sun", "vigil"];
+const HOUSE_ACCENTS: [&str; 9] = ["#86adc4", "#c9a254", "#b08f4a", "#be4438", "#bca766", "#9c9781", "#a85c41", "#d09e65", "#7b838c"];
+
+fn push_tab(d: &mut Data, space: &str, e: import::Entry, pinned: bool, folder: Option<u64>) {
+    let id = d.new_id();
+    d.tabs.push(Tab { id, space: space.into(), url: e.url, title: e.title, pinned, folder, loading: false, awake: false, last_active: 0 });
+}
+
+fn push_folders(d: &mut Data, space: &str, folders: Vec<import::Folder>) {
+    for f in folders {
+        let fid = d.new_id();
+        d.folders.push(Folder { id: fid, space: space.into(), name: f.name, open: false });
+        for e in f.tabs {
+            push_tab(d, space, e, false, Some(fid));
+        }
+    }
+}
+
+/// Imports from another browser; imported tabs start asleep. Returns a summary.
+#[tauri::command]
+async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
+    let imported = import::read(&id)?;
+    let summary = with_data(&app, |d| {
+        let before = d.tabs.len();
+        let what = match imported {
+            import::Import::Bookmarks(folders) => {
+                let space = d.active_space.clone();
+                let n = folders.len();
+                push_folders(d, &space, folders);
+                format!("{n} pastas")
+            }
+            import::Import::Spaces(spaces) => {
+                let n = spaces.len();
+                for sp in spaces {
+                    let sid = format!("space-{}", d.new_id());
+                    let h = d.spaces.len() % HOUSES.len();
+                    d.spaces.push(Space { id: sid.clone(), name: sp.name, color: HOUSE_ACCENTS[h].into(), private: false, house: HOUSES[h].into() });
+                    for e in sp.pinned {
+                        push_tab(d, &sid, e, true, None);
+                    }
+                    push_folders(d, &sid, sp.folders);
+                    for e in sp.tabs {
+                        push_tab(d, &sid, e, false, None);
+                    }
+                }
+                format!("{n} Spaces")
+            }
+        };
+        format!("Importado: {what} e {} abas.", d.tabs.len() - before)
+    });
+    commit(&app);
+    Ok(summary)
+}
+
+#[tauri::command]
 async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
     with_data(&app, |d| {
         let id = d.new_id();
@@ -1024,6 +1085,8 @@ fn main() {
             duplicate_tab,
             split_tab,
             unsplit_tab,
+            import_sources,
+            import_browser,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

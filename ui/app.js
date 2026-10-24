@@ -506,8 +506,32 @@ $('settings-btn').onclick = () => {
   $('set-frame').checked = state.settings.native_frame;
   $('set-search').value = state.settings.search;
   $('set-sleep').value = String(state.settings.sleep_minutes);
+  loadImportSources();
   $('settings').showModal();
 };
+
+async function loadImportSources() {
+  const list = $('import-list');
+  list.replaceChildren();
+  const sources = await invoke('import_sources');
+  if (!sources.length) list.append(el('p', 'hint', 'Nenhum navegador compatível encontrado (Arc, Chrome, Edge, Brave, Vivaldi).'));
+  for (const s of sources) {
+    const b = el('button', '', s.name);
+    b.type = 'button';
+    b.onclick = async () => {
+      const what = s.id === 'arc' ? 'Cada Space do Arc vira um Space novo.' : 'Os favoritos entram como pastas no Space atual.';
+      if (!confirm(`Importar de ${s.name}? ${what}`)) return;
+      b.disabled = true;
+      try {
+        alert(await invoke('import_browser', { id: s.id }));
+      } catch (err) {
+        alert(`Não deu para importar: ${err}`);
+      }
+      b.disabled = false;
+    };
+    list.append(b);
+  }
+}
 $('settings').addEventListener('close', () => {
   const settings = {
     sidebar_right: $('set-right').checked,
