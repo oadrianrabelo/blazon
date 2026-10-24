@@ -9,6 +9,8 @@
   de uma extensão numa coluna ao lado da página.
 - **Teste no Windows no CI**: cada build é instalado numa máquina Windows limpa, que abre o
   Blazon, percorre as telas e guarda prints.
+- **Landing page** de download em `site/`, publicada no GitHub Pages.
+- Correções vistas nos prints: Studio em janelas menores e Spaces sugeridos com casas repetidas.
 
 ## 0.1.2
 
