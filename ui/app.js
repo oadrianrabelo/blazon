@@ -32,7 +32,6 @@ const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2'
 
 const $ = (id) => document.getElementById(id);
 let state = null;
-let dragId = null;
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -120,19 +119,146 @@ function favicon(t) {
 const activeSpace = () => state.spaces.find((s) => s.id === state.active_space);
 const activeTab = () => state.tabs.find((t) => t.id === state.active_tab[state.active_space]);
 
-function dragTarget(node, t, pinned) {
-  node.draggable = true;
-  node.addEventListener('dragstart', () => { dragId = t ? t.id : null; });
-  node.addEventListener('dragover', (e) => { e.preventDefault(); node.classList.add('drop-before'); });
-  node.addEventListener('dragleave', () => node.classList.remove('drop-before'));
-  node.addEventListener('drop', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    node.classList.remove('drop-before');
-    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned, folder: t ? t.folder ?? null : null });
-    dragId = null;
+// Drag and drop, Crest style: the tab lifts under the pointer, the others
+// make room for it, and it settles into its new place when dropped.
+let drag = null;
+function dragTarget(node, t) {
+  node.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('.close, .sound')) return;
+    drag = { t, node, x: e.clientX, y: e.clientY, pointer: e.pointerId, started: false };
   });
 }
+
+function dragRoots() { return [$('pinned'), $('folders'), $('tabs')]; }
+
+function startDrag(e) {
+  drag.started = true;
+  hideMenu();
+  const r = drag.node.getBoundingClientRect();
+  drag.dx = e.clientX - r.left;
+  drag.dy = e.clientY - r.top;
+  const ghost = drag.node.cloneNode(true);
+  ghost.removeAttribute('data-key');
+  ghost.classList.add('drag-ghost');
+  Object.assign(ghost.style, { width: `${r.width}px`, height: `${r.height}px`, left: `${r.left}px`, top: `${r.top}px` });
+  document.body.append(ghost);
+  drag.ghost = ghost;
+  drag.kind = drag.node.classList.contains('pin') ? 'pin' : 'row';
+  drag.placeholder = makePlaceholder(drag.kind, drag.t.folder ?? null);
+  drag.node.after(drag.placeholder);
+  drag.node.hidden = true;
+  document.body.classList.add('dragging');
+  try { $('sidebar').setPointerCapture(drag.pointer); } catch { /* pointer already gone */ }
+}
+
+function makePlaceholder(kind, folder) {
+  const p = el(kind === 'pin' ? 'button' : 'li', (kind === 'pin' ? 'pin' : 'tab') + ' placeholder' + (folder != null ? ' in-folder' : ''));
+  p.dataset.key = drag.node.dataset.key;
+  if (folder != null) p.dataset.folder = folder;
+  if (kind === 'row') p.style.height = `${drag.kind === 'row' ? drag.node.offsetHeight || 34 : 34}px`;
+  return p;
+}
+
+// Where the dragged tab would land under the pointer.
+function dropSpot(e) {
+  const hit = document.elementFromPoint(e.clientX, e.clientY);
+  if (!hit || !$('sidebar').contains(hit) || hit.closest('.placeholder')) return null;
+  const pin = hit.closest('#pinned .pin');
+  if (pin && pin !== drag.node) {
+    const r = pin.getBoundingClientRect();
+    return { kind: 'pin', parent: $('pinned'), ref: e.clientX < r.left + r.width / 2 ? pin : pin.nextElementSibling, folder: null };
+  }
+  if (hit.closest('#pinned')) return { kind: 'pin', parent: $('pinned'), ref: null, folder: null };
+  const row = hit.closest('#folders .tab, #tabs .tab');
+  if (row && row !== drag.node) {
+    const r = row.getBoundingClientRect();
+    const folder = row.dataset.folder != null ? Number(row.dataset.folder) : null;
+    return { kind: 'row', parent: row.parentNode, ref: e.clientY < r.top + r.height / 2 ? row : row.nextElementSibling, folder };
+  }
+  const head = hit.closest('.folder');
+  if (head) {
+    const folder = Number(head.dataset.key.slice(1));
+    if (!head.classList.contains('open')) return { into: head, folder };
+    return { kind: 'row', parent: $('folders'), ref: head.nextElementSibling, folder };
+  }
+  if (hit.closest('.new-tab')) return { kind: 'row', parent: $('tabs'), ref: $('tabs').firstElementChild, folder: null };
+  if (hit.closest('#scroll')) return { kind: 'row', parent: $('tabs'), ref: null, folder: null };
+  return null;
+}
+
+function moveDrag(e) {
+  Object.assign(drag.ghost.style, { left: `${e.clientX - drag.dx}px`, top: `${e.clientY - drag.dy}px` });
+  const spot = dropSpot(e);
+  if (!spot) return;
+  document.querySelectorAll('.folder.drop-into').forEach((n) => n.classList.remove('drop-into'));
+  drag.into = null;
+  if (spot.into) {
+    spot.into.classList.add('drop-into');
+    drag.into = spot.folder;
+    return;
+  }
+  const ph = drag.placeholder;
+  let ref = spot.ref;
+  while (ref === drag.node || ref === ph) ref = ref.nextElementSibling;
+  const sameKind = (ph.classList.contains('pin') ? 'pin' : 'row') === spot.kind;
+  const inPlace = sameKind && ph.parentNode === spot.parent && (ph.nextElementSibling === ref
+    || (ph.nextElementSibling === drag.node && drag.node.nextElementSibling === ref));
+  if (inPlace && String(ph.dataset.folder ?? '') === String(spot.folder ?? '')) return;
+  // The others slide out of the way (CrestMotion.collection).
+  const before = Motion.snapshot(...dragRoots());
+  const next = sameKind ? ph : makePlaceholder(spot.kind, spot.folder);
+  if (!sameKind) ph.remove();
+  next.classList.toggle('in-folder', spot.folder != null);
+  if (spot.folder != null) next.dataset.folder = spot.folder; else delete next.dataset.folder;
+  spot.parent.insertBefore(next, ref);
+  drag.placeholder = next;
+  before.delete(next.dataset.key);
+  Motion.play(before, dragRoots());
+}
+
+function endDrag(drop) {
+  const d = drag;
+  drag = null;
+  if (!d?.started) return;
+  document.body.classList.remove('dragging');
+  document.querySelectorAll('.folder.drop-into').forEach((n) => n.classList.remove('drop-into'));
+  let args = null;
+  if (drop && d.into != null) args = { before: null, pinned: false, folder: d.into };
+  else if (drop) {
+    const ph = d.placeholder;
+    let next = ph.nextElementSibling;
+    while (next === d.node) next = next.nextElementSibling;
+    args = { before: next?.dataset.tab ? Number(next.dataset.tab) : null, pinned: ph.parentNode === $('pinned'), folder: ph.dataset.folder != null ? Number(ph.dataset.folder) : null };
+  }
+  // The lifted tab settles onto its slot (CrestMotion.dragPreview), or back home.
+  document.body.classList.add('just-dragged');
+  setTimeout(() => document.body.classList.remove('just-dragged'), 0);
+  if (!args) d.node.after(d.placeholder);
+  const target = d.into != null ? document.querySelector(`.folder[data-key="f${d.into}"]`) : d.placeholder;
+  const home = (target || d.placeholder).getBoundingClientRect();
+  const g = d.ghost;
+  const from = g.getBoundingClientRect();
+  g.animate([{ left: `${from.left}px`, top: `${from.top}px` }, { left: `${home.left}px`, top: `${home.top}px`, scale: 1, opacity: d.into != null ? 0 : 1 }],
+    { duration: Motion.reduced.matches ? 0 : Motion.ms('--drag-preview'), easing: Motion.ease('--smooth'), fill: 'forwards' }).onfinish = () => {
+    g.remove();
+    if (args) invoke('move_tab', { id: d.t.id, ...args }).then(() => { if (d.placeholder.isConnected) render(); });
+    else render();
+  };
+}
+
+addEventListener('pointermove', (e) => {
+  if (!drag || e.pointerId !== drag.pointer) return;
+  if (!drag.started) {
+    if (Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 5) return;
+    startDrag(e);
+  }
+  moveDrag(e);
+});
+addEventListener('pointerup', (e) => { if (drag && e.pointerId === drag.pointer) endDrag(true); });
+addEventListener('pointercancel', () => endDrag(false));
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && drag?.started) { e.preventDefault(); endDrag(false); } }, true);
+// A click right after a drag must not activate the tab underneath.
+addEventListener('click', (e) => { if (document.body.classList.contains('just-dragged')) { e.stopPropagation(); e.preventDefault(); } }, true);
 
 function tabEvents(node, t) {
   // Keyboard: reachable with Tab/arrows, Enter opens, Delete closes, menu key opens the menu.
@@ -329,7 +455,8 @@ function render() {
     }
     li.append(close);
     tabEvents(li, t);
-    dragTarget(li, t, false);
+    if (t.folder != null) li.dataset.folder = t.folder;
+    dragTarget(li, t);
     return li;
   };
 
@@ -362,14 +489,6 @@ function render() {
     };
     head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
     head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
-    head.addEventListener('dragover', (e) => { e.preventDefault(); head.classList.add('drop-before'); });
-    head.addEventListener('dragleave', () => head.classList.remove('drop-before'));
-    head.addEventListener('drop', (e) => {
-      e.preventDefault();
-      head.classList.remove('drop-before');
-      if (dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: false, folder: f.id });
-      dragId = null;
-    });
     folders.append(head);
     if (!f.open) continue;
     for (const t of tabs.filter((x) => x.folder === f.id)) folders.append(tabRow(t, ' in-folder'));
@@ -384,7 +503,7 @@ function render() {
       b.title = tabTitle(t);
       b.append(favicon(t));
       tabEvents(b, t);
-      dragTarget(b, t, true);
+      dragTarget(b, t);
       pinned.append(b);
       continue;
     }
@@ -459,7 +578,7 @@ function glideTo(from, node, layer) {
   Motion.glide(from, to, layer, { background: look.backgroundColor, boxShadow: look.boxShadow, borderRadius: look.borderRadius });
 }
 
-listen('state', (e) => { state = e.payload; render(); });
+listen('state', (e) => { state = e.payload; if (!drag?.started) render(); });
 listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
 // Window controls (borderless frame)
@@ -539,12 +658,6 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
 });
 $('new-tab').onclick = () => invoke('new_tab', {});
 $('shield').onclick = () => invoke('toggle_site_blocking');
-dragTarget($('new-tab'), null, false);
-$('new-tab').draggable = false;
-$('pinned').addEventListener('dragover', (e) => e.preventDefault());
-$('pinned').addEventListener('drop', (e) => {
-  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true, folder: null });
-});
 
 // Archive and history dialog
 const DAY = new Intl.DateTimeFormat(I18N.locale(), { weekday: 'long', day: 'numeric', month: 'long' });

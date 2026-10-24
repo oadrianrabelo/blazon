@@ -15,6 +15,8 @@
   (com gesto de dois dedos no touchpad), pastas, carregamento na barra de endereço, menus,
   paleta, Peek, configurações e página inicial; vidro nos menus. Respeita "Efeitos de animação"
   do Windows.
+- **Arrastar como no Mac**: a aba levanta, as outras abrem espaço e ela assenta no lugar.
+- **Paleta de vidro** sobre a página e **Peek** que cresce e encolhe.
 - Código do app dividido em módulos.
 
 ## 0.1.0

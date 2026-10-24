@@ -406,6 +406,10 @@ fn main() {
             overlay::close_overlay,
             overlay::peek_to_tab,
             overlay::peek_url,
+            overlay::page_snapshot,
+            overlay::peek_geometry,
+            overlay::peek_show,
+            overlay::peek_snapshot,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

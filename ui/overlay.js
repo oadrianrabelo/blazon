@@ -4,17 +4,34 @@ const mode = location.hash.slice(1) || 'palette';
 let state = null;
 
 const shut = () => invoke('close_overlay');
-// The palette folds back before the overlay goes away (CrestMotion.dismissal).
+// The palette folds back and Peek shrinks away before the overlay goes
+// (CrestMotion.dismissal / peekDismissal).
 let closing = false;
 const close = () => {
-  if (mode !== 'palette' || Motion.reduced.matches) return shut();
   if (closing) return;
   closing = true;
+  if (mode === 'peek') return dismissPeek();
+  if (Motion.reduced.matches) return shut();
   document.body.classList.add('closing');
   setTimeout(shut, Motion.ms('--dismissal'));
 };
 addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); close(); } });
 $('backdrop').onclick = close;
+window.__TAURI__.event.listen('dismiss', close);
+
+const place = (node, r) => Object.assign(node.style, { left: `${r.x}px`, top: `${r.y}px`, width: `${r.w}px`, height: `${r.h}px` });
+
+// Glass: a picture of the page goes under the palette so it can blur it,
+// since this view cannot see through to the page itself.
+async function glassBackdrop() {
+  const shot = await invoke('page_snapshot').catch(() => null);
+  if (!shot || closing) return;
+  const img = $('page-shot');
+  place(img, shot.rect);
+  img.style.backgroundImage = `url(${shot.image})`;
+  img.hidden = false;
+  document.body.classList.add('glass');
+}
 
 function el(tag, cls, text) {
   const e = document.createElement(tag);
@@ -180,6 +197,7 @@ function setProvider(key) {
 
 function startPalette() {
   $('palette').hidden = false;
+  glassBackdrop();
   const q = $('pal-q');
   // The app focuses this webview right after creating it.
   requestAnimationFrame(() => q.focus());
@@ -219,12 +237,51 @@ async function startPeek() {
   const side = Math.round(cw * 0.07);
   Object.assign(bar.style, { left: `${cx + side}px`, width: `${cw - 2 * side}px`, top: `${m + 7}px` });
   bar.hidden = false;
+  growPeek();
   $('peek-close').onclick = close;
   $('peek-tab').onclick = () => invoke('peek_to_tab');
   $('peek-copy').onclick = async () => navigator.clipboard.writeText((await invoke('peek_url')) || '');
   const update = async () => { $('peek-url').textContent = host((await invoke('peek_url')) || ''); };
   update();
   setInterval(update, 1500);
+}
+
+// Peek's card grows into place, then the live page appears in it
+// (CrestMotion.quickPeekEntrance, then contentReveal).
+async function growPeek() {
+  let rect = null;
+  for (let i = 0; i < 40 && !rect; i++) {
+    rect = await invoke('peek_geometry');
+    if (!rect) await new Promise((r) => setTimeout(r, 30));
+  }
+  if (!rect) return invoke('peek_show', { show: true });
+  const card = $('peek-card');
+  place(card, rect);
+  card.hidden = false;
+  if (Motion.reduced.matches) return invoke('peek_show', { show: true });
+  card.animate([{ opacity: 0, transform: 'scale(.92)' }, { opacity: 1, transform: 'none' }],
+    { duration: Motion.ms('--quick-peek'), easing: Motion.ease('--smooth') }).onfinish = () => { if (!closing) invoke('peek_show', { show: true }); };
+}
+
+async function dismissPeek() {
+  const shot = await invoke('peek_snapshot').catch(() => null);
+  const card = $('peek-card');
+  if (shot) {
+    place(card, shot.rect);
+    card.style.backgroundImage = `url(${shot.image})`;
+    card.hidden = false;
+    // Swap the live page for its picture only once the picture is ready.
+    const img = new Image();
+    img.src = shot.image;
+    await img.decode().catch(() => {});
+  }
+  await invoke('peek_show', { show: false });
+  if (Motion.reduced.matches) return shut();
+  const d = Motion.ms('--feedback');
+  const easing = Motion.ease('--snappy');
+  card.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: 'scale(.94)' }], { duration: d, easing, fill: 'forwards' });
+  $('peekbar').animate([{ opacity: 1 }, { opacity: 0, transform: 'translateY(-8px)' }], { duration: d, easing, fill: 'forwards' });
+  $('backdrop').animate([{ opacity: 1 }, { opacity: 0 }], { duration: d, fill: 'forwards' }).onfinish = shut;
 }
 
 invoke('get_state').then((s) => {

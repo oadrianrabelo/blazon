@@ -240,6 +240,10 @@ As animações seguem as do Crest, com os mesmos tempos e molas:
 - ao trocar de Space, o conteúdo entra pelo lado do Space escolhido e as cores mudam aos poucos;
 - num touchpad, deslize dois dedos para os lados sobre a barra lateral para trocar de Space;
 - a barra de endereço se preenche com a cor do Space enquanto a página carrega;
+- ao arrastar, a aba levanta com sombra e as outras abrem espaço para ela; solte numa pasta
+  fechada para guardá-la ali, ou entre as fixadas para fixá-la (Esc cancela);
+- a paleta é de vidro: a página aparece desfocada atrás dela;
+- o Peek cresce até o lugar antes de mostrar a página e encolhe ao fechar;
 - botões encolhem de leve ao apertar;
 - menus, paleta, avisos e a barra flutuante aparecem e somem com as transições do Crest.
 

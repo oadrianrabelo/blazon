@@ -28,6 +28,9 @@
   --chrome: .378s;          /* smooth .28 */
   --sidebar-retreat: .405s; /* smooth .30 */
   --loading: .297s;         /* smooth .22 */
+  --quick-peek: .459s;      /* smooth .34 */
+  --drag-preview: .243s;    /* smooth .18 */
+  --drag-source: .258s;     /* snappy .20 */
   --move: 1;                /* 0 when motion is reduced */
   --pressed-scale: .975;    /* CrestButtonMetrics.pressedScale */
   --icon-pressed-scale: .94;

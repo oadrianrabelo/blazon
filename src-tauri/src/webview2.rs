@@ -6,7 +6,7 @@ use std::{cell::RefCell, collections::HashMap, path::PathBuf, sync::mpsc, time::
 use tauri::{AppHandle, Emitter, Webview};
 use webview2_com::{
     take_pwstr, BrowserExtensionEnableCompletedHandler, BrowserExtensionRemoveCompletedHandler,
-    BytesReceivedChangedEventHandler, DownloadStartingEventHandler,
+    BytesReceivedChangedEventHandler, CapturePreviewCompletedHandler, DownloadStartingEventHandler,
     GetNonDefaultPermissionSettingsCompletedHandler, IsDocumentPlayingAudioChangedEventHandler,
     Microsoft::Web::WebView2::Win32::*, ProcessFailedEventHandler,
     ProfileAddBrowserExtensionCompletedHandler, ProfileGetBrowserExtensionsCompletedHandler,
@@ -553,4 +553,52 @@ pub async fn memory_mb(wv: &Webview) -> u64 {
         }
     }
     bytes / 1_048_576
+}
+
+/// A JPEG snapshot of what the webview shows, used to blur the page behind
+/// the palette and to animate Peek away.
+pub async fn capture_jpeg(wv: &Webview) -> Option<Vec<u8>> {
+    use windows::Win32::{
+        System::Com::{IStream, STATFLAG_NONAME, STATSTG, STREAM_SEEK_SET},
+        UI::Shell::SHCreateMemStream,
+    };
+    ask(wv, |pv, tx| unsafe {
+        let (Ok(core), Some(stream)) = (pv.controller().CoreWebView2(), SHCreateMemStream(None))
+        else {
+            let _ = tx.send(None);
+            return;
+        };
+        let read: IStream = stream.clone();
+        let tx2 = tx.clone();
+        let r = core.CapturePreview(
+            COREWEBVIEW2_CAPTURE_PREVIEW_IMAGE_FORMAT_JPEG,
+            &stream,
+            &CapturePreviewCompletedHandler::create(Box::new(move |hr| {
+                let mut bytes = None;
+                if hr.is_ok() {
+                    let mut stat = STATSTG::default();
+                    if read.Stat(&mut stat, STATFLAG_NONAME).is_ok()
+                        && read.Seek(0, STREAM_SEEK_SET, None).is_ok()
+                    {
+                        let mut buf = vec![0u8; stat.cbSize as usize];
+                        let mut n = 0u32;
+                        if read
+                            .Read(buf.as_mut_ptr().cast(), buf.len() as u32, Some(&mut n))
+                            .is_ok()
+                        {
+                            buf.truncate(n as usize);
+                            bytes = Some(buf);
+                        }
+                    }
+                }
+                let _ = tx2.send(bytes);
+                Ok(())
+            })),
+        );
+        if r.is_err() {
+            let _ = tx.send(None);
+        }
+    })
+    .await
+    .flatten()
 }

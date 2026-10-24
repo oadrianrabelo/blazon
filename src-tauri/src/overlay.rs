@@ -3,6 +3,7 @@
 //! whole window; Peek adds a web content webview on top of it.
 
 use super::*;
+use tauri::{EventTarget, Webview};
 
 const OVERLAY: &str = "overlay";
 const PEEK: &str = "peek";
@@ -87,7 +88,15 @@ pub fn open_peek(app: &AppHandle, url: &str) {
         .on_new_window(move |url, _| {
             let app = app_nw.clone();
             if url.host_str() == Some(CMD_HOST) {
-                spawn(async move { close_overlay(app).await });
+                // Let the overlay play Peek's dismissal; it closes everything after.
+                let overlay = overlay_of(&focused_label(&app));
+                if app.get_webview(&overlay).is_none()
+                    || app
+                        .emit_to(EventTarget::webview(overlay), "dismiss", ())
+                        .is_err()
+                {
+                    spawn(async move { close_overlay(app).await });
+                }
             } else {
                 let url = url.to_string();
                 spawn(async move { open_tab(&app, url).await });
@@ -102,9 +111,25 @@ pub fn open_peek(app: &AppHandle, url: &str) {
     if let Ok(wv) = win.add_child(builder, pos, size) {
         #[cfg(windows)]
         webview2::install(app, &wv, None, None, settings.passwords);
-        let _ = wv.set_focus();
+        // The overlay grows Peek's card first and then reveals the page
+        // (peek_show), like Crest's quick Peek entrance.
+        let _ = wv.hide();
+        // Never leave Peek hidden if the overlay could not run its animation.
+        PEEK_HANDLED.store(false, Ordering::Relaxed);
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(1500));
+            if !PEEK_HANDLED.load(Ordering::Relaxed) {
+                if let Some(wv) = app.get_webview(&peek_of(&focused_label(&app))) {
+                    let _ = wv.show();
+                }
+            }
+        });
     }
 }
+
+/// Set once the overlay takes over showing or hiding Peek.
+static PEEK_HANDLED: AtomicBool = AtomicBool::new(false);
 
 #[tauri::command]
 pub async fn open_overlay(app: AppHandle, mode: String, url: Option<String>) {
@@ -139,4 +164,85 @@ pub async fn peek_url(app: AppHandle) -> Option<String> {
     app.get_webview(&peek_of(&focused_label(&app)))
         .and_then(|wv| wv.url().ok())
         .map(|u| u.to_string())
+}
+
+/// A rectangle in CSS pixels of the overlay (which covers the whole window).
+#[derive(Serialize)]
+pub struct Rect {
+    x: f64,
+    y: f64,
+    w: f64,
+    h: f64,
+}
+
+fn css_rect(wv: &Webview) -> Option<Rect> {
+    let scale = wv.window().scale_factor().unwrap_or(1.0);
+    let (p, s) = (wv.position().ok()?, wv.size().ok()?);
+    Some(Rect {
+        x: p.x as f64 / scale,
+        y: p.y as f64 / scale,
+        w: s.width as f64 / scale,
+        h: s.height as f64 / scale,
+    })
+}
+
+#[derive(Serialize)]
+pub struct Snapshot {
+    image: String,
+    rect: Rect,
+}
+
+#[cfg(windows)]
+async fn snapshot(wv: &Webview) -> Option<Snapshot> {
+    use base64::Engine;
+    let rect = css_rect(wv)?;
+    let jpeg = webview2::capture_jpeg(wv).await?;
+    Some(Snapshot {
+        image: format!(
+            "data:image/jpeg;base64,{}",
+            base64::engine::general_purpose::STANDARD.encode(jpeg)
+        ),
+        rect,
+    })
+}
+
+#[cfg(not(windows))]
+async fn snapshot(_: &Webview) -> Option<Snapshot> {
+    None
+}
+
+/// The page under the palette, so the palette can blur it like Crest's glass.
+#[tauri::command]
+pub async fn page_snapshot(app: AppHandle) -> Option<Snapshot> {
+    let id = with_data(&app, |d| d.active_tab_id())?;
+    let wv = app.get_webview(&label(id))?;
+    snapshot(&wv).await
+}
+
+/// Where Peek's card goes, for the overlay's entrance animation.
+#[tauri::command]
+pub async fn peek_geometry(app: AppHandle) -> Option<Rect> {
+    css_rect(&app.get_webview(&peek_of(&focused_label(&app)))?)
+}
+
+/// Shows the previewed page once the card has grown into place, or hides it
+/// while the card shrinks away.
+#[tauri::command]
+pub async fn peek_show(app: AppHandle, show: bool) {
+    PEEK_HANDLED.store(true, Ordering::Relaxed);
+    if let Some(wv) = app.get_webview(&peek_of(&focused_label(&app))) {
+        if show {
+            let _ = wv.show();
+            let _ = wv.set_focus();
+        } else {
+            let _ = wv.hide();
+        }
+    }
+}
+
+/// A picture of the page in Peek, so the overlay can shrink the card away
+/// (Crest's Peek dismissal) before closing.
+#[tauri::command]
+pub async fn peek_snapshot(app: AppHandle) -> Option<Snapshot> {
+    snapshot(&app.get_webview(&peek_of(&focused_label(&app)))?).await
 }
