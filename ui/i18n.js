@@ -4,6 +4,22 @@
 
 const I18N = (() => {
   const EN = {
+    // Custom shortcuts
+    'Seus atalhos': 'Your shortcuts',
+    'Fixos': 'Fixed',
+    'Alterar': 'Change',
+    'Pressione as teclas…': 'Press the keys…',
+    'Restaurar todos os padrões': 'Restore all defaults',
+    'Funcionam na barra lateral e dentro das páginas. Clique em Alterar e pressione a nova combinação; Esc cancela e Backspace desliga o atalho.': 'They work in the sidebar and inside pages. Click Change and press the new combination; Esc cancels and Backspace turns the shortcut off.',
+    'Próxima aba': 'Next tab',
+    'Aba anterior': 'Previous tab',
+    'Mostrar ou esconder as abas': 'Show or hide the tabs',
+    'Abas verticais ou horizontais': 'Vertical or horizontal tabs',
+    'Fixar ou soltar a aba': 'Pin or unpin the tab',
+    'Duplicar a aba': 'Duplicate the tab',
+    'Silenciar a aba': 'Mute the tab',
+    'Abrir as configurações': 'Open settings',
+    'Use Ctrl ou Alt com outra tecla, ou uma tecla F (F1 a F24). Algumas, como Ctrl+C e F6, são do sistema.': 'Use Ctrl or Alt with another key, or a function key (F1 to F24). Some, like Ctrl+C and F6, belong to the system.',
     // Materials and motion
     'Botões da janela': 'Window buttons',
     'Materiais e movimento': 'Materials and motion',
@@ -261,6 +277,8 @@ const I18N = (() => {
     [/^Blazon (.+) disponível\.$/, 'Blazon $1 is available.'],
     [/^Instalar (.+)$/, 'Install $1'],
     [/^Bug: (.+)$/, 'Bug: $1'],
+    [/^Padrão: (.+)$/, 'Default: $1'],
+    [/^(.+) saiu de “(.+)”, que agora está sem atalho\.$/, (m, k, c) => `${k} was taken from “${t(c)}”, which now has no shortcut.`],
   ];
 
   const stored = () => { try { return localStorage.getItem('blazon.lang'); } catch { return null; } };

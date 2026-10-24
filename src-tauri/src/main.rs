@@ -9,6 +9,7 @@ mod hello;
 mod history;
 mod import;
 mod importer;
+mod keys;
 mod model;
 mod overlay;
 mod passwords;
@@ -67,23 +68,28 @@ const CMD_HOST: &str = "blazon-cmd.invalid";
 const NEWTAB_PAGE: &str = "newtab.html";
 
 /// Keyboard shortcuts inside pages, plus Peek on modifier+click of a link.
-fn shortcuts_js(peek_modifier: &str) -> String {
+/// Key handler injected into every site page. The combo → command map comes
+/// from Settings › Shortcuts (keys.rs) and is replaced live by `push_to_pages`.
+fn shortcuts_js(settings: &Settings) -> String {
+    let peek_modifier = settings.peek_modifier.as_str();
     r#"(() => {
   if (window.top !== window) return;
-  const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette', n: 'newwindow' };
+  window.__blazonKeys = KEYMAP;
   const send = (cmd) => window.open('https://blazon-cmd.invalid/' + cmd);
+  const combo = (e) => {
+    let k = e.key;
+    if (/^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+    else if (/^Digit[0-9]$/.test(e.code)) k = e.code.slice(5);
+    else if (k.length === 1) k = k.toUpperCase();
+    if (['Control', 'Alt', 'Shift', 'Meta'].includes(k)) return '';
+    return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+  };
   addEventListener('keydown', (e) => {
     if (e.key === 'F6' && !e.ctrlKey && !e.altKey) { e.preventDefault(); send('address'); return; }
-    if (!e.ctrlKey || e.altKey) return;
-    const k = e.key.toLowerCase();
     const digit = /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
     let cmd = null;
-    if (k === 'tab') cmd = e.shiftKey ? 'prev' : 'next';
-    else if (digit) cmd = (e.shiftKey ? 'space' : 'tab') + digit;
-    else if (!e.shiftKey && keys[k]) cmd = keys[k];
-    else if (e.shiftKey && k === 's') cmd = 'sidebar';
-    else if (e.shiftKey && k === 't') cmd = 'reopen';
-    else if (!e.shiftKey && k === 'h') cmd = 'history';
+    if (digit && e.ctrlKey && !e.altKey) cmd = (e.shiftKey ? 'space' : 'tab') + digit;
+    else cmd = (window.__blazonKeys || {})[combo(e)];
     if (!cmd) return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -99,6 +105,7 @@ fn shortcuts_js(peek_modifier: &str) -> String {
     send('peek?u=' + encodeURIComponent(a.href));
   }, true);
 })();"#
+        .replace("KEYMAP", &keys::map_json(settings))
         .replace(
             "MODIFIER",
             if matches!(peek_modifier, "shift" | "alt" | "off") {
@@ -257,6 +264,34 @@ async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
                 activate_tab(app.clone(), id).await;
             }
         }
+        "reader" => tabs::reader_mode(app.clone()).await,
+        "pin" | "duplicate" | "mute" => {
+            if let Some(id) = with_data(app, |d| d.active_tab_id()) {
+                match cmd {
+                    "pin" => tabs::toggle_pin(app.clone(), id).await,
+                    "duplicate" => tabs::duplicate_tab(app.clone(), id).await,
+                    _ => tabs::toggle_mute(app.clone(), id).await,
+                }
+            }
+        }
+        "settings" => windowing::open_panel(app.clone(), "look".into()).await,
+        "tablayout" => {
+            with_data(app, |d| {
+                let horizontal = d
+                    .settings
+                    .appearance
+                    .get("tabLayout")
+                    .and_then(|v| v.as_str())
+                    == Some("horizontal");
+                if !d.settings.appearance.is_object() {
+                    d.settings.appearance = serde_json::json!({});
+                }
+                d.settings.appearance["tabLayout"] =
+                    serde_json::Value::from(if horizontal { "vertical" } else { "horizontal" });
+            });
+            apply_layout(app);
+            commit(app);
+        }
         c if c.starts_with("space") => {
             let n: usize = c[5..].parse().unwrap_or(1);
             if let Some(id) = with_data(app, |d| d.spaces.get(n - 1).map(|s| s.id.clone())) {
@@ -367,6 +402,9 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             get_state,
             run_command,
+            keys::shortcuts,
+            keys::set_shortcut,
+            keys::reset_shortcuts,
             tabs::new_tab,
             tabs::activate_tab,
             tabs::close_tab,

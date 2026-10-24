@@ -566,23 +566,36 @@ const SECTIONS = {
     title: 'Atalhos',
     icon: 'keys',
     render() {
-      const keys = [
-        ['Nova aba', 'Ctrl+T'], ['Nova janela', 'Ctrl+N'], ['Fechar aba', 'Ctrl+W'], ['Reabrir aba fechada', 'Ctrl+Shift+T'], ['Focar o endereço', 'Ctrl+L'],
-        ['Próxima / anterior', 'Ctrl+Tab / Ctrl+Shift+Tab'], ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'],
-        ['Histórico', 'Ctrl+H'], ['Paleta de comandos', 'Ctrl+K'], ['Peek (prévia do link)', 'Shift+clique'], ['Mostrar ou esconder a barra', 'Ctrl+Shift+S'], ['Voltar / avançar', 'Alt+← / Alt+→'],
-        ['Recarregar', 'F5'], ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],
+      const list = el('section', 'group');
+      list.append(el('h3', '', 'Seus atalhos'));
+      const note = el('p', 'keys-note');
+      note.hidden = true;
+      const draw = (items) => {
+        if (!items) { invoke('shortcuts').then(draw); return; }
+        list.querySelectorAll('.opt').forEach((r) => r.remove());
+        for (const s of items) list.append(shortcutRow(s, note, draw));
+      };
+      invoke('shortcuts').then(draw);
+      const reset = el('button', 'btn', 'Restaurar todos os padrões');
+      reset.onclick = async () => { await invoke('reset_shortcuts'); note.hidden = true; draw(await invoke('shortcuts')); };
+      const actions = el('div', 'row-btns');
+      actions.append(reset);
+      const fixed = [
+        ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'], ['Focar o endereço', 'F6'],
+        ['Peek (prévia do link)', 'Shift+clique'], ['Voltar / avançar', 'Alt+← / Alt+→'], ['Recarregar', 'F5'],
+        ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],
       ];
       const t = el('table', 'keys');
-      for (const [what, k] of keys) {
+      for (const [what, k] of fixed) {
         const tr = el('tr');
         const kd = el('td');
         kd.append(el('kbd', '', k));
         tr.append(el('td', '', what), kd);
         t.append(tr);
       }
-      const g = el('section', 'group');
+      const g = group('Fixos');
       g.append(t);
-      return [...header('Atalhos', 'Funcionam na barra lateral e dentro das páginas.'), g];
+      return [...header('Atalhos', 'Funcionam na barra lateral e dentro das páginas. Clique em Alterar e pressione a nova combinação; Esc cancela e Backspace desliga o atalho.'), note, list, actions, g];
     },
   },
   report: {
@@ -1043,6 +1056,68 @@ function accentRow() {
   color.onchange = () => saveLook({ accent: color.value });
   wrap.append(color, on);
   return row('Cor de destaque própria', 'Substitui a cor do Space nas abas, botões e contornos.', wrap);
+}
+
+// Settings › Shortcuts: one row per command, recording the next key combo.
+const SHORTCUT_NAMES = {
+  newtab: 'Nova aba', close: 'Fechar aba', reopen: 'Reabrir aba fechada', palette: 'Paleta de comandos',
+  address: 'Focar o endereço', newwindow: 'Nova janela', history: 'Histórico', next: 'Próxima aba',
+  prev: 'Aba anterior', sidebar: 'Mostrar ou esconder as abas', tablayout: 'Abas verticais ou horizontais',
+  reader: 'Modo leitura', pin: 'Fixar ou soltar a aba', duplicate: 'Duplicar a aba', mute: 'Silenciar a aba',
+  settings: 'Abrir as configurações',
+};
+
+function comboOf(e) {
+  let k = e.key;
+  if (/^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+  else if (/^Digit[0-9]$/.test(e.code)) k = e.code.slice(5);
+  else if (k.length === 1) k = k.toUpperCase();
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(k)) return '';
+  return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+}
+
+let recording = null;
+
+function shortcutRow(s, note, redraw) {
+  const kbd = el('kbd', s.combo ? '' : 'off', s.combo || 'Desligado');
+  const change = el('button', 'btn', 'Alterar');
+  const reset = el('button', 'btn', 'Padrão');
+  reset.hidden = s.combo === s.default;
+  const wrap = el('div', 'row-btns keys-edit');
+  wrap.append(kbd, change, reset);
+  const save = async (combo) => {
+    try {
+      const taken = await invoke('set_shortcut', { id: s.id, combo });
+      note.hidden = !taken;
+      if (taken) note.textContent = `${combo} saiu de “${SHORTCUT_NAMES[taken] || taken}”, que agora está sem atalho.`;
+    } catch (err) {
+      note.hidden = false;
+      note.textContent = String(err);
+    }
+    redraw(await invoke('shortcuts'));
+  };
+  const stop = () => {
+    if (recording) removeEventListener('keydown', recording, true);
+    recording = null;
+  };
+  change.onclick = () => {
+    stop();
+    kbd.textContent = 'Pressione as teclas…';
+    kbd.classList.add('rec');
+    recording = (e) => {
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      if (e.key === 'Escape') { stop(); redraw(null); return; }
+      if (e.key === 'Backspace' && !e.ctrlKey && !e.altKey) { stop(); save(''); return; }
+      const combo = comboOf(e);
+      if (!combo) return;
+      stop();
+      save(combo);
+    };
+    addEventListener('keydown', recording, true);
+  };
+  reset.onclick = () => save(s.default);
+  return row(SHORTCUT_NAMES[s.id] || s.id, s.combo !== s.default ? `Padrão: ${s.default}` : '', wrap);
 }
 
 // Rendering

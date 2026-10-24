@@ -90,3 +90,10 @@ kbd { font: 12px ui-monospace, Consolas, monospace; background: var(--field); bo
 
 .pw-secret { font: 12px Consolas, monospace; color: var(--muted); max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; user-select: text; }
 #pw-search { width: 100%; margin: 6px 0 4px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--faint); background: var(--field); color: var(--fg); font: inherit; }
+
+/* Settings › Shortcuts */
+.keys-edit { padding: 0; align-items: center; justify-content: flex-end; }
+.keys-edit kbd { min-width: 92px; text-align: center; padding: 4px 8px; }
+.keys-edit kbd.off { opacity: .55; }
+.keys-edit kbd.rec { outline: 2px solid var(--c2); animation: m-fade-in .6s ease-in-out infinite alternate; }
+.keys-note { margin: 0 0 12px; padding: 10px 12px; border-radius: 10px; background: var(--field); font-size: 13px; }

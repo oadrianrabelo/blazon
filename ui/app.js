@@ -617,7 +617,7 @@ function glideTo(from, node, layer) {
   Motion.glide(from, to, layer, { background: look.backgroundColor, boxShadow: look.boxShadow, borderRadius: look.borderRadius });
 }
 
-listen('state', (e) => { state = e.payload; if (!drag?.started) render(); });
+listen('state', (e) => { state = e.payload; syncKeymap(); if (!drag?.started) render(); });
 listen('focus-address', () => { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); });
 
 // Window controls (borderless frame)
@@ -880,31 +880,36 @@ document.addEventListener('keydown', (e) => {
   nodes[next].focus();
 });
 
-// Shortcuts while the sidebar itself has focus.
+// Shortcuts while the sidebar itself has focus: the same combo → command map
+// site pages use (Settings › Shortcuts), refreshed when it changes.
+let keymap = {};
+let keymapOf = null;
+function syncKeymap() {
+  const k = JSON.stringify(state?.settings.shortcuts || {});
+  if (k === keymapOf) return;
+  keymapOf = k;
+  invoke('shortcuts').then((list) => { keymap = Object.fromEntries(list.filter((s) => s.combo).map((s) => [s.combo, s.id])); });
+}
+function comboOf(e) {
+  let k = e.key;
+  if (/^Key[A-Z]$/.test(e.code)) k = e.code.slice(3);
+  else if (/^Digit[0-9]$/.test(e.code)) k = e.code.slice(5);
+  else if (k.length === 1) k = k.toUpperCase();
+  if (['Control', 'Alt', 'Shift', 'Meta'].includes(k)) return '';
+  return (e.ctrlKey ? 'Ctrl+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey ? 'Shift+' : '') + k;
+}
 document.addEventListener('keydown', (e) => {
-  if (!e.ctrlKey || e.altKey || !state) return;
-  const k = e.key.toLowerCase();
-  const tabs = state.tabs.filter((t) => t.space === state.active_space).sort((a, b) => (b.pinned - a.pinned) || ((b.folder != null) - (a.folder != null)));
+  if (!state) return;
   const digit = /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
-  if (e.shiftKey && digit) {
-    const s = state.spaces[Number(digit) - 1];
-    if (s) invoke('switch_space', { id: s.id });
-  } else if (k === 't' && e.shiftKey) invoke('reopen_tab');
-  else if (k === 't') invoke('new_tab', {});
-  else if (k === 'h') openHistory('history');
-  else if (k === 'k') invoke('open_overlay', { mode: 'palette', url: null });
-  else if (k === 'n' && !e.shiftKey) invoke('new_window', { space: null });
-  else if (k === 's' && e.shiftKey) invoke('set_settings', { settings: { ...state.settings, floating_sidebar: !state.settings.floating_sidebar } });
-  else if (k === 'w' && activeTab()) invoke('close_tab', { id: activeTab().id });
-  else if (k === 'l') { $('address').focus(); $('address').select(); }
-  else if (k === 'tab' && tabs.length) {
-    const i = tabs.findIndex((t) => t.id === activeTab()?.id);
-    const n = tabs[(i + (e.shiftKey ? tabs.length - 1 : 1)) % tabs.length];
-    invoke('activate_tab', { id: n.id });
-  } else if (digit && tabs.length) {
-    const t = digit === '9' ? tabs[tabs.length - 1] : tabs[Number(digit) - 1];
-    if (t) invoke('activate_tab', { id: t.id });
-  } else return;
+  if (digit && e.ctrlKey && !e.altKey) {
+    invoke('run_command', { cmd: (e.shiftKey ? 'space' : 'tab') + digit });
+  } else {
+    const cmd = keymap[comboOf(e)];
+    if (!cmd) return;
+    if (cmd === 'address') { document.body.classList.remove('collapsed'); $('address').focus(); $('address').select(); }
+    else if (cmd === 'history') openHistory('history');
+    else invoke('run_command', { cmd });
+  }
   e.preventDefault();
 });
 
@@ -1190,6 +1195,7 @@ invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
 
 invoke('get_state').then((s) => {
   state = s;
+  syncKeymap();
   render();
   // First run: Crest-style welcome flow over the whole window.
   if (!s.settings.welcomed) setTimeout(() => invoke('open_overlay', { mode: 'welcome' }), 300);
