@@ -1,6 +1,15 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::{collections::HashMap, fs, path::PathBuf, sync::Mutex};
+use std::{
+    collections::HashMap,
+    fs,
+    path::PathBuf,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Mutex,
+    },
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
@@ -30,6 +39,8 @@ const SHORTCUTS_JS: &str = r#"(() => {
     if (k === 'tab') cmd = e.shiftKey ? 'prev' : 'next';
     else if (digit) cmd = (e.shiftKey ? 'space' : 'tab') + digit;
     else if (!e.shiftKey && keys[k]) cmd = keys[k];
+    else if (e.shiftKey && k === 't') cmd = 'reopen';
+    else if (!e.shiftKey && k === 'h') cmd = 'history';
     if (!cmd) return;
     e.preventDefault();
     e.stopImmediatePropagation();
@@ -42,6 +53,9 @@ struct Space {
     id: String,
     name: String,
     color: String,
+    /// InPrivate: no history, no cookies on disk, tabs dropped on exit.
+    #[serde(default)]
+    private: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -55,6 +69,27 @@ struct Tab {
     pinned: bool,
     #[serde(default, skip_deserializing)]
     loading: bool,
+    /// Whether the tab has a live webview; sleeping tabs reload on activation.
+    #[serde(default, skip_deserializing)]
+    awake: bool,
+    #[serde(skip)]
+    last_active: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Visit {
+    space: String,
+    url: String,
+    title: String,
+    time: u64,
+}
+
+#[derive(Clone, Serialize)]
+struct Suggestion {
+    kind: &'static str,
+    url: String,
+    title: String,
+    tab: Option<u64>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -62,6 +97,8 @@ struct Tab {
 struct Settings {
     sidebar_right: bool,
     search: String,
+    /// Minutes before a background tab's webview is closed; 0 disables.
+    sleep_minutes: u64,
 }
 
 impl Default for Settings {
@@ -69,6 +106,7 @@ impl Default for Settings {
         Self {
             sidebar_right: false,
             search: "https://duckduckgo.com/?q=".into(),
+            sleep_minutes: 30,
         }
     }
 }
@@ -90,6 +128,10 @@ impl Data {
         self.next_id
     }
 
+    fn is_private(&self, space: &str) -> bool {
+        self.spaces.iter().any(|s| s.id == space && s.private)
+    }
+
     fn active_tab_id(&self) -> Option<u64> {
         self.active_tab.get(&self.active_space).copied()
     }
@@ -106,10 +148,12 @@ impl Data {
                 id: "personal".into(),
                 name: "Pessoal".into(),
                 color: "#3b82f6".into(),
+                private: false,
             });
         }
-        let spaces: Vec<String> = self.spaces.iter().map(|s| s.id.clone()).collect();
+        let spaces: Vec<String> = self.spaces.iter().filter(|s| !s.private).map(|s| s.id.clone()).collect();
         self.tabs.retain(|t| spaces.contains(&t.space));
+        let spaces: Vec<String> = self.spaces.iter().map(|s| s.id.clone()).collect();
         if !spaces.contains(&self.active_space) {
             self.active_space = spaces[0].clone();
         }
@@ -120,10 +164,106 @@ impl Data {
     }
 }
 
+const HISTORY_LIMIT: usize = 5000;
+const CLOSED_LIMIT: usize = 25;
+
 struct AppState {
     data: Mutex<Data>,
     file: PathBuf,
     root: PathBuf,
+    history: Mutex<Vec<Visit>>,
+    history_dirty: AtomicBool,
+    /// Recently closed tabs as (space, url), newest last.
+    closed: Mutex<Vec<(String, String)>>,
+}
+
+fn now() -> u64 {
+    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+}
+
+fn record_visit(app: &AppHandle, space: &str, url: &str, title: &str) {
+    if url.is_empty() || url.starts_with("about:") {
+        return;
+    }
+    let s = state(app);
+    let mut h = s.history.lock().unwrap();
+    let title = match h.iter().position(|v| v.space == space && v.url == url) {
+        Some(i) => {
+            let old = h.remove(i);
+            if title.is_empty() { old.title } else { title.to_string() }
+        }
+        None => title.to_string(),
+    };
+    h.push(Visit { space: space.into(), url: url.into(), title, time: now() });
+    if h.len() > HISTORY_LIMIT {
+        let extra = h.len() - HISTORY_LIMIT;
+        h.drain(..extra);
+    }
+    s.history_dirty.store(true, Ordering::Relaxed);
+}
+
+fn set_visit_title(app: &AppHandle, space: &str, url: &str, title: &str) {
+    let s = state(app);
+    if let Some(v) = s.history.lock().unwrap().iter_mut().rev().find(|v| v.space == space && v.url == url) {
+        v.title = title.into();
+        s.history_dirty.store(true, Ordering::Relaxed);
+    }
+}
+
+fn save_history(app: &AppHandle) {
+    let s = state(app);
+    if !s.history_dirty.swap(false, Ordering::Relaxed) {
+        return;
+    }
+    let json = serde_json::to_string(&*s.history.lock().unwrap()).unwrap_or_default();
+    let file = s.root.join("history.json");
+    let tmp = file.with_extension("tmp");
+    if fs::write(&tmp, json).is_ok() {
+        let _ = fs::rename(&tmp, &file);
+    }
+}
+
+/// Closes the webviews of background tabs idle longer than the sleep setting.
+fn sleep_idle_tabs(app: &AppHandle) {
+    let asleep = with_data(app, |d| {
+        let limit = d.settings.sleep_minutes * 60;
+        let visible = d.active_tab_id();
+        let cutoff = now().saturating_sub(limit);
+        let mut ids = vec![];
+        for t in d.tabs.iter_mut() {
+            if limit > 0 && t.awake && !t.pinned && Some(t.id) != visible && t.last_active < cutoff {
+                t.awake = false;
+                t.loading = false;
+                ids.push(t.id);
+            }
+        }
+        ids
+    });
+    for id in &asleep {
+        if let Some(wv) = app.get_webview(&label(*id)) {
+            let _ = wv.close();
+        }
+    }
+    if !asleep.is_empty() {
+        commit(app);
+    }
+}
+
+/// Turns a command-line argument (URL or file path) into a URL.
+fn arg_to_url(arg: &str) -> Option<String> {
+    if arg.starts_with('-') {
+        return None;
+    }
+    if let Ok(u) = Url::parse(arg) {
+        if matches!(u.scheme(), "http" | "https" | "file") {
+            return Some(u.to_string());
+        }
+    }
+    let path = PathBuf::from(arg);
+    if path.is_file() {
+        return Url::from_file_path(fs::canonicalize(&path).ok()?).ok().map(|u| u.to_string());
+    }
+    None
 }
 
 fn state(app: &AppHandle) -> &AppState {
@@ -209,7 +349,11 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
         _ => WebviewUrl::App(NEWTAB_PAGE.into()),
     };
     let app_nw = app.clone();
+    let private = with_data(app, |d| d.is_private(&tab.space));
+    let space = tab.space.clone();
+    let space_t = tab.space.clone();
     let builder = WebviewBuilder::new(label(id), url)
+        .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&tab.space))
         .initialization_script(SHORTCUTS_JS)
         .zoom_hotkeys_enabled(true)
@@ -218,13 +362,27 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
             let url = payload.url();
             let url = if is_newtab(url) { String::new() } else { url.to_string() };
             let loading = matches!(payload.event(), PageLoadEvent::Started);
-            update_tab(wv.app_handle(), id, |t| {
-                t.url = url;
+            let app = wv.app_handle();
+            let mut title = String::new();
+            update_tab(app, id, |t| {
+                t.url = url.clone();
                 t.loading = loading;
+                title = t.title.clone();
             });
+            if !loading && !private {
+                record_visit(app, &space, &url, &title);
+            }
         })
         .on_document_title_changed(move |wv, title| {
-            update_tab(wv.app_handle(), id, |t| t.title = title);
+            let app = wv.app_handle();
+            let mut url = String::new();
+            update_tab(app, id, |t| {
+                t.title = title.clone();
+                url = t.url.clone();
+            });
+            if !private {
+                set_visit_title(app, &space_t, &url, &title);
+            }
         })
         .on_new_window(move |url, features| {
             let app = app_nw.clone();
@@ -243,6 +401,11 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
         });
     let [_, (pos, size)] = layout_rects(win, right).unwrap_or_default();
     win.add_child(builder, pos, size)?;
+    with_data(app, |d| {
+        if let Some(t) = d.tabs.iter_mut().find(|t| t.id == id) {
+            t.awake = true;
+        }
+    });
     Ok(())
 }
 
@@ -250,7 +413,11 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
 fn apply_layout(app: &AppHandle) {
     let Some(win) = window(app) else { return };
     let (active, right) = with_data(app, |d| {
-        let tab = d.active_tab_id().and_then(|id| d.tabs.iter().find(|t| t.id == id).cloned());
+        let id = d.active_tab_id();
+        let tab = d.tabs.iter_mut().find(|t| Some(t.id) == id).map(|t| {
+            t.last_active = now();
+            t.clone()
+        });
         (tab, d.settings.sidebar_right)
     });
     let Some(rects) = layout_rects(&win, right) else { return };
@@ -294,11 +461,11 @@ async fn open_tab(app: &AppHandle, url: String) {
     with_data(app, |d| {
         let id = d.new_id();
         let space = d.active_space.clone();
-        d.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, loading: true });
+        d.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, loading: true, awake: false, last_active: now() });
         d.active_tab.insert(space, id);
     });
-    commit(app);
     apply_layout(app);
+    commit(app);
 }
 
 async fn run_cmd(app: &AppHandle, cmd: &str) {
@@ -313,6 +480,13 @@ async fn run_cmd(app: &AppHandle, cmd: &str) {
             }
         }
         "address" => focus_address(app),
+        "reopen" => reopen_tab(app.clone()).await,
+        "history" => {
+            if let Some(ui) = app.get_webview(UI) {
+                let _ = ui.set_focus();
+                let _ = app.emit_to(UI, "open-history", ());
+            }
+        }
         "next" | "prev" => {
             let next = with_data(app, |d| {
                 let tabs = d.space_tabs(&d.active_space);
@@ -372,8 +546,8 @@ async fn activate_tab(app: AppHandle, id: u64) {
         Some(())
     });
     if ok.is_some() {
-        commit(&app);
         apply_layout(&app);
+        commit(&app);
         focus_active(&app);
     }
 }
@@ -384,6 +558,14 @@ async fn close_tab(app: AppHandle, id: u64) {
         let space = d.tabs.iter().find(|t| t.id == id)?.space.clone();
         let order = d.space_tabs(&space);
         let i = order.iter().position(|t| *t == id).unwrap_or(0);
+        let url = d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()).unwrap_or_default();
+        if !url.is_empty() {
+            let mut closed = state(&app).closed.lock().unwrap();
+            closed.push((space.clone(), url));
+            if closed.len() > CLOSED_LIMIT {
+                closed.remove(0);
+            }
+        }
         d.tabs.retain(|t| t.id != id);
         if d.active_tab.get(&space) == Some(&id) {
             match order.get(i + 1).or(i.checked_sub(1).and_then(|j| order.get(j))) {
@@ -404,9 +586,82 @@ async fn close_tab(app: AppHandle, id: u64) {
         open_tab(&app, String::new()).await;
         focus_address(&app);
     } else {
-        commit(&app);
         apply_layout(&app);
+        commit(&app);
     }
+}
+
+#[tauri::command]
+async fn reopen_tab(app: AppHandle) {
+    let Some((space, url)) = state(&app).closed.lock().unwrap().pop() else { return };
+    let exists = with_data(&app, |d| {
+        let ok = d.spaces.iter().any(|s| s.id == space);
+        if ok {
+            d.active_space = space;
+        }
+        ok
+    });
+    if exists {
+        open_tab(&app, url).await;
+        focus_active(&app);
+    }
+}
+
+/// Address bar suggestions: open tabs first, then history, newest first.
+#[tauri::command]
+async fn suggest(app: AppHandle, query: String) -> Vec<Suggestion> {
+    let q = query.trim().to_lowercase();
+    if q.is_empty() {
+        return vec![];
+    }
+    let words: Vec<&str> = q.split_whitespace().collect();
+    let hit = |url: &str, title: &str| {
+        let hay = format!("{} {}", url.to_lowercase(), title.to_lowercase());
+        words.iter().all(|w| hay.contains(w))
+    };
+    let (space, tabs) = with_data(&app, |d| (d.active_space.clone(), d.tabs.clone()));
+    let active = with_data(&app, |d| d.active_tab_id());
+    let mut out: Vec<Suggestion> = tabs
+        .iter()
+        .filter(|t| t.space == space && Some(t.id) != active && !t.url.is_empty() && hit(&t.url, &t.title))
+        .take(3)
+        .map(|t| Suggestion { kind: "tab", url: t.url.clone(), title: t.title.clone(), tab: Some(t.id) })
+        .collect();
+    let history = state(&app).history.lock().unwrap();
+    for v in history.iter().rev() {
+        if out.len() >= 8 {
+            break;
+        }
+        if v.space == space && hit(&v.url, &v.title) && !out.iter().any(|s| s.url == v.url) {
+            out.push(Suggestion { kind: "history", url: v.url.clone(), title: v.title.clone(), tab: None });
+        }
+    }
+    out
+}
+
+#[tauri::command]
+async fn history_list(app: AppHandle, query: String) -> Vec<Visit> {
+    let q = query.to_lowercase();
+    let space = with_data(&app, |d| d.active_space.clone());
+    state(&app)
+        .history
+        .lock()
+        .unwrap()
+        .iter()
+        .rev()
+        .filter(|v| v.space == space && (q.is_empty() || v.url.to_lowercase().contains(&q) || v.title.to_lowercase().contains(&q)))
+        .take(300)
+        .cloned()
+        .collect()
+}
+
+#[tauri::command]
+async fn clear_history(app: AppHandle) {
+    let space = with_data(&app, |d| d.active_space.clone());
+    let s = state(&app);
+    s.history.lock().unwrap().retain(|v| v.space != space);
+    s.history_dirty.store(true, Ordering::Relaxed);
+    save_history(&app);
 }
 
 #[tauri::command]
@@ -459,10 +714,10 @@ async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool) {
 }
 
 #[tauri::command]
-async fn add_space(app: AppHandle, name: String, color: String) {
+async fn add_space(app: AppHandle, name: String, color: String, private: bool) {
     with_data(&app, |d| {
         let id = format!("space-{}", d.new_id());
-        d.spaces.push(Space { id: id.clone(), name, color });
+        d.spaces.push(Space { id: id.clone(), name, color, private });
         d.active_space = id;
     });
     open_tab(&app, String::new()).await;
@@ -489,8 +744,8 @@ async fn switch_space(app: AppHandle, id: String) {
             focus_address(&app);
         }
         Some(false) => {
-            commit(&app);
             apply_layout(&app);
+            commit(&app);
             focus_active(&app);
         }
         None => {}
@@ -521,6 +776,12 @@ async fn delete_space(app: AppHandle, id: String) {
         d.active_tab.remove(&id);
         Some(closed)
     });
+    {
+        let s = state(&app);
+        s.history.lock().unwrap().retain(|v| v.space != id);
+        s.history_dirty.store(true, Ordering::Relaxed);
+        s.closed.lock().unwrap().retain(|(sp, _)| *sp != id);
+    }
     let Some(closed) = closed else { return };
     for tab in closed {
         if let Some(wv) = app.get_webview(&label(tab)) {
@@ -554,6 +815,21 @@ async fn set_settings(app: AppHandle, settings: Settings) {
 
 fn main() {
     tauri::Builder::default()
+        // A second launch (e.g. a link clicked in another app) opens its URLs here.
+        .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+            let app = app.clone();
+            let urls: Vec<String> = args.iter().skip(1).filter_map(|a| arg_to_url(a)).collect();
+            spawn(async move {
+                for url in urls {
+                    open_tab(&app, url).await;
+                }
+                if let Some(win) = window(&app) {
+                    let _ = win.unminimize();
+                    let _ = win.set_focus();
+                }
+                focus_active(&app);
+            });
+        }))
         .invoke_handler(tauri::generate_handler![
             get_state,
             new_tab,
@@ -568,6 +844,10 @@ fn main() {
             update_space,
             delete_space,
             set_settings,
+            reopen_tab,
+            suggest,
+            history_list,
+            clear_history,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;
@@ -581,11 +861,28 @@ fn main() {
             if data.active_tab_id().is_none() {
                 let id = data.new_id();
                 let space = data.active_space.clone();
-                data.tabs.push(Tab { id, space: space.clone(), url: String::new(), title: String::new(), pinned: false, loading: false });
+                data.tabs.push(Tab { id, space: space.clone(), url: String::new(), title: String::new(), pinned: false, loading: false, awake: false, last_active: 0 });
                 data.active_tab.insert(space, id);
             }
+            for url in std::env::args().skip(1).filter_map(|a| arg_to_url(&a)) {
+                let id = data.new_id();
+                let space = data.active_space.clone();
+                data.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, loading: false, awake: false, last_active: 0 });
+                data.active_tab.insert(space, id);
+            }
+            let history: Vec<Visit> = fs::read_to_string(root.join("history.json"))
+                .ok()
+                .and_then(|s| serde_json::from_str(&s).ok())
+                .unwrap_or_default();
             let right = data.settings.sidebar_right;
-            app.manage(AppState { data: Mutex::new(data), file, root });
+            app.manage(AppState {
+                data: Mutex::new(data),
+                file,
+                root,
+                history: Mutex::new(history),
+                history_dirty: AtomicBool::new(false),
+                closed: Mutex::new(vec![]),
+            });
 
             let win = tauri::window::WindowBuilder::new(app, WINDOW)
                 .title("Crest")
@@ -604,13 +901,22 @@ fn main() {
             )?;
 
             let handle = app.handle().clone();
-            win.on_window_event(move |e| {
-                if matches!(e, WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. }) {
-                    apply_layout(&handle);
-                }
+            win.on_window_event(move |e| match e {
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => apply_layout(&handle),
+                WindowEvent::CloseRequested { .. } => save_history(&handle),
+                _ => {}
             });
             let handle = app.handle().clone();
-            spawn(async move { apply_layout(&handle) });
+            spawn(async move {
+                apply_layout(&handle);
+                commit(&handle);
+            });
+            let handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_secs(30));
+                save_history(&handle);
+                sleep_idle_tabs(&handle);
+            });
             Ok(())
         })
         .run(tauri::generate_context!())

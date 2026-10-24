@@ -19,6 +19,7 @@
     </div>
     <form id="address-form">
       <input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="Pesquisar ou digitar endereço">
+      <ul id="suggest" class="suggest" hidden></ul>
     </form>
 
     <div id="pinned" class="pinned"></div>
@@ -27,8 +28,31 @@
 
     <footer>
       <div id="spaces" class="spaces"></div>
+      <button id="history-btn" class="icon" title="Histórico (Ctrl+H)">🕘</button>
       <button id="add-space" class="icon" title="Novo Space">＋</button>
     </footer>
+
+    <dialog id="history" class="wide">
+      <form method="dialog">
+        <h3>Histórico deste Space</h3>
+        <input id="history-q" type="search" placeholder="Pesquisar no histórico">
+        <ul id="history-list" class="history-list"></ul>
+        <menu>
+          <button type="button" id="history-clear" class="danger">Limpar histórico</button>
+          <button value="ok">Fechar</button>
+        </menu>
+      </form>
+    </dialog>
+
+    <dialog id="new-space">
+      <form method="dialog">
+        <h3>Novo Space</h3>
+        <label>Nome <input id="ns-name" type="text" required></label>
+        <label>Cor <input id="ns-color" type="color"></label>
+        <label><input type="checkbox" id="ns-private"> Privado (InPrivate, sem histórico; as abas somem ao fechar)</label>
+        <menu><button type="button" id="ns-cancel" class="plain">Cancelar</button><button value="create">Criar</button></menu>
+      </form>
+    </dialog>
 
     <dialog id="settings">
       <form method="dialog">
@@ -43,11 +67,20 @@
             <option value="https://www.startpage.com/do/search?q=">Startpage</option>
           </select>
         </label>
+        <label>Dormir abas em segundo plano após
+          <select id="set-sleep">
+            <option value="0">Nunca</option>
+            <option value="15">15 minutos</option>
+            <option value="30">30 minutos</option>
+            <option value="60">1 hora</option>
+            <option value="240">4 horas</option>
+          </select>
+        </label>
         <h3>Space atual</h3>
         <label>Nome <input id="space-edit-name" type="text"></label>
         <label>Cor <input id="space-edit-color" type="color"></label>
         <button type="button" id="space-delete" class="danger">Excluir Space (apaga cookies e dados)</button>
-        <p class="hint">Ctrl+T nova aba · Ctrl+W fechar · Ctrl+L endereço · Ctrl+Tab próxima · Ctrl+1–9 ir para aba · F12 DevTools</p>
+        <p class="hint">Ctrl+T nova aba · Ctrl+W fechar · Ctrl+Shift+T reabrir · Ctrl+H histórico · Ctrl+L endereço · Ctrl+Tab próxima · Ctrl+1–9 ir para aba · F12 DevTools</p>
         <menu><button value="ok">Fechar</button></menu>
       </form>
     </dialog>

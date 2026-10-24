@@ -19,6 +19,15 @@ inteiro junto.
   janela" viram abas.
 - A sidebar pode ficar à esquerda ou à direita, e o tema claro/escuro segue o Windows.
 - DevTools (F12), zoom (Ctrl +/−/roda) e downloads nativos do Edge.
+- **Histórico** por Space, com sugestões na barra de endereço (abas abertas e
+  páginas visitadas) e uma janela de histórico pesquisável (Ctrl+H).
+- **Spaces privados** (InPrivate): sem histórico, e as abas somem ao fechar.
+- **Abas dormindo**: as abas em segundo plano liberam memória depois de 30 min
+  (configurável). Abas fixadas nunca dormem.
+- Reabrir aba fechada (Ctrl+Shift+T).
+- **Navegador padrão**: o instalador `.exe` registra o Crest no Windows. Para
+  usar, escolha-o em Configurações → Aplicativos → Aplicativos padrão. Links de
+  outros apps abrem como abas na janela já aberta.
 
 ### Atalhos
 
@@ -26,6 +35,8 @@ inteiro junto.
 | --- | --- |
 | Ctrl+T | Nova aba |
 | Ctrl+W | Fechar aba |
+| Ctrl+Shift+T | Reabrir aba fechada |
+| Ctrl+H | Histórico |
 | Ctrl+L | Focar o endereço |
 | Ctrl+Tab / Ctrl+Shift+Tab | Próxima / anterior |
 | Ctrl+1–9 | Ir para a aba (9 = última) |

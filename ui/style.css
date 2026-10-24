@@ -71,3 +71,27 @@ dialog menu { padding: 0; margin: 8px 0 0; text-align: right; }
 dialog menu button { padding: 5px 12px; background: var(--accent); color: #fff; }
 .danger { color: #dc2626; padding: 5px 0; text-align: left; }
 .hint { color: var(--muted); font-size: 11px; }
+form#address-form { position: relative; }
+.suggest {
+  position: absolute; z-index: 10; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px; list-style: none;
+  background: var(--bg); border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, .25);
+}
+.suggest li { padding: 5px 6px; border-radius: 6px; display: flex; gap: 8px; align-items: center; }
+.suggest li.sel, .suggest li:hover { background: var(--active); }
+.suggest .text { min-width: 0; flex: 1; }
+.suggest .title, .suggest .url { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.suggest .url, .history-list .url { color: var(--muted); font-size: 11px; }
+.suggest .kind { font-size: 10px; color: var(--accent); flex: none; }
+.tab.asleep:not(.active) .title, .pin.asleep:not(.active) { opacity: .55; }
+dialog.wide { width: 248px; }
+dialog input[type=search] { width: 100%; padding: 5px; border-radius: 6px; border: 1px solid var(--hover); background: var(--field); color: var(--fg); font: inherit; margin-bottom: 8px; }
+.history-list { list-style: none; margin: 0; padding: 0; max-height: 360px; overflow-y: auto; }
+.history-list li { padding: 5px 4px; border-radius: 6px; }
+.history-list li:hover { background: var(--hover); }
+.history-list .title { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.history-list .day { color: var(--muted); font-size: 11px; font-weight: 600; padding: 8px 4px 2px; }
+.history-list .day:hover { background: none; }
+.plain { padding: 5px 10px; }
+dialog menu { display: flex; justify-content: flex-end; gap: 6px; }
+dialog menu .danger { margin-right: auto; }
+.space-name.private::after { content: " · privado"; font-weight: 400; color: var(--muted); font-size: 12px; }
