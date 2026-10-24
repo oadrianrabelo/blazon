@@ -29,6 +29,8 @@ inteiro junto.
 - **Abas dormindo**: as abas em segundo plano liberam memória depois de 30 min
   (configurável). Abas fixadas nunca dormem.
 - Reabrir aba fechada (Ctrl+Shift+T).
+- **Pastas** dentro do Space (clique direito na lista → Nova pasta, ou arraste
+  abas para a pasta), e menu de contexto nas abas: fixar, mover, duplicar, copiar link.
 - **Navegador padrão**: o instalador `.exe` registra o Crest no Windows. Para
   usar, escolha-o em Configurações → Aplicativos → Aplicativos padrão. Links de
   outros apps abrem como abas na janela já aberta.
@@ -73,9 +75,7 @@ Estrutura:
 ## Ainda não tem
 
 O motor WebKit e o que depende dele (Reader, tradução), extensões da Chrome Web Store,
-sincronização, Crest Studio, pastas de abas, histórico pesquisável e
-favoritos. Próximos passos naturais: pastas, histórico, "dormir" abas
-inativas e importar favoritos.
+sincronização e o Crest Studio completo (aqui só dá para escolher a casa ou uma cor).
 
 ## Licença
 

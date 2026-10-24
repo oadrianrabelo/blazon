@@ -28,6 +28,11 @@ const ICONS = {
   more: '<circle cx="5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="19" cy="12" r=".6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
+  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/>',
+  chev: '<path d="m9 6 6 6-6 6"/>',
+  pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4Z"/>',
+  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+  edit: '<path d="M4 20h4L19 9l-4-4L4 16Z"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
 const SHIELD = 'M15.68 17.24L84.32 17.24L84.32 46.88Q84.32 78.08 50 87.44Q15.68 78.08 15.68 46.88Z';
@@ -93,7 +98,23 @@ function applyLook(space) {
   colors.forEach((c, i) => root.setProperty(`--c${i}`, c));
   const banner = $('banner');
   banner.className = `banner ${pattern}` + (TILED.includes(pattern) ? ' tiles' : '');
+  banner.style.backgroundImage = tileImage(pattern, colors);
   if (!banner.children.length) banner.append(el('div', 'p-mid'), el('div', 'p-low'));
+}
+
+// Crest's tiled banners: a 53px cell (sidebar width / 5), softened to keep the tabs readable.
+function tileImage(pattern, [, c1, c2]) {
+  const s = 53;
+  const cell = (x, y, fill) => `<rect x="${x}" y="${y}" width="${s}" height="${s}" fill="${fill}" fill-opacity=".2"/>`;
+  const lozenge = (x, y, fill) =>
+    `<path d="M${x + s / 2} ${y}L${x + s} ${y + s / 2}L${x + s / 2} ${y + s}L${x} ${y + s / 2}Z" fill="${fill}" fill-opacity=".2"/>`;
+  let body;
+  if (pattern === 'stripes') body = cell(0, 0, c1) + cell(0, s, c1);
+  else if (pattern === 'checkered') body = cell(0, 0, c1) + cell(s, s, c1);
+  else if (pattern === 'lozenges') body = lozenge(0, 0, c1) + lozenge(s, 0, c2) + lozenge(0, s, c2) + lozenge(s, s, c1);
+  else return '';
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${2 * s}" height="${2 * s}">${body}</svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
 }
 
 // Rendering
@@ -129,7 +150,7 @@ function dragTarget(node, t, pinned) {
     e.preventDefault();
     e.stopPropagation();
     node.classList.remove('drop-before');
-    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned });
+    if (dragId != null && dragId !== t?.id) invoke('move_tab', { id: dragId, before: t ? t.id : null, pinned, folder: t ? t.folder ?? null : null });
     dragId = null;
   });
 }
@@ -137,8 +158,70 @@ function dragTarget(node, t, pinned) {
 function tabEvents(node, t) {
   node.onclick = () => invoke('activate_tab', { id: t.id });
   node.onauxclick = (e) => { if (e.button === 1) invoke('close_tab', { id: t.id }); };
-  node.oncontextmenu = (e) => { e.preventDefault(); invoke('toggle_pin', { id: t.id }); };
+  node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
 }
+
+// Context menu
+
+function showMenu(e, items) {
+  const m = $('ctx');
+  m.replaceChildren();
+  for (const it of items) {
+    if (it === '-') { m.append(el('hr')); continue; }
+    if (it.sub) { m.append(el('div', 'sub', it.sub)); continue; }
+    const b = el('button');
+    if (it.icon) b.append(icon(it.icon));
+    b.append(document.createTextNode(it.label));
+    b.onclick = () => { hideMenu(); it.run(); };
+    m.append(b);
+  }
+  m.hidden = false;
+  // Stay inside the sidebar: the page card covers the rest of the window.
+  const bar = $('sidebar').getBoundingClientRect();
+  const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
+  const y = Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
+  m.style.left = `${x}px`;
+  m.style.top = `${Math.max(6, y)}px`;
+}
+function hideMenu() { $('ctx').hidden = true; }
+addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
+addEventListener('blur', hideMenu);
+addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
+
+function askFolderName(initial) {
+  const name = prompt('Nome da pasta:', initial || 'Nova pasta');
+  return name && name.trim();
+}
+
+function tabMenu(e, t) {
+  const folders = state.folders.filter((f) => f.space === state.active_space);
+  const items = [
+    { label: t.pinned ? 'Desafixar' : 'Fixar', icon: 'pin', run: () => invoke('toggle_pin', { id: t.id }) },
+    { label: 'Nova pasta com esta aba', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: t.id }); } },
+  ];
+  if (folders.length || t.folder != null) items.push('-', { sub: 'Mover para' });
+  for (const f of folders) {
+    if (f.id !== t.folder) items.push({ label: f.name, icon: 'folder', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: f.id }) });
+  }
+  if (t.folder != null) items.push({ label: 'Fora da pasta', icon: 'chev', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: null }) });
+  items.push('-',
+    { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
+    { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
+    { label: 'Fechar', icon: 'x', run: () => invoke('close_tab', { id: t.id }) });
+  showMenu(e, items);
+}
+
+function folderMenu(e, f) {
+  showMenu(e, [
+    { label: 'Renomear', icon: 'edit', run: () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); } },
+    { label: 'Excluir pasta (mantém as abas)', icon: 'x', run: () => invoke('delete_folder', { id: f.id }) },
+  ]);
+}
+
+$('scroll').addEventListener('contextmenu', (e) => {
+  e.preventDefault();
+  showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
+});
 
 function render() {
   const space = activeSpace();
@@ -166,19 +249,10 @@ function render() {
   pinned.replaceChildren();
   list.replaceChildren();
 
-  for (const t of tabs) {
+  const tabRow = (t, extra) => {
     const active = current && t.id === current.id;
-    if (t.pinned) {
-      const b = el('button', 'pin' + (active ? ' active' : '') + (t.awake ? '' : ' asleep'));
-      b.title = `${tabTitle(t)}\nClique direito para desafixar`;
-      b.append(favicon(t));
-      tabEvents(b, t);
-      dragTarget(b, t, true);
-      pinned.append(b);
-      continue;
-    }
-    const li = el('li', 'tab' + (active ? ' active' : '') + (t.loading ? ' loading' : '') + (t.awake ? '' : ' asleep'));
-    li.title = `${t.url || 'Nova aba'}\nClique direito para fixar`;
+    const li = el('li', 'tab' + extra + (active ? ' active' : '') + (t.loading ? ' loading' : '') + (t.awake ? '' : ' asleep'));
+    li.title = t.url || 'Nova aba';
     const close = el('button', 'icon close');
     close.append(icon('x'));
     close.title = 'Fechar (Ctrl+W)';
@@ -186,7 +260,45 @@ function render() {
     li.append(favicon(t), el('span', 'title', tabTitle(t)), close);
     tabEvents(li, t);
     dragTarget(li, t, false);
-    list.append(li);
+    return li;
+  };
+
+  const folders = $('folders');
+  folders.replaceChildren();
+  for (const f of state.folders.filter((x) => x.space === state.active_space)) {
+    const head = el('li', 'folder' + (f.open ? ' open' : ''));
+    const chev = icon('chev');
+    chev.classList.add('chev');
+    head.append(icon('folder'), el('span', 'title', f.name), chev);
+    head.onclick = () => invoke('update_folder', { id: f.id, open: !f.open });
+    head.ondblclick = () => { const name = askFolderName(f.name); if (name) invoke('update_folder', { id: f.id, name }); };
+    head.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); folderMenu(e, f); };
+    head.addEventListener('dragover', (e) => { e.preventDefault(); head.classList.add('drop-before'); });
+    head.addEventListener('dragleave', () => head.classList.remove('drop-before'));
+    head.addEventListener('drop', (e) => {
+      e.preventDefault();
+      head.classList.remove('drop-before');
+      if (dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: false, folder: f.id });
+      dragId = null;
+    });
+    folders.append(head);
+    if (!f.open) continue;
+    for (const t of tabs.filter((x) => x.folder === f.id)) folders.append(tabRow(t, ' in-folder'));
+  }
+
+  for (const t of tabs) {
+    const active = current && t.id === current.id;
+    if (t.folder != null) continue;
+    if (t.pinned) {
+      const b = el('button', 'pin' + (active ? ' active' : '') + (t.awake ? '' : ' asleep'));
+      b.title = tabTitle(t);
+      b.append(favicon(t));
+      tabEvents(b, t);
+      dragTarget(b, t, true);
+      pinned.append(b);
+      continue;
+    }
+    list.append(tabRow(t, ''));
   }
 
   const spaces = $('spaces');
@@ -280,7 +392,7 @@ dragTarget($('new-tab'), null, false);
 $('new-tab').draggable = false;
 $('pinned').addEventListener('dragover', (e) => e.preventDefault());
 $('pinned').addEventListener('drop', (e) => {
-  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true });
+  if (e.target === $('pinned') && dragId != null) invoke('move_tab', { id: dragId, before: null, pinned: true, folder: null });
 });
 
 // History dialog
@@ -394,7 +506,7 @@ $('settings').addEventListener('close', () => {
 document.addEventListener('keydown', (e) => {
   if (!e.ctrlKey || e.altKey || !state) return;
   const k = e.key.toLowerCase();
-  const tabs = state.tabs.filter((t) => t.space === state.active_space).sort((a, b) => b.pinned - a.pinned);
+  const tabs = state.tabs.filter((t) => t.space === state.active_space).sort((a, b) => (b.pinned - a.pinned) || ((b.folder != null) - (a.folder != null)));
   const digit = /^Digit[1-9]$/.test(e.code) ? e.code.slice(5) : null;
   if (e.shiftKey && digit) {
     const s = state.spaces[Number(digit) - 1];

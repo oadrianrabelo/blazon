@@ -36,19 +36,7 @@ body {
 .banner.quartered .p-low { clip-path: inset(50% 50% 0 0); }
 .banner.gradient { background: linear-gradient(160deg, var(--c0) 0%, var(--c1) 55%, var(--c2) 100%); }
 .banner.gradient > *, .banner.tiles > * { display: none; }
-.banner.stripes { background: repeating-linear-gradient(90deg, color-mix(in srgb, var(--c1) 35%, var(--c0)) 0 53px, var(--c0) 53px 106px); }
-.banner.checkered {
-  background-color: var(--c0);
-  background-image: conic-gradient(color-mix(in srgb, var(--c1) 35%, var(--c0)) 25%, transparent 0 50%, color-mix(in srgb, var(--c1) 35%, var(--c0)) 0 75%, transparent 0);
-  background-size: 106px 106px;
-}
-.banner.lozenges {
-  background-color: var(--c0);
-  background-image:
-    linear-gradient(45deg, transparent 35%, color-mix(in srgb, var(--c1) 35%, transparent) 35% 65%, transparent 65%),
-    linear-gradient(-45deg, transparent 35%, color-mix(in srgb, var(--c2) 22%, transparent) 35% 65%, transparent 65%);
-  background-size: 53px 53px;
-}
+.banner.tiles:not(.gradient) { background-repeat: repeat; background-size: 106px 106px; }
 
 #sidebar {
   position: fixed; top: 0; bottom: 0; left: 0; width: 264px;
@@ -162,6 +150,22 @@ dialog menu .danger { margin-right: auto; }
 .history-list .day { color: var(--muted); font-size: 11px; font-weight: 600; padding: 10px 5px 3px; text-transform: capitalize; }
 .history-list .day:hover { background: none; }
 [hidden] { display: none !important; }
+.folder { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 9px; color: var(--fg); }
+.folder:hover { background: var(--hover); }
+.folder svg { width: 16px; height: 16px; flex: none; color: var(--c2); }
+.folder .chev { width: 12px; height: 12px; color: var(--muted); margin-left: auto; transition: transform .15s; }
+.folder.open .chev { transform: rotate(90deg); }
+.folder .title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.in-folder { padding-left: 30px; }
+.in-folder:not(.active) .title { color: var(--muted); }
+.ctx {
+  position: fixed; z-index: 50; min-width: 190px; max-width: 248px; padding: 5px; border-radius: 10px; background: var(--panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .5), 0 0 0 1px var(--faint);
+}
+.ctx button { display: flex; width: 100%; align-items: center; gap: 9px; padding: 6px 9px; text-align: left; border-radius: 6px; }
+.ctx button svg { width: 14px; height: 14px; color: var(--muted); }
+.ctx hr { border: 0; border-top: 1px solid var(--faint); margin: 4px 2px; }
+.ctx .sub { color: var(--muted); font-size: 11px; padding: 6px 9px 2px; }
 /* The crest artwork carries its own padding for the drop shadow. */
 .space-name img { width: 26px; height: 26px; margin: -3px; }
 .dot img { width: 28px; height: 28px; }

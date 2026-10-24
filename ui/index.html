@@ -34,7 +34,8 @@
       <button id="space-menu" class="icon" data-i="more" title="Editar Space"></button>
     </div>
 
-    <div class="scroll">
+    <div class="scroll" id="scroll">
+      <ul id="folders" class="tabs"></ul>
       <button id="new-tab" class="row new-tab" title="Nova aba (Ctrl+T)"><span data-i="plus"></span>Nova aba</button>
       <ul id="tabs" class="tabs"></ul>
     </div>
@@ -101,6 +102,7 @@
       <menu><button type="button" id="sd-cancel">Cancelar</button><button value="save" class="primary">Salvar</button></menu>
     </form>
   </dialog>
+  <div id="ctx" class="ctx" hidden></div>
   <script src="app.js"></script>
 </body>
 </html>

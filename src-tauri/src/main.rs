@@ -72,6 +72,8 @@ struct Tab {
     title: String,
     #[serde(default)]
     pinned: bool,
+    #[serde(default)]
+    folder: Option<u64>,
     #[serde(default, skip_deserializing)]
     loading: bool,
     /// Whether the tab has a live webview; sleeping tabs reload on activation.
@@ -79,6 +81,15 @@ struct Tab {
     awake: bool,
     #[serde(skip)]
     last_active: u64,
+}
+
+#[derive(Clone, Serialize, Deserialize)]
+struct Folder {
+    id: u64,
+    space: String,
+    name: String,
+    #[serde(default)]
+    open: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -124,6 +135,7 @@ impl Default for Settings {
 struct Data {
     spaces: Vec<Space>,
     tabs: Vec<Tab>,
+    folders: Vec<Folder>,
     active_space: String,
     active_tab: HashMap<String, u64>,
     next_id: u64,
@@ -146,7 +158,7 @@ impl Data {
 
     fn space_tabs(&self, space: &str) -> Vec<u64> {
         let mut tabs: Vec<&Tab> = self.tabs.iter().filter(|t| t.space == space).collect();
-        tabs.sort_by_key(|t| !t.pinned);
+        tabs.sort_by_key(|t| (!t.pinned, t.folder.is_none()));
         tabs.iter().map(|t| t.id).collect()
     }
 
@@ -163,13 +175,22 @@ impl Data {
         let spaces: Vec<String> = self.spaces.iter().filter(|s| !s.private).map(|s| s.id.clone()).collect();
         self.tabs.retain(|t| spaces.contains(&t.space));
         let spaces: Vec<String> = self.spaces.iter().map(|s| s.id.clone()).collect();
+        self.folders.retain(|f| spaces.contains(&f.space));
+        let folders: Vec<u64> = self.folders.iter().map(|f| f.id).collect();
+        for t in self.tabs.iter_mut() {
+            if t.folder.is_some_and(|f| !folders.contains(&f)) {
+                t.folder = None;
+            }
+        }
         if !spaces.contains(&self.active_space) {
             self.active_space = spaces[0].clone();
         }
         let tabs = &self.tabs;
         self.active_tab
             .retain(|s, id| tabs.iter().any(|t| t.id == *id && &t.space == s));
-        self.next_id = self.tabs.iter().map(|t| t.id).max().unwrap_or(0).max(self.next_id);
+        let max_tab = self.tabs.iter().map(|t| t.id).max().unwrap_or(0);
+        let max_folder = self.folders.iter().map(|f| f.id).max().unwrap_or(0);
+        self.next_id = max_tab.max(max_folder).max(self.next_id);
     }
 }
 
@@ -473,7 +494,7 @@ async fn open_tab(app: &AppHandle, url: String) {
     with_data(app, |d| {
         let id = d.new_id();
         let space = d.active_space.clone();
-        d.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, loading: true, awake: false, last_active: now() });
+        d.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, folder: None, loading: true, awake: false, last_active: now() });
         d.active_tab.insert(space, id);
     });
     apply_layout(app);
@@ -707,13 +728,17 @@ async fn toggle_pin(app: AppHandle, id: u64) {
     update_tab(&app, id, |t| t.pinned = !t.pinned);
 }
 
-/// Moves a tab before `before` (or to the end), adopting its pinned state.
+/// Moves a tab before `before` (or to the end), into the given pinned row or folder.
 #[tauri::command]
-async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool) {
+async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool, folder: Option<u64>) {
     let moved = with_data(&app, |d| {
         let i = d.tabs.iter().position(|t| t.id == id)?;
         let mut tab = d.tabs.remove(i);
-        tab.pinned = pinned;
+        tab.pinned = pinned && folder.is_none();
+        tab.folder = folder;
+        if let Some(f) = d.folders.iter_mut().find(|f| Some(f.id) == folder) {
+            f.open = true;
+        }
         let at = before
             .and_then(|b| d.tabs.iter().position(|t| t.id == b))
             .unwrap_or(d.tabs.len());
@@ -722,6 +747,56 @@ async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool) {
     });
     if moved.is_some() {
         commit(&app);
+    }
+}
+
+#[tauri::command]
+async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
+    with_data(&app, |d| {
+        let id = d.new_id();
+        let space = d.active_space.clone();
+        d.folders.push(Folder { id, space, name, open: true });
+        if let Some(t) = d.tabs.iter_mut().find(|t| Some(t.id) == tab) {
+            t.folder = Some(id);
+            t.pinned = false;
+        }
+    });
+    commit(&app);
+}
+
+#[tauri::command]
+async fn update_folder(app: AppHandle, id: u64, name: Option<String>, open: Option<bool>) {
+    with_data(&app, |d| {
+        if let Some(f) = d.folders.iter_mut().find(|f| f.id == id) {
+            if let Some(name) = name {
+                f.name = name;
+            }
+            if let Some(open) = open {
+                f.open = open;
+            }
+        }
+    });
+    commit(&app);
+}
+
+/// Removes a folder, keeping its tabs as loose tabs.
+#[tauri::command]
+async fn delete_folder(app: AppHandle, id: u64) {
+    with_data(&app, |d| {
+        d.folders.retain(|f| f.id != id);
+        for t in d.tabs.iter_mut().filter(|t| t.folder == Some(id)) {
+            t.folder = None;
+        }
+    });
+    commit(&app);
+}
+
+#[tauri::command]
+async fn duplicate_tab(app: AppHandle, id: u64) {
+    let url = with_data(&app, |d| d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()));
+    if let Some(url) = url {
+        open_tab(&app, url).await;
+        focus_active(&app);
     }
 }
 
@@ -786,6 +861,7 @@ async fn delete_space(app: AppHandle, id: String) {
         d.spaces.retain(|s| s.id != id);
         let closed: Vec<u64> = d.tabs.iter().filter(|t| t.space == id).map(|t| t.id).collect();
         d.tabs.retain(|t| t.space != id);
+        d.folders.retain(|f| f.space != id);
         d.active_tab.remove(&id);
         Some(closed)
     });
@@ -864,6 +940,10 @@ fn main() {
             suggest,
             history_list,
             clear_history,
+            add_folder,
+            update_folder,
+            delete_folder,
+            duplicate_tab,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;
@@ -877,13 +957,13 @@ fn main() {
             if data.active_tab_id().is_none() {
                 let id = data.new_id();
                 let space = data.active_space.clone();
-                data.tabs.push(Tab { id, space: space.clone(), url: String::new(), title: String::new(), pinned: false, loading: false, awake: false, last_active: 0 });
+                data.tabs.push(Tab { id, space: space.clone(), url: String::new(), title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: 0 });
                 data.active_tab.insert(space, id);
             }
             for url in std::env::args().skip(1).filter_map(|a| arg_to_url(&a)) {
                 let id = data.new_id();
                 let space = data.active_space.clone();
-                data.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, loading: false, awake: false, last_active: 0 });
+                data.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: 0 });
                 data.active_tab.insert(space, id);
             }
             let history: Vec<Visit> = fs::read_to_string(root.join("history.json"))
