@@ -9,7 +9,7 @@ pub const PEEK: &str = "peek";
 
 /// Esc closes Peek from inside the previewed page.
 const PEEK_JS: &str = r#"addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && window.top === window) { e.preventDefault(); window.open('https://crest-cmd.invalid/closepeek'); }
+  if (e.key === 'Escape' && window.top === window) { e.preventDefault(); window.open('https://blazon-cmd.invalid/closepeek'); }
 }, true);"#;
 
 /// Peek's card: inset from the page card, leaving room for its toolbar.

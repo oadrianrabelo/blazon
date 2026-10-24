@@ -6,6 +6,8 @@ mod hello;
 mod import;
 mod overlay;
 #[cfg(windows)]
+mod sqlite;
+#[cfg(windows)]
 mod webview2;
 
 use std::{
@@ -39,7 +41,7 @@ const SIDEBAR_WIDTH: f64 = 264.0;
 const CARD_MARGIN: f64 = 8.0;
 /// Pages can't reach the IPC bridge, so the tab shortcut script asks for
 /// commands by opening this host, which `on_new_window` intercepts.
-const CMD_HOST: &str = "crest-cmd.invalid";
+const CMD_HOST: &str = "blazon-cmd.invalid";
 const NEWTAB_PAGE: &str = "newtab.html";
 
 /// Keyboard shortcuts inside pages, plus Peek on modifier+click of a link.
@@ -47,7 +49,7 @@ fn shortcuts_js(peek_modifier: &str) -> String {
     r#"(() => {
   if (window.top !== window) return;
   const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette' };
-  const send = (cmd) => window.open('https://crest-cmd.invalid/' + cmd);
+  const send = (cmd) => window.open('https://blazon-cmd.invalid/' + cmd);
   addEventListener('keydown', (e) => {
     if (!e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
@@ -1006,7 +1008,7 @@ async fn ensure_unlocked(app: &AppHandle, space: &str) -> bool {
             .map(|s| s.name.clone())
             .unwrap_or_default()
     });
-    if !verify_hello(app, &format!("Abrir o Space \"{name}\" no Crest")).await {
+    if !verify_hello(app, &format!("Abrir o Space \"{name}\" no Blazon")).await {
         return false;
     }
     with_data(app, |d| d.unlocked.push(space.to_string()));
@@ -1363,49 +1365,152 @@ fn push_folders(d: &mut Data, space: &str, folders: Vec<import::Folder>) {
     }
 }
 
-/// Imports from another browser; imported tabs start asleep. Returns a summary.
-#[tauri::command]
-async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
-    let imported = import::read(&id)?;
-    let summary = with_data(&app, |d| {
-        let before = d.tabs.len();
-        let what = match imported {
-            import::Import::Bookmarks(folders) => {
-                let space = d.active_space.clone();
-                let n = folders.len();
-                push_folders(d, &space, folders);
-                format!("{n} pastas")
-            }
-            import::Import::Spaces(spaces) => {
-                let n = spaces.len();
-                for sp in spaces {
-                    let sid = format!("space-{}", d.new_id());
-                    let h = d.spaces.len() % HOUSES.len();
-                    d.spaces.push(Space {
-                        id: sid.clone(),
-                        name: sp.name,
-                        color: HOUSE_ACCENTS[h].into(),
-                        private: false,
-                        house: HOUSES[h].into(),
-                        downloads: String::new(),
-                        look: serde_json::Value::Null,
-                        locked: false,
-                    });
-                    for e in sp.pinned {
-                        push_tab(d, &sid, e, true, None);
-                    }
-                    push_folders(d, &sid, sp.folders);
-                    for e in sp.tabs {
-                        push_tab(d, &sid, e, false, None);
-                    }
+/// Adds imported visits to a Space's history, merging repeated addresses.
+fn merge_history(app: &AppHandle, space: &str, visits: Vec<import::Visit>) -> usize {
+    let n = visits.len();
+    let s = state(app);
+    let mut h = s.history.lock().unwrap();
+    let mut index: HashMap<String, usize> = h
+        .iter()
+        .enumerate()
+        .filter(|(_, v)| v.space == space)
+        .map(|(i, v)| (v.url.clone(), i))
+        .collect();
+    for v in visits {
+        match index.get(&v.url) {
+            Some(&i) => {
+                let e = &mut h[i];
+                e.count = e.count.saturating_add(v.count);
+                e.time = e.time.max(v.time);
+                if e.title.is_empty() {
+                    e.title = v.title;
                 }
-                format!("{n} Spaces")
             }
+            None => {
+                index.insert(v.url.clone(), h.len());
+                h.push(Visit {
+                    space: space.into(),
+                    url: v.url,
+                    title: v.title,
+                    time: v.time,
+                    count: v.count,
+                });
+            }
+        }
+    }
+    h.sort_by_key(|v| v.time);
+    if h.len() > HISTORY_LIMIT {
+        let extra = h.len() - HISTORY_LIMIT;
+        h.drain(..extra);
+    }
+    s.history_dirty.store(true, Ordering::Relaxed);
+    drop(h);
+    save_history(app);
+    n
+}
+
+/// Puts imported data in the current Space or a new one named after the source.
+/// Imported tabs start asleep. Returns a summary for the person.
+fn apply_import(app: &AppHandle, imported: import::Imported, new_space: Option<String>) -> String {
+    let (target, summary) = with_data(app, |d| {
+        let target = match new_space {
+            Some(name) => {
+                let sid = format!("space-{}", d.new_id());
+                let h = d.spaces.len() % HOUSES.len();
+                d.spaces.push(Space {
+                    id: sid.clone(),
+                    name,
+                    color: HOUSE_ACCENTS[h].into(),
+                    private: false,
+                    house: HOUSES[h].into(),
+                    downloads: String::new(),
+                    look: serde_json::Value::Null,
+                    locked: false,
+                });
+                sid
+            }
+            None => d.active_space.clone(),
         };
-        format!("Importado: {what} e {} abas.", d.tabs.len() - before)
+        let before = d.tabs.len();
+        let mut parts = vec![];
+        if !imported.spaces.is_empty() {
+            parts.push(format!("{} Spaces", imported.spaces.len()));
+        }
+        for sp in imported.spaces {
+            let sid = format!("space-{}", d.new_id());
+            let h = d.spaces.len() % HOUSES.len();
+            d.spaces.push(Space {
+                id: sid.clone(),
+                name: sp.name,
+                color: HOUSE_ACCENTS[h].into(),
+                private: false,
+                house: HOUSES[h].into(),
+                downloads: String::new(),
+                look: serde_json::Value::Null,
+                locked: false,
+            });
+            for e in sp.pinned {
+                push_tab(d, &sid, e, true, None);
+            }
+            push_folders(d, &sid, sp.folders);
+            for e in sp.tabs {
+                push_tab(d, &sid, e, false, None);
+            }
+        }
+        if !imported.folders.is_empty() {
+            parts.push(format!("{} pastas de favoritos", imported.folders.len()));
+        }
+        push_folders(d, &target, imported.folders);
+        let tabs = d.tabs.len() - before;
+        if tabs > 0 {
+            parts.push(format!("{tabs} abas"));
+        }
+        (target, parts)
     });
-    commit(&app);
-    Ok(summary)
+    let mut parts = summary;
+    if !imported.history.is_empty() {
+        let n = merge_history(app, &target, imported.history);
+        parts.push(format!("{n} páginas do histórico"));
+    }
+    commit(app);
+    if parts.is_empty() {
+        "Nada para importar.".into()
+    } else {
+        format!("Importado: {}.", parts.join(", "))
+    }
+}
+
+/// Imports bookmarks and/or history from a detected browser profile.
+#[tauri::command]
+async fn import_browser(
+    app: AppHandle,
+    id: String,
+    bookmarks: bool,
+    history: bool,
+    new_space: Option<String>,
+) -> Result<String, String> {
+    let imported =
+        tauri::async_runtime::spawn_blocking(move || import::read(&id, bookmarks, history))
+            .await
+            .map_err(|e| e.to_string())??;
+    Ok(apply_import(&app, imported, new_space))
+}
+
+/// Imports a bookmarks HTML file exported by any browser.
+#[tauri::command]
+async fn import_html(app: AppHandle, new_space: Option<String>) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let Some(file) = app
+        .dialog()
+        .file()
+        .add_filter("Favoritos (HTML)", &["html", "htm"])
+        .blocking_pick_file()
+    else {
+        return Err("Nenhum arquivo escolhido.".into());
+    };
+    let path = file.into_path().map_err(|e| e.to_string())?;
+    let imported = import::read_html(&path)?;
+    Ok(apply_import(&app, imported, new_space))
 }
 
 #[tauri::command]
@@ -1700,9 +1805,9 @@ async fn set_space_lock(app: AppHandle, id: String, locked: bool) -> Result<(), 
     if !verify_hello(
         &app,
         if locked {
-            "Bloquear este Space no Crest"
+            "Bloquear este Space no Blazon"
         } else {
-            "Desbloquear este Space no Crest"
+            "Desbloquear este Space no Blazon"
         },
     )
     .await
@@ -1920,6 +2025,7 @@ fn main() {
             unsplit_tab,
             import_sources,
             import_browser,
+            import_html,
             overlay::open_overlay,
             overlay::close_overlay,
             overlay::peek_to_tab,
@@ -1927,6 +2033,14 @@ fn main() {
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;
+            // Keep the data of installs from before the rename to Blazon.
+            if !root.exists() {
+                if let Some(old) = root.parent().map(|p| p.join("app.crest.windows")) {
+                    if old.is_dir() {
+                        let _ = fs::rename(&old, &root);
+                    }
+                }
+            }
             fs::create_dir_all(&root)?;
             let file = root.join("state.json");
             let mut data: Data = fs::read_to_string(&file)
@@ -2002,7 +2116,7 @@ fn main() {
             });
 
             let win = tauri::window::WindowBuilder::new(app, WINDOW)
-                .title("Crest")
+                .title("Blazon")
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(640.0, 400.0)
                 .center()
@@ -2041,5 +2155,5 @@ fn main() {
             Ok(())
         })
         .run(tauri::generate_context!())
-        .expect("error while running Crest");
+        .expect("error while running Blazon");
 }

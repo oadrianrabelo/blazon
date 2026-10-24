@@ -78,7 +78,7 @@ const LOOK_DEFAULTS = {
 };
 
 const LOOK_PRESETS = {
-  crest: { title: 'Crest', hint: 'O padrão, como no Mac', look: {} },
+  crest: { title: 'Clássico', hint: 'O visual original do Crest', look: {} },
   compact: { title: 'Compacto', hint: 'Mais abas na tela', look: { tabScale: 0.9, tabShape: 'square', pinsPerRow: 6 } },
   soft: { title: 'Suave', hint: 'Abas em pílula com brilho', look: { tabShape: 'pill', selected: 'glow', followAccent: true } },
   minimal: { title: 'Mínimo', hint: 'Sem faixas nem fundos', look: { banner: false, pinFill: false, selected: 'outline', dimUnloaded: false } },

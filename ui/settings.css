@@ -73,3 +73,7 @@ kbd { font: 12px ui-monospace, Consolas, monospace; background: var(--field); bo
 .sub-row { display: flex; align-items: center; gap: 12px; margin: 12px 0; flex-wrap: wrap; }
 .sub-row input[type=text] { width: 120px; padding: 6px 8px; border-radius: 7px; border: 1px solid var(--faint); background: var(--field); color: var(--fg); font: inherit; }
 .sub-row input[type=range] { accent-color: var(--c2); }
+.check-inline { display: inline-flex; align-items: center; gap: 5px; margin-right: 6px; color: var(--fg); font-size: 12px; }
+.check-inline input { accent-color: var(--c2); }
+.seg select { min-width: 150px; width: auto; flex: none; }
+.opt > .txt { min-width: 170px; }

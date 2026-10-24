@@ -1,109 +1,58 @@
-# Crest para Windows
+<div align="center">
+  <img src="src-tauri/icons/128x128.png" width="96" alt="Ícone do Blazon">
+  <h1>Blazon</h1>
+  <p><strong>Um navegador leve para Windows, com Spaces e brasões.</strong></p>
+</div>
 
-Um navegador leve com **Spaces**, recriado a partir do [Crest](https://github.com/pauljoda/Crest)
-(Mac/iOS) de Paul Joda. É uma reescrita para Windows em Rust com
-[Tauri 2](https://tauri.app) e o **WebView2**, o Chromium do Edge que já vem no
-Windows 10/11. O instalador tem poucos MB.
+Em heráldica, *blazon* é a descrição formal de um brasão, e *to blazon* é exibir algo
+com orgulho. No **Blazon**, cada parte da sua vida digital (trabalho, casa, estudos, um
+projeto) ganha um **Space** próprio, com brasão, cores, logins e histórico separados.
 
-## Recursos
+O Blazon nasceu como uma recriação para Windows do [Crest](https://github.com/pauljoda/Crest),
+de Paul Joda (Mac/iOS). Herda dele o conceito de Spaces, o visual e o Crest Studio, mas foi
+reescrito do zero em Rust com [Tauri 2](https://tauri.app). As páginas rodam no **WebView2**,
+o Chromium do Edge que já vem no Windows 10/11, então o instalador tem poucos MB e não carrega
+outro navegador junto.
 
-**Spaces e Crest Studio**
-- Cada Space tem cookies, logins, cache, histórico, arquivo e pasta de downloads
-  próprios. Também há Spaces **privados** (InPrivate) e Spaces **bloqueados com o Windows Hello**.
-- **Crest Studio** em Configurações → Spaces e Studio. Você parte das 9 casas do Crest
-  (Winter, Lion, Storm, Dragon, Meadow, Iron, River, Sun e Vigil) ou monta o brasão peça
-  por peça:
-  - formato, campo, faixa e emblema (34 figuras heráldicas, emoji ou monograma);
-  - borda, acabamento e sombra;
-  - cores nomeadas pelo que pintam, e padrão e cores do fundo da barra lateral;
-  - botões Embaralhar e Desfazer.
+## Destaques
 
-**Abas**
-- Abas verticais, fixadas, pastas, **lado a lado** e arrastar para reordenar.
-- Menu de clique direito, silenciar a aba e reabrir a aba fechada (Ctrl+Shift+T).
-- Abas paradas **dormem** para liberar memória. Abas soltas sem uso podem ir sozinhas
-  para o **Arquivo** (botão no rodapé), de onde você as restaura.
-- **Peek**: Shift+clique num link abre uma prévia flutuante.
-- **Paleta de comandos** (Ctrl+K): busca em todas as abas, comandos, Spaces e
-  histórico, além de "Tab para buscar" em sites (`yt`, `w`, `gh`, `g`, `m`, `a`, `r`, `ml`, `tr`).
+- **Spaces isolados**: cada um tem seus cookies, logins, cache, histórico, arquivo e pasta
+  de downloads. Também há Spaces privados (InPrivate) e Spaces bloqueados com o Windows Hello.
+- **Studio de brasões**: comece de uma das 9 casas clássicas ou monte o seu escolhendo
+  formato, campo, faixa, emblema (34 figuras heráldicas, emoji ou monograma), borda,
+  acabamento e cores. O brasão também pinta a barra lateral.
+- **Abas verticais** com fixadas, pastas, lado a lado, abas que dormem para poupar memória e um
+  arquivo automático de abas paradas.
+- **Paleta de comandos** (Ctrl+K), **Peek** (Shift+clique abre uma prévia do link) e **modo leitura**.
+- **Bloqueador de anúncios e rastreadores** embutido, com o motor do Brave e as listas
+  EasyList/EasyPrivacy.
+- **Importação** de favoritos e histórico do Chrome, Edge, Brave, Vivaldi, Opera, Firefox,
+  Zen, LibreWolf e outros (todos os perfis); Spaces do Arc; e arquivo HTML de favoritos.
+- **Personalização completa** da aparência: presets, barra flutuante, formato e tamanho das
+  abas, cores, zoom padrão e mais.
 
-**Aparência** (Configurações → Aparência)
-- Presets prontos e barra lateral à esquerda ou à direita, com largura ajustável.
-- **Barra flutuante** (Ctrl+Shift+S) e janela sem bordas ou com a moldura do Windows.
-- Tamanho, formato e estilo da aba selecionada; fixadas por linha; pastas com contagem.
-- Cor de destaque própria, faixas heráldicas ligadas ou desligadas e zoom padrão das páginas.
+## Documentação
 
-**Privacidade e links**
-- **Bloqueador de anúncios e rastreadores** com o motor do Brave e as listas
-  EasyList/EasyPrivacy, atualizadas toda semana. O escudo na barra pausa o bloqueador por site.
-- Salvar senhas e preencher formulários pelo WebView2, com dados separados por Space.
-- **Modo leitura** (ícone de livro), usando o Readability da Mozilla.
-- **Navegador padrão**: links de outros apps abrem no Crest, com **rotas** que mandam cada
-  site para um Space.
-- **Importar** do Arc (Spaces, pastas e favoritos) e dos favoritos do Chrome, Edge, Brave e Vivaldi.
-
-### Atalhos
-
-| Atalho | Ação |
+| Documento | Conteúdo |
 | --- | --- |
-| Ctrl+T / Ctrl+W | Nova aba / fechar |
-| Ctrl+Shift+T | Reabrir aba fechada |
-| Ctrl+K | Paleta de comandos |
-| Ctrl+L | Endereço |
-| Ctrl+H | Histórico |
-| Ctrl+Tab, Ctrl+1–9 | Trocar de aba |
-| Ctrl+Shift+1–9 | Trocar de Space |
-| Ctrl+Shift+S | Mostrar/esconder a barra |
-| Shift+clique | Peek |
-| F12 | DevTools |
+| [Guia de uso](docs/GUIA.md) | Todos os recursos, passo a passo, e os atalhos |
+| [Importar de outros navegadores](docs/IMPORTAR.md) | O que vem de cada navegador, onde fica e o que não dá para importar |
+| [Arquitetura](docs/ARQUITETURA.md) | Como o código é organizado, onde ficam os dados e o modelo de segurança |
+| [Compilar e publicar](docs/COMPILAR.md) | Ambiente de desenvolvimento, CI, releases e como renomear o repositório |
+| [Changelog](CHANGELOG.md) | O que entrou em cada etapa |
+| [Créditos e licenças](NOTICE.md) | Projetos e artes de terceiros |
 
 ## Instalar
 
-Em **Actions → Build Windows**, abra o build mais recente e baixe o artefato
-`crest-windows`. Ao criar uma tag `v*`, o build também publica uma **Release**. Prefira o `.exe`: ele
-instala sem pedir administrador e registra o Crest como navegador. Depois, escolha o Crest em
-Configurações do Windows → Aplicativos → Aplicativos padrão.
+1. No GitHub, abra **Actions → Build Windows**, entre no build mais recente e baixe o
+   artefato **`blazon-windows`**. Quando houver uma tag `v*`, os instaladores também ficam em
+   **Releases**.
+2. Rode o **`.exe`**. Ele instala sem pedir administrador e registra o Blazon como navegador.
+3. Para usar como navegador padrão, abra **Configurações do Windows → Aplicativos →
+   Aplicativos padrão → Blazon** e defina-o para HTTP e HTTPS.
 
-## Desenvolver
-
-Você precisa de Rust estável, Node 22 e do WebView2.
-
-```sh
-npm ci
-npm run dev     # modo desenvolvimento
-npm run build   # instaladores em src-tauri/target/release/bundle
-```
-
-Para o bloqueador funcionar localmente, baixe `easylist.txt` e `easyprivacy.txt`
-para `src-tauri/adblock/`. O CI já faz isso.
-
-Organização do código:
-- `src-tauri/src/main.rs`: Spaces, abas, layout e persistência
-  (`%APPDATA%\app.crest.windows`).
-- `overlay.rs`: paleta e Peek.
-- `blocker.rs`: bloqueador de anúncios.
-- `webview2.rs`: APIs COM do WebView2 (bloqueio, áudio, downloads, senhas).
-- `hello.rs`: Windows Hello.
-- `import.rs`: importação de outros navegadores.
-- `reader.js`: modo leitura.
-- `ui/`:
-  - barra lateral (`index.html`, `app.js`);
-  - configurações e Studio (`settings.*`);
-  - paleta e Peek (`overlay.*`);
-  - página inicial (`newtab.*`);
-  - gerador de brasões (`crest.js`, `charges.js`) e casas (`houses.js`).
-
-## Fica de fora
-
-O motor WebKit e o que depende dele (tradução da página inteira e FairPlay), a
-sincronização via iCloud e as extensões da Chrome Web Store.
+Se o WebView2 não estiver instalado (raro no Windows 10/11), o instalador baixa ele sozinho.
 
 ## Licença
 
-MPL-2.0, a mesma do Crest original.
-- A geometria dos brasões, as casas e as paletas do Crest Studio vêm do Crest (MPL-2.0).
-- As figuras heráldicas são arte de Lorc (game-icons.net, CC BY 3.0); veja `ui/CREDITS-heraldry.txt`.
-- O bloqueador usa o [adblock-rust](https://github.com/brave/adblock-rust) (MPL-2.0) e as listas
-  EasyList/EasyPrivacy.
-- O modo leitura usa o
-  [Readability](https://github.com/mozilla/readability) (Apache-2.0); veja `src-tauri/src/vendor/`.
+[MPL-2.0](LICENSE), a mesma do Crest. Veja [NOTICE.md](NOTICE.md) para os créditos de terceiros.

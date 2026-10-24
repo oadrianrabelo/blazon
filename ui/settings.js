@@ -186,7 +186,7 @@ const SECTIONS = {
           select('Arquivar abas paradas após', 'Abas soltas sem uso vão para o Arquivo (botão no rodapé da barra). Fixadas e abas em pastas ficam.',
             [[0, 'Nunca'], [12, '12 horas'], [24, '1 dia'], [72, '3 dias'], [168, '1 semana']], S('archive_hours'), setS('archive_hours'))),
         group('Navegador padrão',
-          row('Usar o Crest para links', 'Escolha "Crest" em Navegador da Web nos Aplicativos padrão do Windows.', open)),
+          row('Usar o Blazon para links', 'Escolha "Blazon" em Navegador da Web nos Aplicativos padrão do Windows.', open)),
       ];
     },
   },
@@ -309,7 +309,7 @@ const SECTIONS = {
       addRow.append(add);
       const routesGroup = group('Rotas', routes, addRow);
       return [
-        ...header('Links', 'Como o Crest abre links de outros apps e prévias rápidas.'),
+        ...header('Links', 'Como o Blazon abre links de outros apps e prévias rápidas.'),
         group('Links de outros apps',
           select('Abrir em', 'Quando nenhuma rota combina.', [['', 'Space atual'], ...spaces], S('external_space'), setS('external_space'))),
         routesGroup,
@@ -322,22 +322,72 @@ const SECTIONS = {
     title: 'Importar',
     icon: 'import',
     render() {
-      const g = group('Navegadores encontrados');
+      const KIND = { spaces: 'Spaces, pastas e favoritos', bookmarks: 'Favoritos', history: 'Histórico' };
+      const found = group('Navegadores encontrados neste PC');
+      const run = async (button, call) => {
+        button.disabled = true;
+        const old = button.textContent;
+        button.textContent = 'Importando…';
+        try { alert(await call()); } catch (err) { alert(`Não deu para importar: ${err}`); }
+        button.disabled = false;
+        button.textContent = old;
+      };
+      const target = (name) => {
+        const sel = el('select');
+        for (const [v, l] of [['current', 'No Space atual'], ['new', `Num Space novo "${name}"`]]) {
+          const o = el('option', '', l);
+          o.value = v;
+          sel.append(o);
+        }
+        return sel;
+      };
       invoke('import_sources').then((sources) => {
-        if (!sources.length) g.append(row('Nenhum navegador compatível encontrado', 'Arc, Chrome, Edge, Brave e Vivaldi são suportados.', el('span')));
+        if (!sources.length) found.append(row('Nenhum navegador encontrado', 'Procuro Arc, Chrome, Edge, Brave, Vivaldi, Opera, Chromium, Firefox, Zen, LibreWolf, Waterfox e Floorp.', el('span')));
         for (const s of sources) {
-          const b = el('button', 'btn', 'Importar');
-          b.onclick = async () => {
-            const what = s.id === 'arc' ? 'Cada Space do Arc vira um Space novo.' : 'Os favoritos entram como pastas no Space atual.';
-            if (!confirm(`Importar de ${s.name}? ${what}`)) return;
-            b.disabled = true;
-            try { alert(await invoke('import_browser', { id: s.id })); } catch (err) { alert(`Não deu para importar: ${err}`); }
-            b.disabled = false;
-          };
-          g.append(row(s.name, null, b));
+          const box = el('div', 'opt');
+          box.style.flexWrap = 'wrap';
+          const txt = el('div', 'txt', s.name);
+          txt.append(el('small', '', s.kinds.map((k) => KIND[k]).join(' · ')));
+          const checks = el('div', 'seg');
+          checks.style.background = 'none';
+          const pick = {};
+          for (const k of s.kinds) {
+            const l = el('label', 'check-inline');
+            const c = el('input');
+            c.type = 'checkbox';
+            c.checked = true;
+            pick[k] = c;
+            l.append(c, document.createTextNode(k === 'spaces' ? 'Spaces' : KIND[k]));
+            checks.append(l);
+          }
+          const dest = s.id === 'arc' ? null : target(s.name);
+          const go = el('button', 'btn primary', 'Importar');
+          go.onclick = () => run(go, () => invoke('import_browser', {
+            id: s.id,
+            bookmarks: !!(pick.bookmarks?.checked || pick.spaces?.checked),
+            history: !!pick.history?.checked,
+            newSpace: dest && dest.value === 'new' ? s.name : null,
+          }));
+          checks.append(...(dest ? [dest] : []), go);
+          box.append(txt, checks);
+          found.append(box);
         }
       });
-      return [...header('Importar', 'Traga Spaces, pastas e favoritos de outro navegador. As abas importadas começam dormindo.'), g];
+      const htmlDest = target('Favoritos importados');
+      const htmlBtn = el('button', 'btn', 'Escolher arquivo…');
+      htmlBtn.onclick = () => run(htmlBtn, () => invoke('import_html', { newSpace: htmlDest.value === 'new' ? 'Favoritos importados' : null }));
+      const htmlWrap = el('div', 'seg');
+      htmlWrap.style.background = 'none';
+      htmlWrap.append(htmlDest, htmlBtn);
+      return [
+        ...header('Importar', 'Traga favoritos, histórico e Spaces de outro navegador. Abas importadas começam dormindo; o histórico alimenta as sugestões da barra de endereço.'),
+        found,
+        group('Arquivo de favoritos',
+          row('Favoritos em HTML', 'Qualquer navegador exporta favoritos neste formato (Exportar favoritos).', htmlWrap)),
+        group('O que não dá para importar',
+          row('Senhas', 'O WebView2 não permite adicionar senhas salvas. Use um gerenciador de senhas ou deixe o Blazon salvar ao entrar nos sites.', el('span')),
+          row('Abas abertas e extensões', 'Ainda não suportado.', el('span'))),
+      ];
     },
   },
   keys: {
@@ -369,7 +419,7 @@ const SECTIONS = {
     render() {
       const p = (text) => el('p', 'lead', text);
       return [
-        ...header('Crest para Windows', 'Um navegador leve com Spaces, feito em Rust com Tauri e o WebView2 do Windows.'),
+        ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
     },
@@ -530,7 +580,7 @@ function renderStudio() {
   const c = draft.crest;
   switch (studioStep) {
     case 'house':
-      body.append(el('p', 'lead', 'Comece de uma das casas do Crest: brasão e barra lateral juntos.'), grid(Object.entries(HOUSES).map(([k, h]) =>
+      body.append(el('p', 'lead', 'Comece de uma das nove casas clássicas: brasão e barra lateral juntos.'), grid(Object.entries(HOUSES).map(([k, h]) =>
         tile(h.title, svgNode(renderCrest(crestOf({ house: k }))), space.house === k, () =>
           saveStudio(space, { crest: crestOf({ house: k }), sidebar: { colors: [...h.colors], pattern: h.pattern } }, { house: k })))));
       break;
@@ -633,7 +683,7 @@ function renderStudio() {
   editor.append(head, steps, body);
   const studio = el('div', 'studio');
   studio.append(list, editor);
-  return [...header('Spaces e Crest Studio', 'Cada Space tem seu brasão, cores e fundo. Escolha um modelo ou monte peça por peça.'), studio];
+  return [...header('Spaces e Studio', 'Cada Space tem seu brasão, cores e fundo. Escolha um modelo ou monte peça por peça.'), studio];
 }
 
 function accentRow() {

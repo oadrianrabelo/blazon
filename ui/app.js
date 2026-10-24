@@ -217,7 +217,7 @@ function render() {
   applyAppearance(state.settings);
   document.body.classList.toggle('right', state.settings.sidebar_right);
   document.body.classList.toggle('native', state.settings.native_frame);
-  document.title = current ? `${tabTitle(current)} — Crest` : 'Crest';
+  document.title = current ? `${tabTitle(current)} — Blazon` : 'Blazon';
 
   const name = $('space-name');
   const label = el('span', 'label', space.name);
