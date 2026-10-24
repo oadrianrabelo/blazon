@@ -508,7 +508,12 @@ const SECTIONS = {
     icon: 'about',
     render() {
       const p = (text) => el('p', 'lead', text);
+      const logo = new Image();
+      logo.src = 'blazon.svg';
+      logo.alt = '';
+      logo.style.cssText = 'width:88px;height:88px;margin-bottom:8px';
       return [
+        logo,
         ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
