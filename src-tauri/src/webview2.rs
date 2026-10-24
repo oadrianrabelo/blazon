@@ -123,7 +123,7 @@ pub fn install(
                     kind.0, tab
                 ));
                 if let Some(id) = tab {
-                    let _ = app_pf.emit_to("ui", "tab-crashed", id);
+                    let _ = app_pf.emit("tab-crashed", id);
                 }
                 Ok(())
             })),

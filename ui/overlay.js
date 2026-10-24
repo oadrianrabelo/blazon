@@ -63,6 +63,7 @@ let provider = null;
 
 const COMMANDS = [
   ['Nova aba', 'Ctrl+T', () => invoke('run_command', { cmd: 'newtab' })],
+  ['Nova janela', 'Ctrl+N', () => invoke('new_window', { space: null })],
   ['Fechar aba', 'Ctrl+W', () => invoke('run_command', { cmd: 'close' })],
   ['Reabrir aba fechada', 'Ctrl+Shift+T', () => invoke('run_command', { cmd: 'reopen' })],
   ['Duplicar aba', '', () => tab() && invoke('duplicate_tab', { id: tab().id })],

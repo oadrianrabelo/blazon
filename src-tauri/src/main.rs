@@ -26,8 +26,7 @@ use serde::{Deserialize, Serialize};
 use tauri::{
     async_runtime::spawn,
     webview::{NewWindowResponse, PageLoadEvent, WebviewBuilder},
-    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, Window,
-    WindowEvent,
+    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, WebviewUrl, Window, WindowEvent,
 };
 use url::Url;
 
@@ -49,7 +48,7 @@ const NEWTAB_PAGE: &str = "newtab.html";
 fn shortcuts_js(peek_modifier: &str) -> String {
     r#"(() => {
   if (window.top !== window) return;
-  const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette' };
+  const keys = { t: 'newtab', w: 'close', l: 'address', k: 'palette', n: 'newwindow' };
   const send = (cmd) => window.open('https://blazon-cmd.invalid/' + cmd);
   addEventListener('keydown', (e) => {
     if (!e.ctrlKey || e.altKey) return;
@@ -252,6 +251,8 @@ struct Data {
     settings: Settings,
     /// Closed and auto-archived tabs, newest last.
     archive: Vec<Archived>,
+    /// Spaces shown in extra windows, reopened at startup.
+    windows: Vec<String>,
     /// Locked Spaces opened with Windows Hello this session.
     #[serde(skip_deserializing)]
     unlocked: Vec<String>,
@@ -316,8 +317,9 @@ impl Data {
     }
 
     /// Tabs on screen: the active tab, or its Split View pair.
-    fn visible(&self) -> Vec<u64> {
-        let Some(id) = self.active_tab_id() else {
+    /// Tabs on screen in the window showing `space`.
+    fn visible_in(&self, space: &str) -> Vec<u64> {
+        let Some(id) = self.active_tab.get(space).copied() else {
             return vec![];
         };
         match self.splits.iter().find(|p| p.contains(&id)) {
@@ -393,8 +395,12 @@ struct AppState {
     closed: Mutex<Vec<(String, String)>>,
     /// Floating sidebar currently revealed.
     peek: AtomicBool,
-    /// Section shown in the settings panel, when open.
-    panel: Mutex<Option<String>>,
+    /// Section shown in each window's settings panel, when open.
+    panel: Mutex<HashMap<String, String>>,
+    /// Space shown by each window (window label -> Space id).
+    windows: Mutex<HashMap<String, String>>,
+    /// Label of the window the person is using.
+    focused: Mutex<String>,
     /// Downloads of this session, newest last.
     downloads: Mutex<Vec<Download>>,
 }
@@ -416,7 +422,7 @@ pub struct Download {
 
 fn emit_downloads(app: &AppHandle) {
     let list = state(app).downloads.lock().unwrap().clone();
-    let _ = app.emit_to(UI, "downloads", list);
+    let _ = app.emit("downloads", list);
 }
 
 fn millis() -> u128 {
@@ -607,9 +613,9 @@ fn save_history(app: &AppHandle) {
 
 /// Closes the webviews of background tabs idle longer than the sleep setting.
 fn sleep_idle_tabs(app: &AppHandle) {
+    let visible = shown_tabs(app);
     let asleep = with_data(app, |d| {
         let limit = d.settings.sleep_minutes * 60;
-        let visible = d.visible();
         let cutoff = now().saturating_sub(limit);
         let mut ids = vec![];
         for t in d.tabs.iter_mut() {
@@ -691,16 +697,91 @@ fn commit(app: &AppHandle) {
             let _ = fs::rename(&tmp, &s.file);
         }
     }
-    let _ = app.emit_to(UI, "state", data.clone());
-    let _ = app.emit_to(PANEL, "state", data);
+    // Each window's sidebar sees its own Space as the active one.
+    let wins = s.windows.lock().unwrap().clone();
+    for (win, space) in wins {
+        let mut view = data.clone();
+        view.active_space = space;
+        let _ = app.emit_to(ui_of(&win), "state", view.clone());
+        let _ = app.emit_to(panel_of(&win), "state", view);
+    }
 }
 
 fn label(id: u64) -> String {
     format!("tab-{id}")
 }
 
+/// Label suffix of a window's own webviews ("" for the main window).
+fn sfx(win: &str) -> String {
+    if win == WINDOW {
+        String::new()
+    } else {
+        format!("-{win}")
+    }
+}
+fn ui_of(win: &str) -> String {
+    format!("{UI}{}", sfx(win))
+}
+fn panel_of(win: &str) -> String {
+    format!("{PANEL}{}", sfx(win))
+}
+
+fn focused_label(app: &AppHandle) -> String {
+    let f = state(app).focused.lock().unwrap().clone();
+    if app.get_window(&f).is_some() {
+        f
+    } else {
+        WINDOW.to_string()
+    }
+}
+
+/// The window the person is using.
 fn window(app: &AppHandle) -> Option<Window> {
-    app.get_window(WINDOW)
+    app.get_window(&focused_label(app))
+        .or_else(|| app.get_window(WINDOW))
+}
+
+/// Tabs visible in any window.
+fn shown_tabs(app: &AppHandle) -> Vec<u64> {
+    let spaces: Vec<String> = state(app)
+        .windows
+        .lock()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect();
+    with_data(app, |d| {
+        spaces.iter().flat_map(|s| d.visible_in(s)).collect()
+    })
+}
+
+/// Keeps the focused window on the active Space. When that Space is already
+/// open in another window, that window comes forward instead.
+fn sync_windows(app: &AppHandle) {
+    let focused = focused_label(app);
+    let want = with_data(app, |d| d.active_space.clone());
+    let s = state(app);
+    let mut wins = s.windows.lock().unwrap();
+    if wins.get(&focused) == Some(&want) {
+        return;
+    }
+    let other = wins
+        .iter()
+        .find(|(l, sp)| **sp == want && **l != focused)
+        .map(|(l, _)| l.clone());
+    match other {
+        Some(other) => {
+            drop(wins);
+            *s.focused.lock().unwrap() = other.clone();
+            if let Some(w) = app.get_window(&other) {
+                let _ = w.unminimize();
+                let _ = w.set_focus();
+            }
+        }
+        None => {
+            wins.insert(focused, want);
+        }
+    }
 }
 
 fn is_newtab(url: &Url) -> bool {
@@ -913,9 +994,19 @@ fn apply_layout(app: &AppHandle) {
 
 /// `create` must be false on the main thread: creating a webview there deadlocks on Windows.
 fn layout(app: &AppHandle, create: bool) {
-    let Some(win) = window(app) else { return };
+    sync_windows(app);
+    let wins = state(app).windows.lock().unwrap().clone();
+    for (win, space) in wins {
+        layout_window(app, &win, &space, create);
+    }
+}
+
+fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool) {
+    let Some(win) = app.get_window(wl) else {
+        return;
+    };
     let (visible, settings) = with_data(app, |d| {
-        let ids = d.visible();
+        let ids = d.visible_in(space);
         let tabs: Vec<Tab> = d
             .tabs
             .iter_mut()
@@ -932,11 +1023,18 @@ fn layout(app: &AppHandle, create: bool) {
         (ordered, d.settings.clone())
     });
     let s = state(app);
-    let collapsed = settings.floating_sidebar && !s.peek.load(Ordering::Relaxed);
+    let focused = focused_label(app) == wl;
+    let collapsed = settings.floating_sidebar && !(focused && s.peek.load(Ordering::Relaxed));
     let Some(rects) = layout_rects(&win, &settings, collapsed) else {
         return;
     };
-    let panel = s.panel.lock().unwrap().clone();
+    let panel = s.panel.lock().unwrap().get(wl).cloned();
+    let (ui_l, panel_l, overlay_l, peek_l) = (
+        ui_of(wl),
+        panel_of(wl),
+        overlay::overlay_of(wl),
+        overlay::peek_of(wl),
+    );
     let (pos, size) = rects[1];
     // Split View: equal halves with a card gap between them.
     let n = visible.len().max(1) as u32;
@@ -952,38 +1050,45 @@ fn layout(app: &AppHandle, create: bool) {
             )
         })
         .collect();
-    for tab in visible.iter().filter(|_| create && panel.is_none()) {
-        if app.get_webview(&label(tab.id)).is_none() {
-            if let Err(e) = create_tab_webview(app, &win, tab) {
-                diag::error(&format!(
-                    "falha ao criar a aba {} ({}): {e}",
-                    tab.id,
-                    diag::host(&tab.url)
-                ));
+    for tab in &visible {
+        match app.get_webview(&label(tab.id)) {
+            // The Space moved to this window: bring its pages along.
+            Some(wv) if wv.window().label() != wl => {
+                let _ = wv.reparent(&win);
             }
+            Some(_) => {}
+            None if create && panel.is_none() => {
+                if let Err(e) = create_tab_webview(app, &win, tab) {
+                    diag::error(&format!(
+                        "falha ao criar a aba {} ({}): {e}",
+                        tab.id,
+                        diag::host(&tab.url)
+                    ));
+                }
+            }
+            None => {}
         }
     }
-    if create && panel.is_some() && app.get_webview(PANEL).is_none() {
+    if create && panel.is_some() && app.get_webview(&panel_l).is_none() {
         let section = panel.clone().unwrap_or_default();
         let url = WebviewUrl::App(format!("settings.html#{section}").into());
-        let _ = win.add_child(
-            WebviewBuilder::new(PANEL, url).disable_drag_drop_handler(),
+        if let Err(e) = win.add_child(
+            WebviewBuilder::new(&panel_l, url).disable_drag_drop_handler(),
             pos,
             size,
-        );
+        ) {
+            diag::error(&format!("falha ao abrir as configurações: {e}"));
+        }
     }
     for wv in win.webviews() {
         let l = wv.label().to_string();
-        if l == UI {
+        if l == ui_l || l == overlay_l {
             let _ = wv.set_position(rects[0].0);
             let _ = wv.set_size(rects[0].1);
-        } else if l == PANEL {
+        } else if l == panel_l {
             let _ = wv.set_position(pos);
             let _ = wv.set_size(size);
-        } else if l == overlay::OVERLAY {
-            let _ = wv.set_position(rects[0].0);
-            let _ = wv.set_size(rects[0].1);
-        } else if l == overlay::PEEK {
+        } else if l == peek_l {
             let (p, s) = overlay::peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
             let _ = wv.set_position(p);
             let _ = wv.set_size(s);
@@ -1005,9 +1110,10 @@ fn focus_address(app: &AppHandle) {
     {
         layout(app, false);
     }
-    if let Some(ui) = app.get_webview(UI) {
-        let _ = ui.set_focus();
-        let _ = app.emit_to(UI, "focus-address", ());
+    let ui = ui_of(&focused_label(app));
+    if let Some(wv) = app.get_webview(&ui) {
+        let _ = wv.set_focus();
+        let _ = app.emit_to(ui.as_str(), "focus-address", ());
     }
 }
 
@@ -1047,6 +1153,9 @@ async fn open_tab(app: &AppHandle, url: String) {
 async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
     match cmd {
         "palette" => overlay::open_palette(app),
+        "newwindow" => {
+            let _ = new_window(app.clone(), None).await;
+        }
         "peek" => overlay::open_peek(app, arg.as_deref().unwrap_or("")),
         "newtab" => {
             open_tab(app, String::new()).await;
@@ -1068,9 +1177,10 @@ async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
         }
         "reopen" => reopen_tab(app.clone()).await,
         "history" => {
-            if let Some(ui) = app.get_webview(UI) {
-                let _ = ui.set_focus();
-                let _ = app.emit_to(UI, "open-history", ());
+            let ui = ui_of(&focused_label(app));
+            if let Some(wv) = app.get_webview(&ui) {
+                let _ = wv.set_focus();
+                let _ = app.emit_to(ui.as_str(), "open-history", ());
             }
         }
         "next" | "prev" => {
@@ -1123,8 +1233,18 @@ async fn run_command(app: AppHandle, cmd: String) {
 }
 
 #[tauri::command]
-async fn get_state(app: AppHandle) -> Data {
-    with_data(&app, |d| d.clone())
+async fn get_state(app: AppHandle, webview: tauri::Webview) -> Data {
+    let space = state(&app)
+        .windows
+        .lock()
+        .unwrap()
+        .get(webview.window().label())
+        .cloned();
+    let mut data = with_data(&app, |d| d.clone());
+    if let Some(space) = space {
+        data.active_space = space;
+    }
+    data
 }
 
 #[tauri::command]
@@ -1934,15 +2054,21 @@ async fn sidebar_peek(app: AppHandle, on: bool) {
 
 #[tauri::command]
 async fn open_panel(app: AppHandle, section: String) {
-    let previous = state(&app).panel.lock().unwrap().replace(section.clone());
-    match app.get_webview(PANEL) {
+    let win = focused_label(&app);
+    let panel_l = panel_of(&win);
+    let previous = state(&app)
+        .panel
+        .lock()
+        .unwrap()
+        .insert(win, section.clone());
+    match app.get_webview(&panel_l) {
         Some(panel) if previous.is_some() => {
-            let _ = app.emit_to(PANEL, "section", section);
+            let _ = app.emit_to(panel_l.as_str(), "section", section);
             let _ = panel.set_focus();
         }
         _ => {
             apply_layout(&app);
-            if let Some(panel) = app.get_webview(PANEL) {
+            if let Some(panel) = app.get_webview(&panel_l) {
                 let _ = panel.set_focus();
             }
         }
@@ -2109,12 +2235,12 @@ async fn reader_mode(app: AppHandle) {
 
 /// Archives tabs idle longer than the archive setting.
 fn archive_idle_tabs(app: &AppHandle) {
+    let visible = shown_tabs(app);
     let gone = with_data(app, |d| {
         let limit = d.settings.archive_hours * 3600;
         if limit == 0 {
             return vec![];
         }
-        let visible = d.visible();
         let cutoff = now().saturating_sub(limit);
         let idle: Vec<Tab> = d
             .tabs
@@ -2358,6 +2484,181 @@ async fn change_extension() -> Result<bool, String> {
     Err("Só no Windows.".into())
 }
 
+/// Builds a browser window with its sidebar webview and event handlers.
+/// Must not run on the main thread after startup (see `layout`).
+fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
+    let native_frame = with_data(app, |d| d.settings.native_frame);
+    let win = tauri::window::WindowBuilder::new(app, wl)
+        .title("Blazon")
+        .inner_size(1280.0, 820.0)
+        .min_inner_size(640.0, 400.0)
+        .decorations(native_frame)
+        .build()?;
+    let size = win.inner_size()?;
+    win.add_child(
+        WebviewBuilder::new(ui_of(wl), WebviewUrl::App("index.html".into()))
+            // HTML5 drag and drop for tab reordering.
+            .disable_drag_drop_handler(),
+        PhysicalPosition::new(0, 0),
+        size,
+    )?;
+    let handle = app.clone();
+    let label = wl.to_string();
+    win.on_window_event(move |e| match e {
+        WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => layout(&handle, false),
+        WindowEvent::Focused(true) => {
+            *state(&handle).focused.lock().unwrap() = label.clone();
+            let space = state(&handle).windows.lock().unwrap().get(&label).cloned();
+            if let Some(space) = space {
+                with_data(&handle, |d| d.active_space = space);
+            }
+        }
+        WindowEvent::CloseRequested { .. } if label == WINDOW => {
+            EXITING.store(true, Ordering::Relaxed);
+            save_history(&handle);
+            // The main window closes the whole browser.
+            handle.exit(0);
+        }
+        WindowEvent::Destroyed if label != WINDOW && !EXITING.load(Ordering::Relaxed) => {
+            let space = state(&handle).windows.lock().unwrap().remove(&label);
+            if *state(&handle).focused.lock().unwrap() == label {
+                *state(&handle).focused.lock().unwrap() = WINDOW.to_string();
+            }
+            with_data(&handle, |d| {
+                if let Some(space) = &space {
+                    // Its pages were destroyed with the window.
+                    for t in d.tabs.iter_mut().filter(|t| &t.space == space) {
+                        t.awake = false;
+                    }
+                }
+                if let Some(main) = state(&handle).windows.lock().unwrap().get(WINDOW) {
+                    d.active_space = main.clone();
+                }
+            });
+            save_windows(&handle);
+            commit(&handle);
+        }
+        _ => {}
+    });
+    Ok(win)
+}
+
+/// Set while the browser shuts down, so closing windows don't forget themselves.
+static EXITING: AtomicBool = AtomicBool::new(false);
+
+fn save_windows(app: &AppHandle) {
+    let extra: Vec<String> = state(app)
+        .windows
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|(l, _)| *l != WINDOW)
+        .map(|(_, s)| s.clone())
+        .collect();
+    with_data(app, |d| d.windows = extra);
+    commit(app);
+}
+
+/// Adds an empty Space without switching to it.
+fn quiet_space(app: &AppHandle) -> String {
+    with_data(app, |d| {
+        let id = format!("space-{}", d.new_id());
+        let h = d.spaces.len() % HOUSES.len();
+        d.spaces.push(Space {
+            id: id.clone(),
+            name: "Novo Space".into(),
+            color: HOUSE_ACCENTS[h].into(),
+            private: false,
+            house: HOUSES[h].into(),
+            downloads: String::new(),
+            look: serde_json::Value::Null,
+            locked: false,
+            search: String::new(),
+        });
+        id
+    })
+}
+
+/// Opens a window showing `space`. With no Space, uses one that isn't open
+/// anywhere, or creates a new one.
+#[tauri::command]
+async fn new_window(app: AppHandle, space: Option<String>) -> Result<(), String> {
+    let shown: Vec<String> = state(&app)
+        .windows
+        .lock()
+        .unwrap()
+        .values()
+        .cloned()
+        .collect();
+    let space = match space {
+        Some(s) => s,
+        None => match with_data(&app, |d| {
+            d.spaces
+                .iter()
+                .find(|s| !shown.contains(&s.id))
+                .map(|s| s.id.clone())
+        }) {
+            Some(s) => s,
+            None => quiet_space(&app),
+        },
+    };
+    if !ensure_unlocked(&app, &space).await {
+        return Err("Space bloqueado.".into());
+    }
+    // A Space shows in one window at a time: the window it leaves picks another.
+    let from = state(&app)
+        .windows
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|(_, s)| **s == space)
+        .map(|(l, _)| l.clone());
+    if let Some(from) = from {
+        let shown: Vec<String> = state(&app)
+            .windows
+            .lock()
+            .unwrap()
+            .values()
+            .cloned()
+            .collect();
+        let other = with_data(&app, |d| {
+            d.spaces
+                .iter()
+                .find(|s| !shown.contains(&s.id))
+                .map(|s| s.id.clone())
+        });
+        let other = match other {
+            Some(o) => o,
+            None => quiet_space(&app),
+        };
+        state(&app).windows.lock().unwrap().insert(from, other);
+    }
+    let wl = format!("win-{}", with_data(&app, |d| d.new_id()));
+    build_window(&app, &wl).map_err(|e| e.to_string())?;
+    state(&app)
+        .windows
+        .lock()
+        .unwrap()
+        .insert(wl.clone(), space.clone());
+    *state(&app).focused.lock().unwrap() = wl;
+    let empty = with_data(&app, |d| {
+        d.active_space = space.clone();
+        if d.active_tab.get(&space).is_none() {
+            if let Some(first) = d.space_tabs(&space).first() {
+                d.active_tab.insert(space.clone(), *first);
+            }
+        }
+        d.active_tab.get(&space).is_none()
+    });
+    if empty {
+        open_tab(&app, String::new()).await;
+    }
+    diag::info("nova janela aberta");
+    save_windows(&app);
+    apply_layout(&app);
+    Ok(())
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -2369,8 +2670,9 @@ async fn open_default_apps() {
 
 #[tauri::command]
 async fn close_panel(app: AppHandle) {
-    state(&app).panel.lock().unwrap().take();
-    if let Some(panel) = app.get_webview(PANEL) {
+    let win = focused_label(&app);
+    state(&app).panel.lock().unwrap().remove(&win);
+    if let Some(panel) = app.get_webview(&panel_of(&win)) {
         let _ = panel.close();
     }
     apply_layout(&app);
@@ -2383,13 +2685,13 @@ async fn set_settings(app: AppHandle, settings: Settings) {
         (d.settings.default_zoom - settings.default_zoom).abs() > f64::EPSILON
     });
     if zoom_changed {
-        for wv in window(&app).map(|w| w.webviews()).unwrap_or_default() {
+        for wv in app.webviews().into_values() {
             if wv.label().starts_with("tab-") {
                 let _ = wv.set_zoom(settings.default_zoom);
             }
         }
     }
-    if let Some(win) = window(&app) {
+    for win in app.windows().into_values() {
         let _ = win.set_decorations(settings.native_frame);
     }
     blocker::configure(settings.adblock, &settings.adblock_allow);
@@ -2436,6 +2738,7 @@ fn main() {
             open_panel,
             close_panel,
             open_default_apps,
+            new_window,
             downloads_list,
             download_action,
             clear_downloads,
@@ -2549,7 +2852,8 @@ fn main() {
                 .ok()
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
-            let native_frame = data.settings.native_frame;
+            let active_space = data.active_space.clone();
+            let extra_windows: Vec<String> = std::mem::take(&mut data.windows);
             let started = now();
             for t in data.tabs.iter_mut().filter(|t| t.last_active == 0) {
                 t.last_active = started;
@@ -2572,39 +2876,28 @@ fn main() {
                 history_dirty: AtomicBool::new(false),
                 closed: Mutex::new(vec![]),
                 peek: AtomicBool::new(false),
-                panel: Mutex::new(None),
+                panel: Mutex::new(HashMap::new()),
+                windows: Mutex::new(HashMap::from([(WINDOW.to_string(), active_space.clone())])),
+                focused: Mutex::new(WINDOW.to_string()),
                 downloads: Mutex::new(vec![]),
             });
 
-            let win = tauri::window::WindowBuilder::new(app, WINDOW)
-                .title("Blazon")
-                .inner_size(1280.0, 820.0)
-                .min_inner_size(640.0, 400.0)
-                .center()
-                .decorations(native_frame)
-                .build()?;
-            let _ = win.set_size(LogicalSize::new(1280.0, 820.0));
-            let size = win.inner_size()?;
-            win.add_child(
-                WebviewBuilder::new(UI, WebviewUrl::App("index.html".into()))
-                    // HTML5 drag and drop for tab reordering.
-                    .disable_drag_drop_handler(),
-                PhysicalPosition::new(0, 0),
-                size,
-            )?;
-
-            let handle = app.handle().clone();
-            win.on_window_event(move |e| match e {
-                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
-                    layout(&handle, false)
-                }
-                WindowEvent::CloseRequested { .. } => save_history(&handle),
-                _ => {}
-            });
+            let win = build_window(app.handle(), WINDOW)?;
+            let _ = win.center();
             let handle = app.handle().clone();
             spawn(async move {
                 apply_layout(&handle);
                 commit(&handle);
+                for space in extra_windows {
+                    if with_data(&handle, |d| {
+                        d.spaces.iter().any(|s| s.id == space && !s.locked)
+                    }) {
+                        let _ = new_window(handle.clone(), Some(space)).await;
+                    }
+                }
+                if let Some(main) = handle.get_window(WINDOW) {
+                    let _ = main.set_focus();
+                }
             });
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {

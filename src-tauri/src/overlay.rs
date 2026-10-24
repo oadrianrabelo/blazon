@@ -4,8 +4,16 @@
 
 use super::*;
 
-pub const OVERLAY: &str = "overlay";
-pub const PEEK: &str = "peek";
+const OVERLAY: &str = "overlay";
+const PEEK: &str = "peek";
+
+/// Each window has its own overlay and Peek webviews.
+pub fn overlay_of(win: &str) -> String {
+    format!("{OVERLAY}{}", sfx(win))
+}
+pub fn peek_of(win: &str) -> String {
+    format!("{PEEK}{}", sfx(win))
+}
 
 /// Esc closes Peek from inside the previewed page.
 const PEEK_JS: &str = r#"addEventListener('keydown', (e) => {
@@ -31,8 +39,9 @@ pub fn peek_rect(
 }
 
 fn close_existing(app: &AppHandle) {
-    for l in [PEEK, OVERLAY] {
-        if let Some(wv) = app.get_webview(l) {
+    let win = focused_label(app);
+    for l in [peek_of(&win), overlay_of(&win)] {
+        if let Some(wv) = app.get_webview(&l) {
             let _ = wv.close();
         }
     }
@@ -42,7 +51,7 @@ fn add_overlay(win: &Window, mode: &str) -> tauri::Result<()> {
     let size = win.inner_size()?;
     let wv = win.add_child(
         WebviewBuilder::new(
-            OVERLAY,
+            overlay_of(win.label()),
             WebviewUrl::App(format!("overlay.html#{mode}").into()),
         )
         .background_color(tauri::window::Color(0, 0, 0, 0)),
@@ -69,7 +78,7 @@ pub fn open_peek(app: &AppHandle, url: &str) {
     let (space, settings) = with_data(app, |d| (d.active_space.clone(), d.settings.clone()));
     let private = with_data(app, |d| d.is_private(&space));
     let app_nw = app.clone();
-    let builder = WebviewBuilder::new(PEEK, WebviewUrl::External(url))
+    let builder = WebviewBuilder::new(peek_of(win.label()), WebviewUrl::External(url))
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&space))
         .initialization_script(PEEK_JS)
@@ -114,7 +123,9 @@ pub async fn close_overlay(app: AppHandle) {
 /// Promotes the previewed page to a regular tab.
 #[tauri::command]
 pub async fn peek_to_tab(app: AppHandle) {
-    let url = app.get_webview(PEEK).and_then(|wv| wv.url().ok());
+    let url = app
+        .get_webview(&peek_of(&focused_label(&app)))
+        .and_then(|wv| wv.url().ok());
     close_existing(&app);
     if let Some(url) = url {
         open_tab(&app, url.to_string()).await;
@@ -125,7 +136,7 @@ pub async fn peek_to_tab(app: AppHandle) {
 /// Address of the page in Peek, for the toolbar.
 #[tauri::command]
 pub async fn peek_url(app: AppHandle) -> Option<String> {
-    app.get_webview(PEEK)
+    app.get_webview(&peek_of(&focused_label(&app)))
         .and_then(|wv| wv.url().ok())
         .map(|u| u.to_string())
 }

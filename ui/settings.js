@@ -441,7 +441,7 @@ const SECTIONS = {
     icon: 'keys',
     render() {
       const keys = [
-        ['Nova aba', 'Ctrl+T'], ['Fechar aba', 'Ctrl+W'], ['Reabrir aba fechada', 'Ctrl+Shift+T'], ['Focar o endereço', 'Ctrl+L'],
+        ['Nova aba', 'Ctrl+T'], ['Nova janela', 'Ctrl+N'], ['Fechar aba', 'Ctrl+W'], ['Reabrir aba fechada', 'Ctrl+Shift+T'], ['Focar o endereço', 'Ctrl+L'],
         ['Próxima / anterior', 'Ctrl+Tab / Ctrl+Shift+Tab'], ['Ir para a aba', 'Ctrl+1 … 9'], ['Trocar de Space', 'Ctrl+Shift+1 … 9'],
         ['Histórico', 'Ctrl+H'], ['Paleta de comandos', 'Ctrl+K'], ['Peek (prévia do link)', 'Shift+clique'], ['Mostrar ou esconder a barra', 'Ctrl+Shift+S'], ['Voltar / avançar', 'Alt+← / Alt+→'],
         ['Recarregar', 'F5'], ['Zoom', 'Ctrl + / Ctrl − / Ctrl+0'], ['Buscar na página', 'Ctrl+F'], ['Ferramentas do desenvolvedor', 'F12'],

@@ -355,6 +355,13 @@ function render() {
     }
     b.onclick = () => invoke('switch_space', { id: s.id });
     b.ondblclick = () => openStudio(s);
+    b.oncontextmenu = (ev) => {
+      ev.preventDefault();
+      showMenu(ev, [
+        { label: 'Abrir em nova janela', icon: 'plus', run: () => invoke('new_window', { space: s.id }) },
+        { label: 'Editar no Studio', icon: 'edit', run: () => openStudio(s) },
+      ]);
+    };
     // Drag to reorder Spaces.
     b.draggable = true;
     b.addEventListener('dragstart', (ev) => { ev.dataTransfer.setData('text/space', s.id); });
@@ -559,6 +566,7 @@ document.addEventListener('keydown', (e) => {
   else if (k === 't') invoke('new_tab', {});
   else if (k === 'h') openHistory('history');
   else if (k === 'k') invoke('open_overlay', { mode: 'palette', url: null });
+  else if (k === 'n' && !e.shiftKey) invoke('new_window', { space: null });
   else if (k === 's' && e.shiftKey) invoke('set_settings', { settings: { ...state.settings, floating_sidebar: !state.settings.floating_sidebar } });
   else if (k === 'w' && activeTab()) invoke('close_tab', { id: activeTab().id });
   else if (k === 'l') { $('address').focus(); $('address').select(); }
