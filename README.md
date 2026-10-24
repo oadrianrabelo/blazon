@@ -31,6 +31,8 @@ inteiro junto.
 - Reabrir aba fechada (Ctrl+Shift+T).
 - **Pastas** dentro do Space (clique direito na lista → Nova pasta, ou arraste
   abas para a pasta), e menu de contexto nas abas: fixar, mover, duplicar, copiar link.
+- **Lado a lado** (Split View): clique direito numa aba → "Lado a lado com…"
+  mostra duas abas em cartões vizinhos.
 - **Navegador padrão**: o instalador `.exe` registra o Crest no Windows. Para
   usar, escolha-o em Configurações → Aplicativos → Aplicativos padrão. Links de
   outros apps abrem como abas na janela já aberta.

@@ -136,6 +136,8 @@ struct Data {
     spaces: Vec<Space>,
     tabs: Vec<Tab>,
     folders: Vec<Folder>,
+    /// Split View pairs, shown side by side (left, right) when either is active.
+    splits: Vec<[u64; 2]>,
     active_space: String,
     active_tab: HashMap<String, u64>,
     next_id: u64,
@@ -154,6 +156,19 @@ impl Data {
 
     fn active_tab_id(&self) -> Option<u64> {
         self.active_tab.get(&self.active_space).copied()
+    }
+
+    /// Tabs on screen: the active tab, or its Split View pair.
+    fn visible(&self) -> Vec<u64> {
+        let Some(id) = self.active_tab_id() else { return vec![] };
+        match self.splits.iter().find(|p| p.contains(&id)) {
+            Some(pair) => pair.to_vec(),
+            None => vec![id],
+        }
+    }
+
+    fn unsplit(&mut self, id: u64) {
+        self.splits.retain(|p| !p.contains(&id));
     }
 
     fn space_tabs(&self, space: &str) -> Vec<u64> {
@@ -186,6 +201,8 @@ impl Data {
             self.active_space = spaces[0].clone();
         }
         let tabs = &self.tabs;
+        let space_of = |id: u64| tabs.iter().find(|t| t.id == id).map(|t| t.space.clone());
+        self.splits.retain(|[a, b]| a != b && space_of(*a).is_some() && space_of(*a) == space_of(*b));
         self.active_tab
             .retain(|s, id| tabs.iter().any(|t| t.id == *id && &t.space == s));
         let max_tab = self.tabs.iter().map(|t| t.id).max().unwrap_or(0);
@@ -257,11 +274,11 @@ fn save_history(app: &AppHandle) {
 fn sleep_idle_tabs(app: &AppHandle) {
     let asleep = with_data(app, |d| {
         let limit = d.settings.sleep_minutes * 60;
-        let visible = d.active_tab_id();
+        let visible = d.visible();
         let cutoff = now().saturating_sub(limit);
         let mut ids = vec![];
         for t in d.tabs.iter_mut() {
-            if limit > 0 && t.awake && !t.pinned && Some(t.id) != visible && t.last_active < cutoff {
+            if limit > 0 && t.awake && !t.pinned && !visible.contains(&t.id) && t.last_active < cutoff {
                 t.awake = false;
                 t.loading = false;
                 ids.push(t.id);
@@ -445,17 +462,32 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
 /// Creates the active tab's webview if needed, shows it and hides the rest.
 fn apply_layout(app: &AppHandle) {
     let Some(win) = window(app) else { return };
-    let (active, right) = with_data(app, |d| {
-        let id = d.active_tab_id();
-        let tab = d.tabs.iter_mut().find(|t| Some(t.id) == id).map(|t| {
-            t.last_active = now();
-            t.clone()
-        });
-        (tab, d.settings.sidebar_right)
+    let (visible, right) = with_data(app, |d| {
+        let ids = d.visible();
+        let tabs: Vec<Tab> = d
+            .tabs
+            .iter_mut()
+            .filter(|t| ids.contains(&t.id))
+            .map(|t| {
+                t.last_active = now();
+                t.clone()
+            })
+            .collect();
+        let ordered: Vec<Tab> = ids.iter().filter_map(|id| tabs.iter().find(|t| t.id == *id).cloned()).collect();
+        (ordered, d.settings.sidebar_right)
     });
     let Some(rects) = layout_rects(&win, right) else { return };
-    let active_label = active.as_ref().map(|t| label(t.id));
-    if let Some(tab) = &active {
+    let (pos, size) = rects[1];
+    // Split View: equal halves with a card gap between them.
+    let n = visible.len().max(1) as u32;
+    let gap = (CARD_MARGIN * win.scale_factor().unwrap_or(1.0)) as u32;
+    let w = size.width.saturating_sub(gap * (n - 1)) / n;
+    let slots: Vec<(String, PhysicalPosition<i32>)> = visible
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (label(t.id), PhysicalPosition::new(pos.x + (i as u32 * (w + gap)) as i32, pos.y)))
+        .collect();
+    for tab in &visible {
         if app.get_webview(&label(tab.id)).is_none() {
             let _ = create_tab_webview(app, &win, tab, right);
         }
@@ -465,9 +497,9 @@ fn apply_layout(app: &AppHandle) {
         if l == UI {
             let _ = wv.set_position(rects[0].0);
             let _ = wv.set_size(rects[0].1);
-        } else if Some(&l) == active_label.as_ref() {
-            let _ = wv.set_position(rects[1].0);
-            let _ = wv.set_size(rects[1].1);
+        } else if let Some((_, p)) = slots.iter().find(|(s, _)| *s == l) {
+            let _ = wv.set_position(*p);
+            let _ = wv.set_size(PhysicalSize::new(w, size.height));
             let _ = wv.show();
         } else {
             let _ = wv.hide();
@@ -592,6 +624,7 @@ async fn close_tab(app: AppHandle, id: u64) {
         let order = d.space_tabs(&space);
         let i = order.iter().position(|t| *t == id).unwrap_or(0);
         let url = d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()).unwrap_or_default();
+        d.unsplit(id);
         if !url.is_empty() {
             let mut closed = state(&app).closed.lock().unwrap();
             closed.push((space.clone(), url));
@@ -748,6 +781,51 @@ async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool, fo
     if moved.is_some() {
         commit(&app);
     }
+}
+
+/// Shows `id` side by side with `with`, or with a new tab when `with` is None.
+#[tauri::command]
+async fn split_tab(app: AppHandle, id: u64, with: Option<u64>) {
+    let space = with_data(&app, |d| d.tabs.iter().find(|t| t.id == id).map(|t| t.space.clone()));
+    let Some(space) = space else { return };
+    let other = match with {
+        Some(o) => o,
+        None => {
+            let o = with_data(&app, |d| {
+                let o = d.new_id();
+                d.tabs.push(Tab { id: o, space: space.clone(), url: String::new(), title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: now() });
+                o
+            });
+            o
+        }
+    };
+    let ok = with_data(&app, |d| {
+        if id == other || d.tabs.iter().find(|t| t.id == other).map(|t| &t.space) != Some(&space) {
+            return false;
+        }
+        d.unsplit(id);
+        d.unsplit(other);
+        d.splits.push([id, other]);
+        d.active_space = space.clone();
+        d.active_tab.insert(space, if with.is_some() { id } else { other });
+        true
+    });
+    if ok {
+        apply_layout(&app);
+        commit(&app);
+        if with.is_some() {
+            focus_active(&app);
+        } else {
+            focus_address(&app);
+        }
+    }
+}
+
+#[tauri::command]
+async fn unsplit_tab(app: AppHandle, id: u64) {
+    with_data(&app, |d| d.unsplit(id));
+    apply_layout(&app);
+    commit(&app);
 }
 
 #[tauri::command]
@@ -944,6 +1022,8 @@ fn main() {
             update_folder,
             delete_folder,
             duplicate_tab,
+            split_tab,
+            unsplit_tab,
         ])
         .setup(|app| {
             let root = app.path().app_data_dir()?;

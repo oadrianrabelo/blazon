@@ -150,6 +150,8 @@ dialog menu .danger { margin-right: auto; }
 .history-list .day { color: var(--muted); font-size: 11px; font-weight: 600; padding: 10px 5px 3px; text-transform: capitalize; }
 .history-list .day:hover { background: none; }
 [hidden] { display: none !important; }
+.split-mark { width: 13px; height: 13px; flex: none; color: var(--c2); }
+.ctx button { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .folder { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 9px; color: var(--fg); }
 .folder:hover { background: var(--hover); }
 .folder svg { width: 16px; height: 16px; flex: none; color: var(--c2); }

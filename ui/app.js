@@ -33,6 +33,7 @@ const ICONS = {
   pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4Z"/>',
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16Z"/>',
+  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
 const SHIELD = 'M15.68 17.24L84.32 17.24L84.32 46.88Q84.32 78.08 50 87.44Q15.68 78.08 15.68 46.88Z';
@@ -204,6 +205,15 @@ function tabMenu(e, t) {
     if (f.id !== t.folder) items.push({ label: f.name, icon: 'folder', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: f.id }) });
   }
   if (t.folder != null) items.push({ label: 'Fora da pasta', icon: 'chev', run: () => invoke('move_tab', { id: t.id, before: null, pinned: false, folder: null }) });
+  const pair = state.splits.find((p) => p.includes(t.id));
+  items.push('-');
+  if (pair) items.push({ label: 'Desfazer lado a lado', icon: 'split', run: () => invoke('unsplit_tab', { id: t.id }) });
+  else {
+    items.push({ label: 'Lado a lado com nova aba', icon: 'split', run: () => invoke('split_tab', { id: t.id, with: null }) });
+    const others = state.tabs.filter((o) => o.space === t.space && o.id !== t.id && !state.splits.some((p) => p.includes(o.id))).slice(0, 6);
+    if (others.length) items.push({ sub: 'Lado a lado com' });
+    for (const o of others) items.push({ label: tabTitle(o), icon: 'split', run: () => invoke('split_tab', { id: t.id, with: o.id }) });
+  }
   items.push('-',
     { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
     { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
@@ -257,7 +267,13 @@ function render() {
     close.append(icon('x'));
     close.title = 'Fechar (Ctrl+W)';
     close.onclick = (e) => { e.stopPropagation(); invoke('close_tab', { id: t.id }); };
-    li.append(favicon(t), el('span', 'title', tabTitle(t)), close);
+    li.append(favicon(t), el('span', 'title', tabTitle(t)));
+    if (state.splits.some((p) => p.includes(t.id))) {
+      const mark = icon('split');
+      mark.classList.add('split-mark');
+      li.append(mark);
+    }
+    li.append(close);
     tabEvents(li, t);
     dragTarget(li, t, false);
     return li;
