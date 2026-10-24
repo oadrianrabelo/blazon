@@ -180,7 +180,7 @@ const I18N = (() => {
     'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.': "When no route matches. Peek opens the link in a floating preview, without a tab.",
     'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.': 'Spaces not open in any window sleep completely (pinned tabs included) and release their process.',
     'Medir de novo': 'Measure again', 'Dormir agora': 'Sleep now', 'Nenhum Space com abas carregadas.': 'No Space with loaded tabs.', 'Interface do Blazon': 'Blazon interface',
-    'Tocando agora': 'Now playing',
+    'Tocando agora': 'Now playing', 'Sem som': 'Muted', 'Atualização': 'Update', 'Pronta para instalar': 'Ready to install', 'Agora não': 'Not now', 'Baixando…': 'Downloading…',
     'Barra de favoritos': 'Bookmarks bar', 'Outros favoritos': 'Other bookmarks', 'Favoritos do celular': 'Mobile bookmarks', 'Menu de favoritos': 'Bookmarks menu',
   };
 
