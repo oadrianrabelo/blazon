@@ -2,3 +2,5 @@
 /src-tauri/target
 /src-tauri/gen
 /src-tauri/adblock
+site/assets/
+site/img/blazon.svg

@@ -1,0 +1,48 @@
+name: Site
+
+# Publishes the landing page (site/) to GitHub Pages, from the default branch.
+on:
+  push:
+    paths:
+      - "site/**"
+      - "ui/houses.js"
+      - "ui/charges.js"
+      - "ui/crest.js"
+      - "ui/blazon.svg"
+      - ".github/workflows/pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      # The page draws the real crests with the app's own scripts.
+      - name: Assemble the site
+        run: |
+          mkdir -p _site
+          cp -r site/. _site/
+          mkdir -p _site/assets _site/img
+          cp ui/houses.js ui/charges.js ui/crest.js _site/assets/
+          cp ui/blazon.svg _site/img/
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+      - id: deploy
+        uses: actions/deploy-pages@v4
