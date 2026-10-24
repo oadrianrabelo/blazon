@@ -7,6 +7,7 @@ const ICONS = {
   forward: '<path d="m9 18 6-6-6-6"/>',
   reload: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5M14.5 8.5 17 11"/>',
   min: '<path d="M5 12h14"/>',
   max: '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
@@ -378,6 +379,32 @@ $('scroll').addEventListener('contextmenu', (e) => {
   showMenu(e, [{ label: 'Nova pasta', icon: 'folder', run: () => { const name = askFolderName(); if (name) invoke('add_folder', { name, tab: null }); } }]);
 });
 
+// Saved logins (Settings › Passwords) for the site in the active tab: the key
+// button fills one in, and only on the site it belongs to.
+let loginsFor = null;
+let logins = [];
+function refreshLogins(tab) {
+  const key = tab?.url ? `${tab.id}|${tab.url}` : '';
+  if (key === loginsFor) return;
+  loginsFor = key;
+  logins = [];
+  $('logins').hidden = true;
+  if (!key) return;
+  invoke('logins_for_tab', { tab: tab.id }).then((list) => {
+    if (loginsFor !== key) return;
+    logins = list;
+    $('logins').hidden = !list.length;
+  }).catch(() => {});
+}
+$('logins').onclick = (e) => {
+  const tab = activeTab()?.id;
+  const fill = (l) => invoke('fill_login', { tab, id: l.id }).catch((err) => toast(String(err)));
+  if (logins.length === 1) return fill(logins[0]);
+  const r = $('logins').getBoundingClientRect();
+  showMenu({ clientX: r.left, clientY: r.bottom + 4 }, [{ sub: 'Preencher com' },
+    ...logins.map((l) => ({ label: l.username || l.host, icon: 'key', run: () => fill(l) }))]);
+};
+
 // Motion: what was on screen before this render (see motion.js).
 let shownSpace = null;
 let shownActive = null;
@@ -424,6 +451,8 @@ function render() {
   setIcon($('reload'), loading ? 'x' : 'reload');
   $('reload').dataset.nav = loading ? 'stop' : 'reload';
   $('reload').title = loading ? 'Parar' : 'Recarregar (F5)';
+
+  refreshLogins(current);
 
   const tabs = state.tabs.filter((t) => t.space === state.active_space);
   const pinned = $('pinned');

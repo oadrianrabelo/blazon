@@ -11,6 +11,7 @@ mod import;
 mod importer;
 mod model;
 mod overlay;
+mod passwords;
 mod profile;
 mod quick;
 mod spaces;
@@ -414,6 +415,15 @@ fn main() {
             overlay::page_snapshot,
             overlay::peek_geometry,
             overlay::peek_show,
+            passwords::password_sources,
+            passwords::import_passwords,
+            passwords::import_passwords_csv,
+            passwords::list_logins,
+            passwords::reveal_login,
+            passwords::delete_login,
+            passwords::clear_logins,
+            passwords::logins_for_tab,
+            passwords::fill_login,
             quick::quick_state,
             quick::quick_to_tab,
             quick::quick_close,
