@@ -44,6 +44,14 @@ main > .lead { color: var(--muted); margin: 0 0 22px; }
 kbd { font: 12px ui-monospace, Consolas, monospace; background: var(--field); border-radius: 5px; padding: 2px 6px; }
 /* Crest Studio */
 .studio { display: grid; grid-template-columns: 210px 1fr; gap: 24px; max-width: 980px; }
+.studio > * { min-width: 0; }
+.studio-head { flex-wrap: wrap; }
+/* Narrow windows: the Space list goes above the editor. */
+@media (max-width: 1100px) {
+  .studio { grid-template-columns: 1fr; }
+  .space-list { flex-direction: row; flex-wrap: wrap; }
+  .space-list .space-card { flex: 0 1 200px; }
+}
 .space-list { display: flex; flex-direction: column; gap: 6px; }
 .space-card { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; text-align: left; background: rgba(255, 255, 255, .04); }
 .space-card svg { width: 32px; height: 32px; flex: none; }
