@@ -320,3 +320,24 @@ dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
 .side-head > span:first-child svg { width: 15px; height: 15px; color: var(--c2); }
 .side-name { flex: 1; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .switcher { min-width: 0; flex: 0 1 auto; }
+
+/* Mac-style window controls (Appearance › Window buttons: Mac): the three
+   traffic lights at the start of the bar, glyphs shown on hover. */
+.mac-controls .topbar .winctl { order: -1; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 6px; }
+.mac-controls .topbar .winctl .icon { width: 12px; height: 12px; padding: 0; border-radius: 50%; color: transparent; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .28); transition: filter var(--hover) ease-in-out; }
+.mac-controls .topbar .winctl .icon svg { width: 8px; height: 8px; stroke-width: 2.6; }
+.mac-controls .topbar #win-close { order: 1; background: #ff5f57; }
+.mac-controls .topbar #win-min { order: 2; background: #febc2e; }
+.mac-controls .topbar #win-max { order: 3; background: #28c840; }
+.mac-controls .topbar .winctl:hover .icon { color: rgba(0, 0, 0, .55); }
+.mac-controls .topbar .winctl .icon:hover { background-color: unset; filter: brightness(.92); }
+.mac-controls .topbar .winctl .close:hover { background: #ff5f57; color: rgba(0, 0, 0, .55); }
+.mac-controls .topbar .winctl .icon:active { filter: brightness(.8); transform: none; }
+
+/* Elastic scrolling: the tab list stretches at its ends (see app.js). */
+#scroll > .elastic { will-change: transform; }
+
+/* Mica: the sidebar lets the desktop's Mica material through, tinted by the Space. */
+body.mica { background: transparent; }
+body.mica .banner { opacity: .38; }
+body.mica .banner::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--c0) 40%, transparent); }

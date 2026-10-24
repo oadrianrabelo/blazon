@@ -1,0 +1,39 @@
+/* Liquid Glass surfaces (see glass.js). Layers, back to front:
+   the refracted, blurred backdrop; a thin tint from the Space's darkest color;
+   a light that follows the pointer; and the rim highlight. */
+:root {
+  --lg-tint: color-mix(in srgb, var(--c0) 46%, transparent);
+  --lg-blur: 9px;
+  --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, .42), inset 0 -1px 1px rgba(255, 255, 255, .10), inset 0 0 0 .5px rgba(255, 255, 255, .16);
+  --lg-drop: 0 10px 34px rgba(0, 0, 0, .34), 0 2px 6px rgba(0, 0, 0, .18);
+}
+.lg {
+  isolation: isolate;
+  background-color: var(--lg-tint) !important;
+  -webkit-backdrop-filter: blur(var(--lg-blur)) saturate(1.8) brightness(1.04) var(--lg-filter, blur(0));
+  backdrop-filter: blur(var(--lg-blur)) saturate(1.8) brightness(1.04) var(--lg-filter, blur(0));
+  box-shadow: var(--lg-rim), var(--lg-drop) !important;
+}
+.lg::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    radial-gradient(180px circle at var(--lx, 28%) var(--ly, -10%), rgba(255, 255, 255, .17), transparent 62%),
+    linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 38%, rgba(0, 0, 0, .06));
+}
+/* Surfaces that sit in the normal flow need a positioning context for the light. */
+.deck-card.lg, .switcher.lg, .w-card.lg, .pbtn.lg { position: relative; }
+/* Small controls get a lighter blur. */
+.switcher.lg, .pbtn.lg { --lg-blur: 10px; }
+
+/* Off: Settings › Appearance, or Windows' transparency effects turned off. */
+.no-lg .lg { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: var(--panel) !important; }
+.no-lg .lg::before { display: none; }
+@media (prefers-reduced-transparency: reduce) {
+  .lg { -webkit-backdrop-filter: none; backdrop-filter: none; background-color: var(--panel) !important; }
+  .lg::before { display: none; }
+}

@@ -70,3 +70,8 @@ button:disabled { opacity: .42; }
 /* Boundary shake when a Space swipe has nowhere to go. */
 @keyframes m-shake { 20% { transform: translateX(calc(-6px * var(--move))); } 45% { transform: translateX(calc(5px * var(--move))); } 70% { transform: translateX(calc(-3px * var(--move))); } }
 .m-shake { animation: m-shake .36s ease-in-out; }
+
+/* Elastic scrolling (app.js): content is pulled by --stretch and springs back. */
+@property --stretch { syntax: '<length>'; inherits: true; initial-value: 0px; }
+#scroll > * { transform: translateY(var(--stretch)); }
+#scroll.settling { transition: --stretch .5s var(--snappy); }

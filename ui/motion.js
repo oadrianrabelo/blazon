@@ -95,6 +95,26 @@ const Motion = (() => {
       : [{ opacity: 0, transform: `scale(${reduced.matches ? 1 : 0.985})` }, { opacity: 1, transform: 'none' }],
     { duration: ms('--floating-pane'), easing: ease('--smooth') });
   }
+  // Opens a floating pane out of the control (or point) that summoned it: the
+  // shape grows from there and the content fades in once it has room, like a
+  // Liquid Glass button turning into its menu.
+  function morphFrom(node, from) {
+    node.classList.remove('m-leaving');
+    node.getAnimations().forEach((a) => a.cancel());
+    node.hidden = false;
+    if (reduced.matches || !from) return show(node);
+    const to = node.getBoundingClientRect();
+    if (!to.width || !to.height) return show(node);
+    const duration = ms('--floating-pane');
+    node.animate([
+      { transformOrigin: 'top left', transform: `translate(${from.left - to.left}px, ${from.top - to.top}px) scale(${from.width / to.width}, ${from.height / to.height})`, opacity: 0.4 },
+      { transformOrigin: 'top left', transform: 'none', opacity: 1 },
+    ], { duration, easing: ease('--smooth') });
+    for (const child of node.children) {
+      child.animate([{ opacity: 0 }, { opacity: 0, offset: 0.3 }, { opacity: 1 }], { duration });
+    }
+  }
+
   function hide(node, done) {
     if (node.hidden || node.classList.contains('m-leaving')) { if (done) done(); return; }
     node.classList.add('m-leaving');
@@ -121,5 +141,5 @@ const Motion = (() => {
     node.addEventListener('animationend', () => node.classList.remove(cls), { once: true });
   }
 
-  return { reduced, ms, ease, snapshot, play, glide, swipe, show, hide, enter, pulse };
+  return { reduced, ms, ease, snapshot, play, glide, swipe, show, hide, enter, pulse, morphFrom };
 })();

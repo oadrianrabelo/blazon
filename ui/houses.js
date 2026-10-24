@@ -75,6 +75,11 @@ const LOOK_DEFAULTS = {
   addressOutline: true,
   banner: true, // heraldic banner behind the sidebar
   accent: '', // custom accent overriding the Space's
+  liquidGlass: true, // refracting glass on menus, palette and cards
+  mica: false, // translucent sidebar showing the desktop (Windows 11 Mica)
+  windowControls: 'windows', // windows | mac (traffic lights)
+  elastic: true, // sidebar stretches at the ends of its scroll
+  pageTransitions: true, // pages cross-fade or slide when switching
 };
 
 const LOOK_PRESETS = {

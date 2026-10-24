@@ -2,33 +2,34 @@ const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 const appWindow = window.__TAURI__.window.getCurrentWindow();
 
+// Icons drawn after SF Symbols: thin rounded strokes on a 24 grid.
 const ICONS = {
-  back: '<path d="m15 18-6-6 6-6"/>',
-  forward: '<path d="m9 18 6-6-6-6"/>',
-  reload: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
-  x: '<path d="M18 6 6 18M6 6l12 12"/>',
-  puzzle: '<path d="M10 3a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6Z"/>',
-  key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5M14.5 8.5 17 11"/>',
-  min: '<path d="M5 12h14"/>',
-  max: '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
-  search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
-  more: '<circle cx="5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/><circle cx="19" cy="12" r=".6"/>',
-  plus: '<path d="M12 5v14M5 12h14"/>',
-  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
-  folder: '<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v8.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 17.5Z"/>',
-  chev: '<path d="m9 6 6 6-6 6"/>',
-  pin: '<path d="M12 17v5M9 3h6l-1 6 3 4H7l3-4Z"/>',
-  copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
-  edit: '<path d="M4 20h4L19 9l-4-4L4 16Z"/>',
-  split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
-  shield: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="m9 12 2 2 4-4"/>',
-  shieldOff: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="M4 4l16 16"/>',
-  sound: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
-  muted: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="m22 9-6 6M16 9l6 6"/>',
-  book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M8 7h7"/>',
-  lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
-  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
-  archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
+  back: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+  forward: '<path d="m9.5 5.5 6.5 6.5-6.5 6.5"/>',
+  reload: '<path d="M19 12.5a7 7 0 1 1-2.05-5.45"/><path d="M17.5 3.8v3.6h-3.6" />',
+  x: '<path d="m7 7 10 10M17 7 7 17"/>',
+  puzzle: '<path d="M9.2 4.5a1.8 1.8 0 0 1 3.6 0v1.3h3.4a1.2 1.2 0 0 1 1.2 1.2v3.4h1.3a1.8 1.8 0 0 1 0 3.6h-1.3v3.8a1.2 1.2 0 0 1-1.2 1.2h-3.6v-1.4a1.8 1.8 0 0 0-3.6 0V19H5.8a1.2 1.2 0 0 1-1.2-1.2V14h1.3a1.8 1.8 0 0 0 0-3.6H4.6V7a1.2 1.2 0 0 1 1.2-1.2h3.4Z"/>',
+  key: '<circle cx="8" cy="15.5" r="3.8"/><path d="m10.8 12.8 7.7-7.7M16 7.6l2 2M13.9 9.7l1.6 1.6"/>',
+  min: '<path d="M6 12h12"/>',
+  max: '<rect x="6" y="6" width="12" height="12" rx="2.5"/>',
+  search: '<circle cx="10.5" cy="10.5" r="5.8"/><path d="m15 15 4.5 4.5"/>',
+  more: '<circle cx="6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.15" fill="currentColor" stroke="none"/>',
+  plus: '<path d="M12 5.5v13M5.5 12h13"/>',
+  gear: '<path d="M10.4 3.6h3.2l.5 2.3 1.7.9 2.2-.8 1.6 2.8-1.7 1.6v1.9l1.7 1.6-1.6 2.8-2.2-.8-1.7.9-.5 2.3h-3.2l-.5-2.3-1.7-.9-2.2.8-1.6-2.8 1.7-1.6v-1.9L4.4 8.8 6 6l2.2.8 1.7-.9Z"/><circle cx="12" cy="12" r="2.6"/>',
+  folder: '<path d="M3.8 7.2a2 2 0 0 1 2-2h3.4l1.8 2h7.2a2 2 0 0 1 2 2v7.6a2 2 0 0 1-2 2H5.8a2 2 0 0 1-2-2Z"/><path d="M3.8 9.4h16.4"/>',
+  chev: '<path d="m10 6.5 5.5 5.5-5.5 5.5"/>',
+  pin: '<path d="M9.5 4h5l-.8 5.2 2.8 3.3h-9l2.8-3.3Z"/><path d="M12 12.5V20"/>',
+  copy: '<rect x="8.5" y="8.5" width="10.5" height="10.5" rx="2.4"/><path d="M15.5 8.5V7a2 2 0 0 0-2-2H7a2 2 0 0 0-2 2v6.5a2 2 0 0 0 2 2h1.5"/>',
+  edit: '<path d="M5 19l1-4 9.6-9.6a1.9 1.9 0 0 1 2.7 2.7L8.7 17.7Z"/><path d="m14 7 3 3"/>',
+  split: '<rect x="3.5" y="5" width="17" height="14" rx="2.8"/><path d="M12 5v14"/>',
+  shield: '<path d="M12 3.6c2.2 1.5 4.6 2.3 7 2.4v5.2c0 4.4-2.9 7.6-7 9.2-4.1-1.6-7-4.8-7-9.2V6c2.4-.1 4.8-.9 7-2.4Z"/><path d="m9.2 12 2 2 3.8-4"/>',
+  shieldOff: '<path d="M12 3.6c2.2 1.5 4.6 2.3 7 2.4v5.2c0 4.4-2.9 7.6-7 9.2-4.1-1.6-7-4.8-7-9.2V6c2.4-.1 4.8-.9 7-2.4Z"/><path d="m5 5 14 14"/>',
+  sound: '<path d="M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5Z" fill="currentColor" stroke-linejoin="round"/><path d="M14.8 9.2a4 4 0 0 1 0 5.6M17.4 6.8a7.4 7.4 0 0 1 0 10.4"/>',
+  muted: '<path d="M4.5 9.5h2.8L11.5 6v12l-4.2-3.5H4.5Z" fill="currentColor" stroke-linejoin="round"/><path d="m15 9.5 5 5M20 9.5l-5 5"/>',
+  book: '<path d="M5.5 5.8A2.3 2.3 0 0 1 7.8 3.5H18.5v14H7.8a2.3 2.3 0 0 0-2.3 2.3Z"/><path d="M5.5 19.8a2.3 2.3 0 0 1 2.3-2.3h10.7v3H7.8"/>',
+  lock: '<rect x="5.5" y="10.5" width="13" height="9.5" rx="2.4"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>',
+  download: '<path d="M12 4.5v10M8 10.8l4 4 4-4"/><path d="M5 15.5v1.8a2.2 2.2 0 0 0 2.2 2.2h9.6a2.2 2.2 0 0 0 2.2-2.2v-1.8"/>',
+  archive: '<rect x="3.8" y="4.8" width="16.4" height="4.4" rx="1.4"/><path d="M5.3 9.2v8.3a2 2 0 0 0 2 2h9.4a2 2 0 0 0 2-2V9.2M10 12.8h4"/>',
 };
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
 
@@ -44,7 +45,7 @@ function el(tag, cls, text) {
 
 function icon(name) {
   const t = document.createElement('template');
-  t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
+  t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]}</svg>`;
   return t.content.firstChild;
 }
 document.querySelectorAll('[data-i]').forEach((n) => n.append(icon(n.dataset.i)));
@@ -78,6 +79,9 @@ function applyAppearance(settings) {
   root.setProperty('--sidebar-w', `${Math.min(420, Math.max(200, settings.sidebar_width || 264))}px`);
   if (a.accent) root.setProperty('--c2', a.accent);
   const b = document.body.classList;
+  if (window.Glass) Glass.setEnabled(a.liquidGlass !== false);
+  b.toggle('mac-controls', a.windowControls === 'mac');
+  b.toggle('mica', !!a.mica);
   for (const k of ['sel-outline', 'sel-glow']) b.remove(k);
   if (a.selected !== 'fill') b.add(`sel-${a.selected}`);
   b.toggle('follow-accent', a.followAccent);
@@ -297,13 +301,18 @@ function showMenu(e, items) {
     b.onclick = () => { hideMenu(); it.run(); };
     m.append(b);
   }
-  Motion.show(m);
+  m.classList.remove('m-leaving');
+  m.getAnimations().forEach((x) => x.cancel());
+  m.hidden = false;
   // Stay inside the sidebar: the page card covers the rest of the window.
   const bar = $('sidebar').getBoundingClientRect();
   const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
-  const y = Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
+  const y = e.above ? e.clientY - m.offsetHeight : Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
   m.style.left = `${x}px`;
   m.style.top = `${Math.max(6, y)}px`;
+  // Grows out of the button that opened it, or the spot that was clicked.
+  const from = e.anchor ? e.anchor.getBoundingClientRect() : { left: e.clientX - 4, top: e.clientY - 4, width: 8, height: 8 };
+  Motion.morphFrom(m, from);
 }
 function hideMenu() { Motion.hide($('ctx')); }
 addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
@@ -402,7 +411,7 @@ $('logins').onclick = (e) => {
   const fill = (l) => invoke('fill_login', { tab, id: l.id }).catch((err) => toast(String(err)));
   if (logins.length === 1) return fill(logins[0]);
   const r = $('logins').getBoundingClientRect();
-  showMenu({ clientX: r.left, clientY: r.bottom + 4 }, [{ sub: 'Preencher com' },
+  showMenu({ clientX: r.left, clientY: r.bottom + 4, anchor: $('logins') }, [{ sub: 'Preencher com' },
     ...logins.map((l) => ({ label: l.username || l.host, icon: 'key', run: () => fill(l) }))]);
 };
 
@@ -785,6 +794,33 @@ $('sidebar').addEventListener('mouseleave', () => {
   if (!busy) peekTimer = setTimeout(() => peek(false), 350);
 });
 
+// Elastic scrolling, like the Mac's rubber band: at either end the tab list
+// follows the wheel with growing resistance, then springs back.
+(() => {
+  const sc = $('scroll');
+  const LIMIT = 72;
+  let stretch = 0;
+  let settle = null;
+  sc.addEventListener('wheel', (e) => {
+    if (Motion.reduced.matches || !state || lookOf(state.settings).elastic === false || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
+    const atTop = sc.scrollTop <= 0 && e.deltaY < 0;
+    const atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1 && e.deltaY > 0;
+    if (!atTop && !atEnd && !stretch) return;
+    sc.classList.remove('settling');
+    const resistance = 1 - Math.min(1, Math.abs(stretch) / LIMIT);
+    const next = stretch - e.deltaY * 0.28 * resistance;
+    // Pulling back past the rest position ends the stretch instead of flipping it.
+    stretch = Math.sign(next) !== Math.sign(stretch) && stretch !== 0 ? 0 : Math.max(-LIMIT, Math.min(LIMIT, next));
+    sc.style.setProperty('--stretch', `${stretch}px`);
+    clearTimeout(settle);
+    settle = setTimeout(() => {
+      stretch = 0;
+      sc.classList.add('settling');
+      sc.style.setProperty('--stretch', '0px');
+    }, 90);
+  }, { passive: true });
+})();
+
 // A horizontal touchpad swipe over the sidebar pages between Spaces, like
 // Crest's Space pager; past the first or last Space the content shakes.
 let swipeX = 0;
@@ -1035,7 +1071,7 @@ function cycleDeck(direction) {
 // opens in a column beside the site, under a header drawn here.
 $('ext-btn').onclick = async () => {
   const r = $('ext-btn').getBoundingClientRect();
-  const at = { clientX: r.left, clientY: r.top - 8 };
+  const at = { clientX: r.left, clientY: r.top - 6, anchor: $('ext-btn'), above: true };
   let pages = [];
   try { pages = await invoke('extension_panels', { space: state.active_space }); } catch (err) {
     return showMenu(at, [{ sub: String(err) }]);
@@ -1044,9 +1080,6 @@ $('ext-btn').onclick = async () => {
   showMenu(at, pages.length
     ? [{ sub: 'Abrir ao lado da página' }, ...pages.map((p) => ({ label: `${p.name} · ${KIND[p.kind]}`, icon: 'puzzle', run: () => invoke('open_side_panel', { id: p.id, page: p.page, name: p.name }).catch((e) => toast(String(e))) }))]
     : [{ sub: 'Nenhuma extensão com painel neste Space.' }, { label: 'Instalar extensões…', icon: 'plus', run: () => invoke('open_panel', { section: 'extensions' }) }]);
-  // The menu opens upward from the footer.
-  const m = $('ctx');
-  m.style.top = `${Math.max(6, r.top - m.offsetHeight - 6)}px`;
 };
 listen('side-panel', (e) => {
   const head = $('side-head');
