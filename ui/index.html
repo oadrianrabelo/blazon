@@ -6,85 +6,101 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <div id="banner" class="banner" aria-hidden="true"></div>
+
   <aside id="sidebar">
-    <header class="space-head">
-      <button id="space-name" class="space-name" title="Clique duplo para editar o Space"></button>
-      <button id="settings-btn" class="icon" title="Configurações">⚙</button>
+    <header class="topbar" data-tauri-drag-region>
+      <button class="icon" data-nav="back" data-i="back" title="Voltar (Alt+←)"></button>
+      <button class="icon" data-nav="forward" data-i="forward" title="Avançar (Alt+→)"></button>
+      <button class="icon" id="reload" data-nav="reload" data-i="reload" title="Recarregar (F5)"></button>
+      <div class="grow" data-tauri-drag-region></div>
+      <div id="winctl" class="winctl">
+        <button class="icon" id="win-min" data-i="min" title="Minimizar"></button>
+        <button class="icon" id="win-max" data-i="max" title="Maximizar"></button>
+        <button class="icon close" id="win-close" data-i="x" title="Fechar"></button>
+      </div>
     </header>
 
-    <div class="nav">
-      <button class="icon" data-nav="back" title="Voltar (Alt+←)">←</button>
-      <button class="icon" data-nav="forward" title="Avançar (Alt+→)">→</button>
-      <button class="icon" id="reload" data-nav="reload" title="Recarregar (F5)">⟳</button>
-    </div>
-    <form id="address-form">
+    <form id="address-form" class="address">
+      <span class="lead" data-i="search"></span>
       <input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="Pesquisar ou digitar endereço">
       <ul id="suggest" class="suggest" hidden></ul>
     </form>
 
     <div id="pinned" class="pinned"></div>
-    <button id="new-tab" class="new-tab" title="Nova aba (Ctrl+T)">＋ Nova aba</button>
-    <ul id="tabs" class="tabs"></ul>
 
-    <footer>
-      <div id="spaces" class="spaces"></div>
-      <button id="history-btn" class="icon" title="Histórico (Ctrl+H)">🕘</button>
-      <button id="add-space" class="icon" title="Novo Space">＋</button>
+    <div class="space-head">
+      <button id="space-name" class="space-name" title="Editar Space"></button>
+      <button id="space-menu" class="icon" data-i="more" title="Editar Space"></button>
+    </div>
+
+    <div class="scroll">
+      <button id="new-tab" class="row new-tab" title="Nova aba (Ctrl+T)"><span data-i="plus"></span>Nova aba</button>
+      <ul id="tabs" class="tabs"></ul>
+    </div>
+
+    <footer data-tauri-drag-region>
+      <button id="settings-btn" class="icon" data-i="gear" title="Configurações"></button>
+      <div class="switcher">
+        <div id="spaces" class="spaces"></div>
+        <button id="add-space" class="icon" data-i="plus" title="Novo Space"></button>
+      </div>
+      <button id="history-btn" class="icon" data-i="archive" title="Histórico (Ctrl+H)"></button>
     </footer>
-
-    <dialog id="history" class="wide">
-      <form method="dialog">
-        <h3>Histórico deste Space</h3>
-        <input id="history-q" type="search" placeholder="Pesquisar no histórico">
-        <ul id="history-list" class="history-list"></ul>
-        <menu>
-          <button type="button" id="history-clear" class="danger">Limpar histórico</button>
-          <button value="ok">Fechar</button>
-        </menu>
-      </form>
-    </dialog>
-
-    <dialog id="new-space">
-      <form method="dialog">
-        <h3>Novo Space</h3>
-        <label>Nome <input id="ns-name" type="text" required></label>
-        <label>Cor <input id="ns-color" type="color"></label>
-        <label><input type="checkbox" id="ns-private"> Privado (InPrivate, sem histórico; as abas somem ao fechar)</label>
-        <menu><button type="button" id="ns-cancel" class="plain">Cancelar</button><button value="create">Criar</button></menu>
-      </form>
-    </dialog>
-
-    <dialog id="settings">
-      <form method="dialog">
-        <h3>Configurações</h3>
-        <label><input type="checkbox" id="set-right"> Sidebar à direita</label>
-        <label>Mecanismo de busca
-          <select id="set-search">
-            <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
-            <option value="https://www.google.com/search?q=">Google</option>
-            <option value="https://www.bing.com/search?q=">Bing</option>
-            <option value="https://search.brave.com/search?q=">Brave Search</option>
-            <option value="https://www.startpage.com/do/search?q=">Startpage</option>
-          </select>
-        </label>
-        <label>Dormir abas em segundo plano após
-          <select id="set-sleep">
-            <option value="0">Nunca</option>
-            <option value="15">15 minutos</option>
-            <option value="30">30 minutos</option>
-            <option value="60">1 hora</option>
-            <option value="240">4 horas</option>
-          </select>
-        </label>
-        <h3>Space atual</h3>
-        <label>Nome <input id="space-edit-name" type="text"></label>
-        <label>Cor <input id="space-edit-color" type="color"></label>
-        <button type="button" id="space-delete" class="danger">Excluir Space (apaga cookies e dados)</button>
-        <p class="hint">Ctrl+T nova aba · Ctrl+W fechar · Ctrl+Shift+T reabrir · Ctrl+H histórico · Ctrl+L endereço · Ctrl+Tab próxima · Ctrl+1–9 ir para aba · F12 DevTools</p>
-        <menu><button value="ok">Fechar</button></menu>
-      </form>
-    </dialog>
   </aside>
+
+  <dialog id="settings">
+    <form method="dialog">
+      <h3>Configurações</h3>
+      <label class="check"><input type="checkbox" id="set-right"> Sidebar à direita</label>
+      <label class="check"><input type="checkbox" id="set-frame"> Barra de título do Windows</label>
+      <label>Mecanismo de busca
+        <select id="set-search">
+          <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+          <option value="https://www.google.com/search?q=">Google</option>
+          <option value="https://www.bing.com/search?q=">Bing</option>
+          <option value="https://search.brave.com/search?q=">Brave Search</option>
+          <option value="https://www.startpage.com/do/search?q=">Startpage</option>
+        </select>
+      </label>
+      <label>Dormir abas em segundo plano após
+        <select id="set-sleep">
+          <option value="0">Nunca</option>
+          <option value="15">15 minutos</option>
+          <option value="30">30 minutos</option>
+          <option value="60">1 hora</option>
+          <option value="240">4 horas</option>
+        </select>
+      </label>
+      <p class="hint">Ctrl+T nova aba · Ctrl+W fechar · Ctrl+Shift+T reabrir · Ctrl+H histórico · Ctrl+L endereço · Ctrl+Tab próxima · Ctrl+1–9 aba · Ctrl+Shift+1–9 Space · F12 DevTools</p>
+      <menu><button value="ok" class="primary">Pronto</button></menu>
+    </form>
+  </dialog>
+
+  <dialog id="history">
+    <form method="dialog">
+      <h3>Histórico deste Space</h3>
+      <input id="history-q" type="search" placeholder="Pesquisar no histórico">
+      <ul id="history-list" class="history-list"></ul>
+      <menu>
+        <button type="button" id="history-clear" class="danger">Limpar</button>
+        <button value="ok" class="primary">Fechar</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <dialog id="space-dialog">
+    <form method="dialog">
+      <h3 id="sd-title">Novo Space</h3>
+      <label>Nome <input id="sd-name" type="text" required></label>
+      <div class="field-label">Brasão</div>
+      <div id="sd-houses" class="houses"></div>
+      <label class="check" id="sd-custom-row">Cor própria <input id="sd-color" type="color"></label>
+      <label class="check" id="sd-private-row"><input type="checkbox" id="sd-private"> Privado (InPrivate, sem histórico; as abas somem ao fechar)</label>
+      <button type="button" id="sd-delete" class="danger">Excluir Space (apaga cookies e dados)</button>
+      <menu><button type="button" id="sd-cancel">Cancelar</button><button value="save" class="primary">Salvar</button></menu>
+    </form>
+  </dialog>
   <script src="app.js"></script>
 </body>
 </html>

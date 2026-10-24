@@ -8,6 +8,10 @@ inteiro junto.
 
 ## O que funciona
 
+- **Visual do Crest**: cada Space tem uma "casa" do Crest Studio (Winter, Lion,
+  Storm, Dragon, Meadow, Iron, River, Sun, Vigil) com brasão, paleta e faixas
+  heráldicas no fundo, ou uma cor própria. A página fica num cartão recuado e a
+  janela não tem bordas, com os controles na barra lateral.
 - **Spaces** isolados: cada um tem seus próprios cookies, logins, cache e
   armazenamento (pastas de dados separadas do WebView2), além de nome e cor.
 - Abas verticais na barra lateral, abas **fixadas** (clique direito fixa ou
@@ -75,5 +79,6 @@ inativas e importar favoritos.
 
 ## Licença
 
-MPL-2.0, a mesma do Crest original. Nenhum código do Crest original foi copiado;
-o nome e o conceito de Spaces são creditados ao projeto original.
+MPL-2.0, a mesma do Crest original. Os brasões em `ui/crests/` e as paletas
+das casas vêm do Crest (MPL-2.0); as figuras heráldicas são arte de Lorc
+(game-icons.net, CC BY 3.0). Veja `ui/crests/CREDITS.txt`.

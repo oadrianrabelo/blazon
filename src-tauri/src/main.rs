@@ -23,6 +23,8 @@ use url::Url;
 const WINDOW: &str = "main";
 const UI: &str = "ui";
 const SIDEBAR_WIDTH: f64 = 264.0;
+/// Gap around the page card, in logical pixels.
+const CARD_MARGIN: f64 = 8.0;
 /// Pages can't reach the IPC bridge, so the tab shortcut script asks for
 /// commands by opening this host, which `on_new_window` intercepts.
 const CMD_HOST: &str = "crest-cmd.invalid";
@@ -56,6 +58,9 @@ struct Space {
     /// InPrivate: no history, no cookies on disk, tabs dropped on exit.
     #[serde(default)]
     private: bool,
+    /// Crest Studio house (look template); empty means a custom color.
+    #[serde(default)]
+    house: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -99,6 +104,8 @@ struct Settings {
     search: String,
     /// Minutes before a background tab's webview is closed; 0 disables.
     sleep_minutes: u64,
+    /// Use the standard Windows title bar instead of Crest's borderless frame.
+    native_frame: bool,
 }
 
 impl Default for Settings {
@@ -107,6 +114,7 @@ impl Default for Settings {
             sidebar_right: false,
             search: "https://duckduckgo.com/?q=".into(),
             sleep_minutes: 30,
+            native_frame: false,
         }
     }
 }
@@ -147,8 +155,9 @@ impl Data {
             self.spaces.push(Space {
                 id: "personal".into(),
                 name: "Pessoal".into(),
-                color: "#3b82f6".into(),
+                color: "#86adc4".into(),
                 private: false,
+                house: "winter".into(),
             });
         }
         let spaces: Vec<String> = self.spaces.iter().filter(|s| !s.private).map(|s| s.id.clone()).collect();
@@ -322,16 +331,19 @@ fn to_url(input: &str, search: &str) -> String {
     format!("{search}{q}")
 }
 
-/// Sidebar and content rectangles in physical pixels.
+/// UI and page rectangles in physical pixels. The UI covers the whole window
+/// (sidebar plus the Space background); the page sits on it as an inset card.
 fn layout_rects(win: &Window, right: bool) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
     let size = win.inner_size().ok()?;
     let scale = win.scale_factor().ok()?;
     let sw = ((SIDEBAR_WIDTH * scale) as u32).min(size.width);
-    let cw = size.width - sw;
-    let (ui_x, content_x) = if right { (cw, 0) } else { (0, sw) };
+    let m = (CARD_MARGIN * scale) as u32;
+    let cw = size.width.saturating_sub(sw + m);
+    let ch = size.height.saturating_sub(2 * m);
+    let content_x = if right { m } else { sw };
     Some([
-        (PhysicalPosition::new(ui_x as i32, 0), PhysicalSize::new(sw, size.height)),
-        (PhysicalPosition::new(content_x as i32, 0), PhysicalSize::new(cw, size.height)),
+        (PhysicalPosition::new(0, 0), size),
+        (PhysicalPosition::new(content_x as i32, m as i32), PhysicalSize::new(cw, ch)),
     ])
 }
 
@@ -714,10 +726,10 @@ async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool) {
 }
 
 #[tauri::command]
-async fn add_space(app: AppHandle, name: String, color: String, private: bool) {
+async fn add_space(app: AppHandle, name: String, color: String, private: bool, house: String) {
     with_data(&app, |d| {
         let id = format!("space-{}", d.new_id());
-        d.spaces.push(Space { id: id.clone(), name, color, private });
+        d.spaces.push(Space { id: id.clone(), name, color, private, house });
         d.active_space = id;
     });
     open_tab(&app, String::new()).await;
@@ -753,11 +765,12 @@ async fn switch_space(app: AppHandle, id: String) {
 }
 
 #[tauri::command]
-async fn update_space(app: AppHandle, id: String, name: String, color: String) {
+async fn update_space(app: AppHandle, id: String, name: String, color: String, house: String) {
     with_data(&app, |d| {
         if let Some(s) = d.spaces.iter_mut().find(|s| s.id == id) {
             s.name = name;
             s.color = color;
+            s.house = house;
         }
     });
     commit(&app);
@@ -808,6 +821,9 @@ async fn delete_space(app: AppHandle, id: String) {
 
 #[tauri::command]
 async fn set_settings(app: AppHandle, settings: Settings) {
+    if let Some(win) = window(&app) {
+        let _ = win.set_decorations(settings.native_frame);
+    }
     with_data(&app, |d| d.settings = settings);
     commit(&app);
     apply_layout(&app);
@@ -875,6 +891,7 @@ fn main() {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
             let right = data.settings.sidebar_right;
+            let native_frame = data.settings.native_frame;
             app.manage(AppState {
                 data: Mutex::new(data),
                 file,
@@ -889,6 +906,7 @@ fn main() {
                 .inner_size(1280.0, 820.0)
                 .min_inner_size(640.0, 400.0)
                 .center()
+                .decorations(native_frame)
                 .build()?;
             let _ = win.set_size(LogicalSize::new(1280.0, 820.0));
             let [(pos, size), _] = layout_rects(&win, right).unwrap_or_default();

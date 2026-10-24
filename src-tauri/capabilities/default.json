@@ -4,5 +4,13 @@
   "description": "Sidebar UI only; tab webviews get no IPC permissions.",
   "windows": ["main"],
   "webviews": ["ui"],
-  "permissions": ["core:default"]
+  "permissions": [
+    "core:default",
+    "core:window:allow-start-dragging",
+    "core:window:allow-internal-toggle-maximize",
+    "core:window:allow-minimize",
+    "core:window:allow-toggle-maximize",
+    "core:window:allow-close",
+    "core:window:allow-is-maximized"
+  ]
 }

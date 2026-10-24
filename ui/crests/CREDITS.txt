@@ -1,0 +1,5 @@
+Crest house emblems (winter, lion, storm, dragon, meadow, iron, river, sun, vigil)
+come from the Crest project (https://github.com/pauljoda/Crest, MPL-2.0).
+The heraldic figures are game-icons.net artwork by Lorc, licensed CC BY 3.0
+(https://creativecommons.org/licenses/by/3.0/). The Sun and River figures and
+Meadow's laurel trim were redrawn as plain shapes by the Crest project.
