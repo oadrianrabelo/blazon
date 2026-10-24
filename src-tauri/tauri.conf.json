@@ -34,6 +34,9 @@
         "installMode": "currentUser",
         "installerHooks": "./windows/hooks.nsh"
       }
+    },
+    "resources": {
+      "adblock/": "adblock/"
     }
   }
 }

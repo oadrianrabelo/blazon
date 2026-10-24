@@ -1,7 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod blocker;
 mod import;
 mod overlay;
+#[cfg(windows)]
+mod webview2;
 
 use std::{
     collections::HashMap,
@@ -90,6 +93,9 @@ struct Space {
     /// Crest Studio house (look template); empty means a custom color.
     #[serde(default)]
     house: String,
+    /// Download folder for this Space; empty means the Windows default.
+    #[serde(default)]
+    downloads: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -105,6 +111,11 @@ struct Tab {
     folder: Option<u64>,
     #[serde(default, skip_deserializing)]
     loading: bool,
+    /// Playing sound right now, and muted by the user.
+    #[serde(default, skip_deserializing)]
+    audio: bool,
+    #[serde(default, skip_deserializing)]
+    muted: bool,
     /// Whether the tab has a live webview; sleeping tabs reload on activation.
     #[serde(default, skip_deserializing)]
     awake: bool,
@@ -165,6 +176,11 @@ struct Settings {
     external_space: String,
     /// Links from other apps whose address contains `pattern` open in `space`.
     routes: Vec<Route>,
+    /// Block ads and trackers, except on these sites.
+    adblock: bool,
+    adblock_allow: Vec<String>,
+    /// Offer to save passwords and autofill forms (WebView2's own store).
+    passwords: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -187,6 +203,9 @@ impl Default for Settings {
             peek_modifier: "shift".into(),
             external_space: String::new(),
             routes: vec![],
+            adblock: true,
+            adblock_allow: vec![],
+            passwords: true,
         }
     }
 }
@@ -248,6 +267,7 @@ impl Data {
                 color: "#86adc4".into(),
                 private: false,
                 house: "winter".into(),
+                downloads: String::new(),
             });
         }
         let spaces: Vec<String> = self
@@ -603,6 +623,15 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
             };
             let loading = matches!(payload.event(), PageLoadEvent::Started);
             let app = wv.app_handle();
+            if !newtab && !loading {
+                let css = blocker::cosmetic_css(&url);
+                if !css.is_empty() {
+                    let css = serde_json::to_string(&css).unwrap_or_default();
+                    let _ = wv.eval(format!(
+                        "(() => {{ const s = document.createElement('style'); s.textContent = {css}; document.documentElement.append(s); }})()"
+                    ));
+                }
+            }
             if newtab && !loading {
                 let _ = wv.eval(format!(
                     "window.crestStart && window.crestStart({})",
@@ -657,6 +686,25 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
     )?;
     if (zoom - 1.0).abs() > f64::EPSILON {
         let _ = wv.set_zoom(zoom);
+    }
+    #[cfg(windows)]
+    {
+        let (downloads, passwords) = with_data(app, |d| {
+            let dir = d
+                .spaces
+                .iter()
+                .find(|s| s.id == tab.space)
+                .map(|s| s.downloads.clone())
+                .unwrap_or_default();
+            (
+                (!dir.is_empty()).then(|| PathBuf::from(dir)),
+                d.settings.passwords,
+            )
+        });
+        webview2::install(app, &wv, Some(id), downloads, passwords);
+        if tab.muted {
+            webview2::set_muted(&wv, true);
+        }
     }
     with_data(app, |d| {
         if let Some(t) = d.tabs.iter_mut().find(|t| t.id == id) {
@@ -785,6 +833,8 @@ async fn open_tab(app: &AppHandle, url: String) {
             pinned: false,
             folder: None,
             loading: true,
+            audio: false,
+            muted: false,
             awake: false,
             last_active: now(),
         });
@@ -1126,6 +1176,8 @@ async fn split_tab(app: AppHandle, id: u64, with: Option<u64>) {
                 pinned: false,
                 folder: None,
                 loading: false,
+                audio: false,
+                muted: false,
                 awake: false,
                 last_active: now(),
             });
@@ -1185,6 +1237,8 @@ fn push_tab(d: &mut Data, space: &str, e: import::Entry, pinned: bool, folder: O
         pinned,
         folder,
         loading: false,
+        audio: false,
+        muted: false,
         awake: false,
         last_active: 0,
     });
@@ -1229,6 +1283,7 @@ async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
                         color: HOUSE_ACCENTS[h].into(),
                         private: false,
                         house: HOUSES[h].into(),
+                        downloads: String::new(),
                     });
                     for e in sp.pinned {
                         push_tab(d, &sid, e, true, None);
@@ -1314,6 +1369,7 @@ async fn add_space(app: AppHandle, name: String, color: String, private: bool, h
             color,
             private,
             house,
+            downloads: String::new(),
         });
         d.active_space = id;
     });
@@ -1436,6 +1492,70 @@ async fn open_panel(app: AppHandle, section: String) {
     }
 }
 
+#[tauri::command]
+async fn toggle_mute(app: AppHandle, id: u64) {
+    let mut muted = false;
+    update_tab(&app, id, |t| {
+        t.muted = !t.muted;
+        muted = t.muted;
+    });
+    #[cfg(windows)]
+    if let Some(wv) = app.get_webview(&label(id)) {
+        webview2::set_muted(&wv, muted);
+    }
+    #[cfg(not(windows))]
+    let _ = muted;
+}
+
+/// Pauses or resumes blocking on the active tab's site.
+#[tauri::command]
+async fn toggle_site_blocking(app: AppHandle) -> Option<bool> {
+    let host = with_data(&app, |d| {
+        let id = d.active_tab_id()?;
+        let url = d.tabs.iter().find(|t| t.id == id)?.url.clone();
+        Url::parse(&url)
+            .ok()?
+            .host_str()
+            .map(|h| h.trim_start_matches("www.").to_string())
+    })?;
+    let paused = with_data(&app, |d| {
+        let list = &mut d.settings.adblock_allow;
+        if let Some(i) = list.iter().position(|h| *h == host) {
+            list.remove(i);
+            false
+        } else {
+            list.push(host);
+            true
+        }
+    });
+    with_data(&app, |d| {
+        blocker::configure(d.settings.adblock, &d.settings.adblock_allow)
+    });
+    commit(&app);
+    nav(app, "reload".into()).await;
+    Some(paused)
+}
+
+/// Native folder picker for a Space's downloads.
+#[tauri::command]
+async fn pick_folder(app: AppHandle) -> Option<String> {
+    use tauri_plugin_dialog::DialogExt;
+    app.dialog()
+        .file()
+        .blocking_pick_folder()
+        .map(|p| p.to_string())
+}
+
+#[tauri::command]
+async fn set_space_downloads(app: AppHandle, id: String, path: String) {
+    with_data(&app, |d| {
+        if let Some(s) = d.spaces.iter_mut().find(|s| s.id == id) {
+            s.downloads = path;
+        }
+    });
+    commit(&app);
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -1470,6 +1590,7 @@ async fn set_settings(app: AppHandle, settings: Settings) {
     if let Some(win) = window(&app) {
         let _ = win.set_decorations(settings.native_frame);
     }
+    blocker::configure(settings.adblock, &settings.adblock_allow);
     with_data(&app, |d| d.settings = settings);
     commit(&app);
     apply_layout(&app);
@@ -1478,6 +1599,7 @@ async fn set_settings(app: AppHandle, settings: Settings) {
 fn main() {
     tauri::Builder::default()
         // A second launch (e.g. a link clicked in another app) opens its URLs here.
+        .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
             let app = app.clone();
             let urls: Vec<String> = args.iter().skip(1).filter_map(|a| arg_to_url(a)).collect();
@@ -1512,6 +1634,10 @@ fn main() {
             open_panel,
             close_panel,
             open_default_apps,
+            toggle_mute,
+            toggle_site_blocking,
+            pick_folder,
+            set_space_downloads,
             reopen_tab,
             suggest,
             history_list,
@@ -1549,6 +1675,8 @@ fn main() {
                     pinned: false,
                     folder: None,
                     loading: false,
+                    audio: false,
+                    muted: false,
                     awake: false,
                     last_active: 0,
                 });
@@ -1566,6 +1694,8 @@ fn main() {
                     pinned: false,
                     folder: None,
                     loading: false,
+                    audio: false,
+                    muted: false,
                     awake: false,
                     last_active: 0,
                 });
@@ -1576,6 +1706,11 @@ fn main() {
                 .and_then(|s| serde_json::from_str(&s).ok())
                 .unwrap_or_default();
             let native_frame = data.settings.native_frame;
+            blocker::configure(data.settings.adblock, &data.settings.adblock_allow);
+            blocker::load(
+                app.path().resource_dir().ok().map(|d| d.join("adblock")),
+                root.join("adblock"),
+            );
             app.manage(AppState {
                 data: Mutex::new(data),
                 file,

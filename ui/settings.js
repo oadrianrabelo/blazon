@@ -6,6 +6,7 @@ const ICONS = {
   look: '<circle cx="13.5" cy="6.5" r="1.5"/><circle cx="17.5" cy="10.5" r="1.5"/><circle cx="8.5" cy="7.5" r="1.5"/><circle cx="6.5" cy="12.5" r="1.5"/><path d="M12 2a10 10 0 1 0 0 20c1.1 0 2-.9 2-2 0-.5-.2-1-.5-1.3-.3-.4-.5-.8-.5-1.3 0-1.1.9-2 2-2h2.4A5.6 5.6 0 0 0 22 9.8C22 5.5 17.5 2 12 2Z"/>',
   general: '<circle cx="12" cy="12" r="3"/><path d="M12 2.5v3M12 18.5v3M4.6 4.6l2.1 2.1M17.3 17.3l2.1 2.1M2.5 12h3M18.5 12h3M4.6 19.4l2.1-2.1M17.3 6.7l2.1-2.1"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+  privacy: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
@@ -204,6 +205,52 @@ const SECTIONS = {
         group('Mecanismo',
           select('Busca padrão', null, [...engines, ...(known ? [] : [[state.settings.search, 'Personalizada']])], S('search'), (v) => { saveSettings({ search: v }); render(); }),
           row('Endereço personalizado', 'A pesquisa é colocada no fim do endereço.', custom)),
+      ];
+    },
+  },
+  privacy: {
+    title: 'Privacidade',
+    icon: 'privacy',
+    render() {
+      const allow = el('div');
+      const drawAllow = () => {
+        allow.replaceChildren();
+        const list = state.settings.adblock_allow || [];
+        if (!list.length) allow.append(el('p', 'lead', 'Nenhum site pausado. Use o escudo na barra lateral para pausar num site.'));
+        list.forEach((h) => {
+          const b = el('button', 'btn danger', 'Retomar');
+          b.onclick = () => { saveSettings({ adblock_allow: state.settings.adblock_allow.filter((x) => x !== h) }); drawAllow(); };
+          allow.append(row(h, null, b));
+        });
+      };
+      drawAllow();
+      const downloads = group('Downloads por Space');
+      for (const s of state.spaces) {
+        const wrap = el('div', 'seg');
+        wrap.style.background = 'none';
+        const pick = el('button', 'btn', 'Escolher pasta…');
+        pick.onclick = async () => {
+          const path = await invoke('pick_folder');
+          if (path) { await invoke('set_space_downloads', { id: s.id, path }); s.downloads = path; render(); }
+        };
+        wrap.append(pick);
+        if (s.downloads) {
+          const clear = el('button', 'btn danger', 'Padrão');
+          clear.onclick = async () => { await invoke('set_space_downloads', { id: s.id, path: '' }); s.downloads = ''; render(); };
+          wrap.append(clear);
+        }
+        downloads.append(row(s.name, s.downloads || 'Pasta Downloads do Windows', wrap));
+      }
+      return [
+        ...header('Privacidade', 'Bloqueio de anúncios e rastreadores, senhas e downloads.'),
+        group('Bloqueador',
+          toggle('Bloquear anúncios e rastreadores', 'Usa as listas EasyList e EasyPrivacy, atualizadas toda semana.', S('adblock'), setS('adblock'))),
+        group('Sites com o bloqueador pausado', allow),
+        group('Senhas e formulários',
+          toggle('Oferecer para salvar senhas e preencher formulários', 'Guardado pelo próprio WebView2, separado por Space. Vale para abas novas.', S('passwords'), setS('passwords'))),
+        downloads,
+        group('Permissões de sites',
+          row('Câmera, microfone, localização e notificações', 'Cada site pede permissão na primeira vez; a escolha fica salva no Space.', el('span'))),
       ];
     },
   },

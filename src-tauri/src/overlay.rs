@@ -90,6 +90,8 @@ pub fn open_peek(app: &AppHandle, url: &str) {
     };
     let (pos, size) = peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
     if let Ok(wv) = win.add_child(builder, pos, size) {
+        #[cfg(windows)]
+        webview2::install(app, &wv, None, None, settings.passwords);
         let _ = wv.set_focus();
     }
 }

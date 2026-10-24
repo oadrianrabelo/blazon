@@ -24,6 +24,13 @@ jobs:
         with:
           workspaces: src-tauri
       - run: npm ci
+      # Ad blocking lists bundled with the installer (refreshed weekly at runtime).
+      - name: Download filter lists
+        shell: bash
+        run: |
+          mkdir -p src-tauri/adblock
+          curl -sSfL -o src-tauri/adblock/easylist.txt https://easylist.to/easylist/easylist.txt
+          curl -sSfL -o src-tauri/adblock/easyprivacy.txt https://easylist.to/easylist/easyprivacy.txt
       - run: npx tauri build
       - uses: actions/upload-artifact@v4
         with:

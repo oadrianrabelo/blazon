@@ -19,6 +19,10 @@ const ICONS = {
   copy: '<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
   edit: '<path d="M4 20h4L19 9l-4-4L4 16Z"/>',
   split: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/>',
+  shield: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  shieldOff: '<path d="M12 3 5 6v5c0 4.5 3 8.3 7 10 4-1.7 7-5.5 7-10V6Z"/><path d="M4 4l16 16"/>',
+  sound: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/>',
+  muted: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="m22 9-6 6M16 9l6 6"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
@@ -227,6 +231,12 @@ function render() {
 
   const address = $('address');
   if (document.activeElement !== address) address.value = current?.url || '';
+  const site = host(current?.url || '').replace(/^www\./, '');
+  const paused = !state.settings.adblock || (state.settings.adblock_allow || []).includes(site);
+  setIcon($('shield'), paused ? 'shieldOff' : 'shield');
+  $('shield').title = !state.settings.adblock ? 'Bloqueador desligado (Configurações → Privacidade)'
+    : paused ? `Bloqueador pausado em ${site}. Clique para retomar.` : `Bloqueando anúncios${site ? ` em ${site}` : ''}. Clique para pausar neste site.`;
+  $('shield').disabled = !site || !state.settings.adblock;
   const loading = !!current?.loading;
   setIcon($('reload'), loading ? 'x' : 'reload');
   $('reload').dataset.nav = loading ? 'stop' : 'reload';
@@ -247,6 +257,13 @@ function render() {
     close.title = 'Fechar (Ctrl+W)';
     close.onclick = (e) => { e.stopPropagation(); invoke('close_tab', { id: t.id }); };
     li.append(favicon(t), el('span', 'title', tabTitle(t)));
+    if (t.audio || t.muted) {
+      const snd = el('button', 'icon sound');
+      snd.append(icon(t.muted ? 'muted' : 'sound'));
+      snd.title = t.muted ? 'Ativar som' : 'Silenciar aba';
+      snd.onclick = (e) => { e.stopPropagation(); invoke('toggle_mute', { id: t.id }); };
+      li.append(snd);
+    }
     if (state.splits.some((p) => p.includes(t.id))) {
       const mark = icon('split');
       mark.classList.add('split-mark');
@@ -385,6 +402,7 @@ document.querySelectorAll('[data-nav]').forEach((b) => {
   b.onclick = () => invoke('nav', { action: b.dataset.nav });
 });
 $('new-tab').onclick = () => invoke('new_tab', {});
+$('shield').onclick = () => invoke('toggle_site_blocking');
 dragTarget($('new-tab'), null, false);
 $('new-tab').draggable = false;
 $('pinned').addEventListener('dragover', (e) => e.preventDefault());
