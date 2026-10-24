@@ -80,23 +80,51 @@ pub(crate) fn sync_windows(app: &AppHandle) {
 pub(crate) const PAGE_RADIUS: f64 = 13.0;
 pub(crate) const PEEK_RADIUS: f64 = 12.0;
 
+/// Height of the top bar when tabs are horizontal (Appearance › Tabs: top):
+/// the toolbar row and the tab row, as in Safari.
+pub(crate) const TOPBAR_HEIGHT: f64 = 84.0;
+
+/// Appearance › Tabs: on the side (Crest's sidebar) or along the top.
+pub(crate) fn horizontal(settings: &Settings) -> bool {
+    settings
+        .appearance
+        .get("tabLayout")
+        .and_then(|v| v.as_str())
+        == Some("horizontal")
+}
+
 /// UI and page rectangles in physical pixels. The UI covers the whole window
-/// (sidebar plus the Space background); the page sits on it as an inset card.
+/// (sidebar or top bar plus the Space background); the page sits on it as an
+/// inset card.
 pub(crate) fn layout_rects(
     win: &Window,
     settings: &Settings,
     collapsed: bool,
 ) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
-    let right = settings.sidebar_right;
     let size = win.inner_size().ok()?;
     let scale = win.scale_factor().ok()?;
+    let m = (CARD_MARGIN * scale) as u32;
+    if horizontal(settings) {
+        let bar = if collapsed { FLOAT_EDGE } else { TOPBAR_HEIGHT };
+        let bh = ((bar * scale) as u32).min(size.height);
+        return Some([
+            (PhysicalPosition::new(0, 0), size),
+            (
+                PhysicalPosition::new(m as i32, bh as i32),
+                PhysicalSize::new(
+                    size.width.saturating_sub(2 * m),
+                    size.height.saturating_sub(bh + m),
+                ),
+            ),
+        ]);
+    }
+    let right = settings.sidebar_right;
     let width = if collapsed {
         FLOAT_EDGE
     } else {
         settings.sidebar_width.clamp(200.0, 420.0)
     };
     let sw = ((width * scale) as u32).min(size.width);
-    let m = (CARD_MARGIN * scale) as u32;
     let cw = size.width.saturating_sub(sw + m);
     let ch = size.height.saturating_sub(2 * m);
     let content_x = if right { m } else { sw };
@@ -107,6 +135,25 @@ pub(crate) fn layout_rects(
             PhysicalSize::new(cw, ch),
         ),
     ])
+}
+
+/// Windows whose page is hidden behind a picture of itself, so a menu or
+/// dialog of the top bar can spread over the page card (see `set_page_hidden`).
+static COVERED: Mutex<Vec<String>> = Mutex::new(Vec::new());
+
+/// The top bar is too short for its menus and dialogs: while one is open the
+/// UI shows a picture of the page (page_snapshot) and the live page steps aside.
+#[tauri::command]
+pub(crate) async fn set_page_hidden(app: AppHandle, webview: tauri::Webview, hidden: bool) {
+    let wl = webview.window().label().to_string();
+    {
+        let mut c = COVERED.lock().unwrap();
+        c.retain(|l| *l != wl);
+        if hidden {
+            c.push(wl);
+        }
+    }
+    layout(&app, false);
 }
 
 /// Creates the visible tabs' webviews if needed, shows them and hides the rest.
@@ -151,6 +198,7 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
         return;
     };
     let panel = s.panel.lock().unwrap().get(wl).cloned();
+    let covered = COVERED.lock().unwrap().iter().any(|l| l == wl);
     let (ui_l, panel_l, overlay_l, peek_l) = (
         ui_of(wl),
         panel_of(wl),
@@ -256,7 +304,11 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_size(PhysicalSize::new(w, size.height));
             #[cfg(windows)]
             webview2::round_corners(&wv, PAGE_RADIUS);
-            let _ = wv.show();
+            if covered {
+                let _ = wv.hide();
+            } else {
+                let _ = wv.show();
+            }
         } else {
             let _ = wv.hide();
         }

@@ -91,6 +91,7 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
         let builder = WebviewBuilder::new(QUICK_PAGE, WebviewUrl::External(parsed))
             .incognito(private)
             .data_directory(state(app).root.join("spaces").join(&space))
+            .additional_browser_args(&browser_args())
             .browser_extensions_enabled(true)
             .zoom_hotkeys_enabled(true)
             .on_new_window(move |url, _| {

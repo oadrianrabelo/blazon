@@ -176,6 +176,7 @@ pub(crate) async fn open_side_panel(
     let builder = WebviewBuilder::new(side_of(&wl), WebviewUrl::External(url))
         .incognito(private)
         .data_directory(state(&app).root.join("spaces").join(&space))
+        .additional_browser_args(&browser_args())
         .browser_extensions_enabled(true);
     let settings = with_data(&app, |d| d.settings.clone());
     let rects = layout_rects(&win, &settings, false).ok_or("Janela indisponível.")?;

@@ -4,6 +4,16 @@
 
 const I18N = (() => {
   const EN = {
+    // Tab layout and text
+    'Na lateral': 'On the side',
+    'No topo': 'On top',
+    'Na lateral, como no Crest, ou no topo, como no Safari (Ctrl+Shift+L).': 'On the side, like Crest, or on top, like Safari (Ctrl+Shift+L).',
+    'Esconder a barra de abas': 'Hide the tab bar',
+    'A página ocupa a janela toda; a barra volta ao encostar o mouse na borda (Ctrl+Shift+S).': 'The page fills the window; the bar comes back when the pointer reaches the edge (Ctrl+Shift+S).',
+    'Texto': 'Text',
+    'Fontes': 'Fonts',
+    'Mac': 'Mac',
+    'Mac: a fonte Inter, parecida com a San Francisco, e suavização em tons de cinza também nas páginas, como no macOS. A suavização muda depois de reiniciar o Blazon.': 'Mac: the Inter font, close to San Francisco, and grayscale smoothing on pages too, like macOS. Smoothing changes after restarting Blazon.',
     // Custom shortcuts
     'Seus atalhos': 'Your shortcuts',
     'Fixos': 'Fixed',

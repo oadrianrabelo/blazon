@@ -140,6 +140,37 @@ try {
   await invoke('set_settings', { settings: before.settings });
   await sleep(800);
 
+  // Settings › Shortcuts: change one, see the other lose it, restore.
+  await invoke('open_panel', { section: 'keys' });
+  await sleep(1500);
+  const taken = await invoke('set_shortcut', { id: 'palette', combo: 'Ctrl+T' });
+  if (taken !== 'newtab') throw new Error(`Ctrl+T deveria sair de newtab, saiu de "${taken}"`);
+  await invoke('open_panel', { section: 'keys' });
+  await sleep(1200);
+  shot('atalhos');
+  await invoke('reset_shortcuts');
+  await invoke('close_panel');
+  await sleep(800);
+
+  // Tabs along the top, a menu spreading over the page, then the hidden bar.
+  await invoke('run_command', { cmd: 'tablayout' });
+  await sleep(2000);
+  shot('abas-no-topo');
+  const chip = await ui.$('#tabs .tab');
+  if (chip) {
+    await chip.click({ button: 'right' });
+    await sleep(1200);
+    shot('abas-no-topo-menu');
+    await ui.keyboard.press('Escape');
+    await sleep(800);
+  }
+  await invoke('run_command', { cmd: 'sidebar' });
+  await sleep(1500);
+  shot('barra-escondida');
+  await invoke('run_command', { cmd: 'sidebar' });
+  await invoke('run_command', { cmd: 'tablayout' });
+  await sleep(1500);
+
   await invoke('open_overlay', { mode: 'peek', url: 'https://en.wikipedia.org/wiki/Heraldry' });
   await sleep(5000);
   shot('peek');

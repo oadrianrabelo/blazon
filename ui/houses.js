@@ -80,6 +80,8 @@ const LOOK_DEFAULTS = {
   windowControls: 'windows', // windows | mac (traffic lights)
   elastic: true, // sidebar stretches at the ends of its scroll
   pageTransitions: true, // pages cross-fade or slide when switching
+  tabLayout: 'vertical', // vertical (sidebar) | horizontal (top bar, like Safari)
+  fontRendering: 'mac', // mac (Inter, grayscale smoothing) | windows (Segoe UI, ClearType)
 };
 
 const LOOK_PRESETS = {

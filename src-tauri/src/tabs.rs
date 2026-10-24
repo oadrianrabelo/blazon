@@ -101,6 +101,7 @@ pub(crate) fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> ta
     let builder = WebviewBuilder::new(label(id), url)
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&tab.space))
+        .additional_browser_args(&browser_args())
         .initialization_script(with_data(app, |d| shortcuts_js(&d.settings)))
         .zoom_hotkeys_enabled(true)
         .browser_extensions_enabled(true)

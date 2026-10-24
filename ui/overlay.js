@@ -122,16 +122,19 @@ function looksLikeUrl(q) {
   return /^[a-z]+:\/\//i.test(q) || (!/\s/.test(q) && /\.[a-z]{2,}(\/|$|:)/i.test(q)) || /^localhost(:\d+)?/.test(q);
 }
 
+// The address of the top bar (tabs on top) opens here and loads in the current tab.
+const go = (url) => (mode === 'address' ? invoke('navigate', { input: url }) : invoke('new_tab', { url }));
+
 async function refresh() {
   const q = $('pal-q').value.trim();
   const ql = q.toLowerCase();
   const out = [];
   const add = (section, entry) => out.push({ section, ...entry });
   if (provider) {
-    if (q) add(provider[0], { icon: 'search', title: `Buscar "${q}" no ${provider[0]}`, run: () => invoke('new_tab', { url: provider[1] + encodeURIComponent(q) }) });
+    if (q) add(provider[0], { icon: 'search', title: `Buscar "${q}" no ${provider[0]}`, run: () => go(provider[1] + encodeURIComponent(q)) });
   } else if (q) {
-    if (looksLikeUrl(q)) add('', { icon: 'globe', title: `Abrir ${q}`, run: () => invoke('new_tab', { url: q }) });
-    add('', { icon: 'search', title: `Pesquisar "${q}"`, run: () => invoke('new_tab', { url: state.settings.search + encodeURIComponent(q) }) });
+    if (looksLikeUrl(q)) add('', { icon: 'globe', title: `Abrir ${q}`, run: () => go(q) });
+    add('', { icon: 'search', title: `Pesquisar "${q}"`, run: () => go(state.settings.search + encodeURIComponent(q)) });
     const kw = PROVIDERS[ql.split(' ')[0]];
     if (kw && !q.includes(' ')) add('', { icon: 'search', title: `Tab para buscar no ${kw[0]}`, hint: 'Tab', run: () => setProvider(ql) });
   }
@@ -153,7 +156,7 @@ async function refresh() {
       const hist = await invoke('suggest', { query: q });
       if (my !== seq) return;
       for (const h of hist.filter((h) => h.kind === 'history').slice(0, 5)) {
-        add('Histórico', { url: h.url, title: h.title || host(h.url), sub: h.url, run: () => invoke('new_tab', { url: h.url }) });
+        add('Histórico', { url: h.url, title: h.title || host(h.url), sub: h.url, run: () => go(h.url) });
       }
     }
   }
@@ -199,6 +202,11 @@ function startPalette() {
   $('palette').hidden = false;
   glassBackdrop();
   const q = $('pal-q');
+  if (mode === 'address') {
+    document.body.classList.add('address-mode');
+    q.value = tab()?.url || '';
+    requestAnimationFrame(() => q.select());
+  }
   // The app focuses this webview right after creating it.
   requestAnimationFrame(() => q.focus());
   addEventListener('focus', () => q.focus());
@@ -237,7 +245,8 @@ async function startPeek() {
   const side = Math.round(cw * 0.07);
   Object.assign(bar.style, { left: `${cx + side}px`, width: `${cw - 2 * side}px`, top: `${m + 7}px` });
   bar.hidden = false;
-  growPeek();
+  // The bar sits 41px above the card (overlay::peek_rect), whatever the layout.
+  growPeek((rect) => Object.assign(bar.style, { left: `${rect.x}px`, width: `${rect.w}px`, top: `${rect.y - 41}px` }));
   $('peek-close').onclick = close;
   $('peek-tab').onclick = () => invoke('peek_to_tab');
   $('peek-copy').onclick = async () => navigator.clipboard.writeText((await invoke('peek_url')) || '');
@@ -248,13 +257,14 @@ async function startPeek() {
 
 // Peek's card grows into place, then the live page appears in it
 // (CrestMotion.quickPeekEntrance, then contentReveal).
-async function growPeek() {
+async function growPeek(onRect) {
   let rect = null;
   for (let i = 0; i < 40 && !rect; i++) {
     rect = await invoke('peek_geometry');
     if (!rect) await new Promise((r) => setTimeout(r, 30));
   }
   if (!rect) return invoke('peek_show', { show: true });
+  onRect(rect);
   const card = $('peek-card');
   place(card, rect);
   card.hidden = false;

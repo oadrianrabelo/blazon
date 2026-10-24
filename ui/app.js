@@ -82,6 +82,10 @@ function applyAppearance(settings) {
   if (window.Glass) Glass.setEnabled(a.liquidGlass !== false);
   b.toggle('mac-controls', a.windowControls === 'mac');
   b.toggle('mica', !!a.mica);
+  b.toggle('horizontal', a.tabLayout === 'horizontal');
+  // Text: read by type.js before every interface page draws.
+  document.documentElement.classList.toggle('win-type', a.fontRendering === 'windows');
+  try { localStorage.setItem('blazon.type', a.fontRendering === 'windows' ? 'windows' : 'mac'); } catch {}
   for (const k of ['sel-outline', 'sel-glow']) b.remove(k);
   if (a.selected !== 'fill') b.add(`sel-${a.selected}`);
   b.toggle('follow-accent', a.followAccent);
@@ -135,6 +139,8 @@ function dragTarget(node, t) {
   });
 }
 
+const horizontal = () => document.body.classList.contains('horizontal');
+
 function dragRoots() { return [$('pinned'), $('folders'), $('tabs')]; }
 
 function startDrag(e) {
@@ -161,7 +167,8 @@ function makePlaceholder(kind, folder) {
   const p = el(kind === 'pin' ? 'button' : 'li', (kind === 'pin' ? 'pin' : 'tab') + ' placeholder' + (folder != null ? ' in-folder' : ''));
   p.dataset.key = drag.node.dataset.key;
   if (folder != null) p.dataset.folder = folder;
-  if (kind === 'row') p.style.height = `${drag.kind === 'row' ? drag.node.offsetHeight || 34 : 34}px`;
+  if (kind === 'row' && horizontal()) p.style.width = `${drag.kind === 'row' ? drag.node.offsetWidth || 196 : 196}px`;
+  else if (kind === 'row') p.style.height = `${drag.kind === 'row' ? drag.node.offsetHeight || 34 : 34}px`;
   return p;
 }
 
@@ -179,7 +186,8 @@ function dropSpot(e) {
   if (row && row !== drag.node) {
     const r = row.getBoundingClientRect();
     const folder = row.dataset.folder != null ? Number(row.dataset.folder) : null;
-    return { kind: 'row', parent: row.parentNode, ref: e.clientY < r.top + r.height / 2 ? row : row.nextElementSibling, folder };
+    const first = horizontal() ? e.clientX < r.left + r.width / 2 : e.clientY < r.top + r.height / 2;
+    return { kind: 'row', parent: row.parentNode, ref: first ? row : row.nextElementSibling, folder };
   }
   const head = hit.closest('.folder');
   if (head) {
@@ -287,6 +295,41 @@ function tabEvents(node, t) {
   node.oncontextmenu = (e) => { e.preventDefault(); e.stopPropagation(); tabMenu(e, t); };
 }
 
+// Tabs on top: the bar is too short for its menus and dialogs, so while one
+// is open the page steps aside for a picture of itself (set_page_hidden).
+const Cover = (() => {
+  let holds = 0;
+  const shot = $('page-shot');
+  async function hold() {
+    if (!horizontal() || holds++ > 0) return;
+    const s = await invoke('page_snapshot').catch(() => null);
+    if (!holds) return;
+    if (s) {
+      Object.assign(shot.style, { left: `${s.rect.x}px`, top: `${s.rect.y}px`, width: `${s.rect.w}px`, height: `${s.rect.h}px` });
+      shot.src = s.image;
+      await shot.decode().catch(() => {});
+      if (!holds) return;
+      shot.hidden = false;
+    }
+    await invoke('set_page_hidden', { hidden: true });
+  }
+  function release() {
+    if (!holds || --holds > 0) return;
+    invoke('set_page_hidden', { hidden: false }).then(() => setTimeout(() => { if (!holds) shot.hidden = true; }, 60));
+  }
+  return { hold, release };
+})();
+{
+  const showModal = HTMLDialogElement.prototype.showModal;
+  HTMLDialogElement.prototype.showModal = function () {
+    if (horizontal() && !this.open) {
+      Cover.hold();
+      this.addEventListener('close', () => Cover.release(), { once: true });
+    }
+    showModal.call(this);
+  };
+}
+
 // Context menu
 
 function showMenu(e, items) {
@@ -303,9 +346,24 @@ function showMenu(e, items) {
   }
   m.classList.remove('m-leaving');
   m.getAnimations().forEach((x) => x.cancel());
+  if (horizontal() && !menuHeld) {
+    // The page steps aside first so the menu can spread over the page card.
+    menuHeld = true;
+    m.hidden = true;
+    const seq = ++menuSeq;
+    Cover.hold().then(() => { if (seq === menuSeq && menuHeld) placeMenu(e); });
+    return;
+  }
+  placeMenu(e);
+}
+let menuHeld = false;
+let menuSeq = 0;
+function placeMenu(e) {
+  const m = $('ctx');
   m.hidden = false;
-  // Stay inside the sidebar: the page card covers the rest of the window.
-  const bar = $('sidebar').getBoundingClientRect();
+  // Stay inside the sidebar: the page card covers the rest of the window
+  // (tabs on top: anywhere, the page is a picture while the menu is open).
+  const bar = horizontal() ? { left: 0, right: innerWidth } : $('sidebar').getBoundingClientRect();
   const x = Math.max(bar.left + 6, Math.min(e.clientX, bar.right - m.offsetWidth - 6));
   const y = e.above ? e.clientY - m.offsetHeight : Math.min(e.clientY, innerHeight - m.offsetHeight - 6);
   m.style.left = `${x}px`;
@@ -314,7 +372,10 @@ function showMenu(e, items) {
   const from = e.anchor ? e.anchor.getBoundingClientRect() : { left: e.clientX - 4, top: e.clientY - 4, width: 8, height: 8 };
   Motion.morphFrom(m, from);
 }
-function hideMenu() { Motion.hide($('ctx')); }
+function hideMenu() {
+  if (menuHeld) { menuHeld = false; menuSeq++; setTimeout(() => Cover.release(), Motion.ms('--dismissal')); }
+  if (!$('ctx').hidden) Motion.hide($('ctx'));
+}
 addEventListener('mousedown', (e) => { if (!$('ctx').contains(e.target)) hideMenu(); });
 addEventListener('blur', hideMenu);
 addEventListener('keydown', (e) => { if (e.key === 'Escape') hideMenu(); });
@@ -602,6 +663,7 @@ function render() {
     const node = document.querySelector('#sidebar [aria-selected="true"]');
     if (fromActive && node) glideTo(fromActive, node, sidebar);
   }
+  if (horizontal() && activeChanged) document.querySelector('#scroll .tab.active')?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
   shownSpace = state.active_space;
   shownActive = current?.id ?? null;
 }
@@ -676,7 +738,11 @@ $('address-form').addEventListener('submit', (e) => {
   if (v) invoke('navigate', { input: v });
   $('address').blur();
 });
-$('address').addEventListener('focus', () => $('address').select());
+$('address').addEventListener('focus', () => {
+  // Tabs on top: suggestions need room, so the address opens in the palette.
+  if (horizontal()) { $('address').blur(); invoke('open_overlay', { mode: 'address', url: null }); return; }
+  $('address').select();
+});
 $('address').addEventListener('blur', hideSuggestions);
 $('address').addEventListener('keydown', (e) => {
   if (e.key === 'Escape') { hideSuggestions(); $('address').value = activeTab()?.url || ''; $('address').blur(); }
@@ -802,6 +868,11 @@ $('sidebar').addEventListener('mouseleave', () => {
   let stretch = 0;
   let settle = null;
   sc.addEventListener('wheel', (e) => {
+    if (horizontal()) {
+      // Tab chips: the wheel scrolls the strip sideways.
+      if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) sc.scrollLeft += e.deltaY;
+      return;
+    }
     if (Motion.reduced.matches || !state || lookOf(state.settings).elastic === false || Math.abs(e.deltaX) > Math.abs(e.deltaY)) return;
     const atTop = sc.scrollTop <= 0 && e.deltaY < 0;
     const atEnd = sc.scrollTop + sc.clientHeight >= sc.scrollHeight - 1 && e.deltaY > 0;
@@ -828,6 +899,7 @@ let swipeReset = null;
 let swipeLocked = false;
 $('sidebar').addEventListener('wheel', (e) => {
   if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+  if (horizontal() && $('scroll').contains(e.target)) return;
   e.preventDefault();
   if (swipeLocked) return;
   swipeX += e.deltaX;

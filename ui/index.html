@@ -3,15 +3,17 @@
 <head>
   <meta charset="utf-8">
   <title>Blazon</title>
+  <script src="type.js"></script>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="motion.css">
   <link rel="stylesheet" href="glass.css">
 </head>
 <body>
   <div id="banner" class="banner" aria-hidden="true"></div>
+  <img id="page-shot" class="page-shot" alt="" hidden>
 
   <div id="edge" class="edge"></div>
-  <aside id="sidebar">
+  <aside id="sidebar" data-tauri-drag-region>
     <header class="topbar" data-tauri-drag-region>
       <button class="icon" data-nav="back" data-i="back" title="Voltar (Alt+←)"></button>
       <button class="icon" data-nav="forward" data-i="forward" title="Avançar (Alt+→)"></button>

@@ -14,6 +14,13 @@ Mais Mac:
 - **Botões da janela estilo Mac** (as três bolinhas), opcionais.
 - **Ícones** redesenhados no estilo do SF Symbols.
 - Tudo em Configurações → Aparência → Materiais e movimento.
+- **Abas no topo**, como no Safari, ou na lateral (Configurações → Aparência → Abas, ou
+  Ctrl+Shift+L). Menus e janelas da barra se abrem sobre a página.
+- **Esconder a barra de abas** com nome claro (Ctrl+Shift+S); ela volta ao encostar na borda.
+- **Fontes como no Mac**: Inter (parecida com a San Francisco) na interface e suavização em tons
+  de cinza em todas as páginas. Dá para voltar a Segoe UI e ClearType em Aparência → Texto.
+- **Atalhos personalizáveis** em Configurações → Atalhos, com novos comandos: modo leitura,
+  fixar, duplicar, silenciar, configurações e abas no topo.
 
 ## 0.1.3
 

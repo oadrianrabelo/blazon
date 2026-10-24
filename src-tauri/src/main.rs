@@ -200,13 +200,37 @@ pub(crate) fn interface_webview(
     label: impl Into<String>,
     url: WebviewUrl,
 ) -> WebviewBuilder<tauri::Wry> {
-    let builder = WebviewBuilder::new(label, url);
-    match std::env::var("BLAZON_DEVTOOLS_PORT").ok().and_then(|p| p.parse::<u16>().ok()) {
-        Some(port) => builder.additional_browser_args(&format!(
-            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --remote-debugging-port={port}"
-        )),
-        None => builder,
+    let mut args = browser_args();
+    if let Some(port) = std::env::var("BLAZON_DEVTOOLS_PORT")
+        .ok()
+        .and_then(|p| p.parse::<u16>().ok())
+    {
+        args.push_str(&format!(" --remote-debugging-port={port}"));
     }
+    WebviewBuilder::new(label, url).additional_browser_args(&args)
+}
+
+/// Appearance › Text: Mac asks WebView2 for grayscale text smoothing, as on
+/// the Mac, instead of ClearType. Webviews that share a profile folder must
+/// be created with the same arguments, so this is read once at startup and a
+/// change applies after a restart.
+static GRAYSCALE_TEXT: AtomicBool = AtomicBool::new(true);
+
+/// Browser arguments for every webview (wry's defaults plus the text smoothing).
+pub(crate) fn browser_args() -> String {
+    let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection");
+    if GRAYSCALE_TEXT.load(Ordering::Relaxed) {
+        args.push_str(" --disable-lcd-text");
+    }
+    args
+}
+
+pub(crate) fn mac_text(settings: &Settings) -> bool {
+    settings
+        .appearance
+        .get("fontRendering")
+        .and_then(|v| v.as_str())
+        != Some("windows")
 }
 
 fn label(id: u64) -> String {
@@ -418,6 +442,7 @@ fn main() {
             spaces::delete_space,
             set_settings,
             windowing::sidebar_peek,
+            windowing::set_page_hidden,
             windowing::open_panel,
             windowing::close_panel,
             support::open_default_apps,
@@ -525,6 +550,7 @@ fn main() {
                 }),
             };
             data.repair();
+            GRAYSCALE_TEXT.store(mac_text(&data.settings), Ordering::Relaxed);
             if data.active_tab_id().is_none() {
                 let id = data.new_id();
                 let space = data.active_space.clone();

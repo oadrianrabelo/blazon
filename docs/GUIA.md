@@ -280,6 +280,26 @@ Em Configurações → Aparência você ajusta:
 | Páginas | Zoom padrão, de 50% a 300% |
 | Restaurar tudo | Volta tudo ao padrão |
 
+### Abas no topo ou na lateral
+
+Em **Configurações → Aparência → Abas**, escolha **Na lateral** (a barra do Crest) ou **No topo**
+(como no Safari), ou aperte **Ctrl+Shift+L**. No topo, a primeira linha tem navegação, o endereço
+no meio, Spaces e botões; a segunda tem o Space, as fixadas e as abas como fichas, que rolam para
+os lados com a roda do mouse. Clicar no endereço abre a busca sobre a página. Menus e janelas
+da barra se abrem por cima da página (que fica congelada numa imagem enquanto estão abertos).
+
+**Esconder a barra de abas** (Ctrl+Shift+S) deixa a página com a janela toda; encoste o mouse na
+borda (lateral ou de cima) para a barra voltar.
+
+### Texto
+
+Em **Configurações → Aparência → Texto → Fontes**:
+- **Mac** (padrão): a interface usa a Inter, a fonte livre mais parecida com a San Francisco do
+  macOS, com tamanhos ópticos, espaçamento e peso ajustados; e o texto de tudo, páginas incluídas,
+  é suavizado em tons de cinza, como no Mac, em vez do ClearType. A suavização muda depois de
+  reiniciar o Blazon.
+- **Windows**: Segoe UI e ClearType.
+
 ### Materiais e movimento
 
 Em **Configurações → Aparência → Materiais e movimento**:
@@ -311,7 +331,12 @@ desligado, o Blazon mantém só os esmaecimentos, sem movimento.
 
 ## Atalhos
 
-| Atalho | Ação |
+Todos os atalhos da primeira tabela podem ser trocados em **Configurações → Atalhos**: clique em
+**Alterar** e pressione a nova combinação (Esc cancela, Backspace desliga o atalho). Se a
+combinação já for de outro comando, ela muda de lugar e o outro fica sem atalho; **Padrão**
+devolve a original. Valem na barra lateral e dentro das páginas, sem recarregar.
+
+| Atalho padrão | Ação |
 | --- | --- |
 | Ctrl+T | Nova aba |
 | Ctrl+N | Nova janela |
@@ -319,12 +344,23 @@ desligado, o Blazon mantém só os esmaecimentos, sem movimento.
 | Ctrl+Shift+T | Reabrir aba fechada |
 | Ctrl+K | Paleta de comandos |
 | Ctrl+L | Barra de endereço |
-| F6 | Endereço → abas → página |
 | Ctrl+H | Histórico |
 | Ctrl+Tab / Ctrl+Shift+Tab | Próxima / anterior |
+| Ctrl+Shift+S | Mostrar ou esconder a barra de abas |
+| Ctrl+Shift+L | Abas na lateral ou no topo |
+| Ctrl+Shift+R | Modo leitura |
+| Ctrl+Shift+P | Fixar ou soltar a aba |
+| Ctrl+Shift+D | Duplicar a aba |
+| Ctrl+M | Silenciar a aba |
+| Ctrl+, | Configurações |
+
+Fixos:
+
+| Atalho | Ação |
+| --- | --- |
+| F6 | Endereço → abas → página |
 | Ctrl+1 … 8, Ctrl+9 | Aba pela posição, última aba |
 | Ctrl+Shift+1 … 9 | Trocar de Space |
-| Ctrl+Shift+S | Mostrar ou esconder a barra lateral |
 | Shift+clique num link | Peek |
 | Alt+← / Alt+→, F5 | Voltar / avançar, recarregar |
 | Ctrl + / Ctrl − / Ctrl+0 | Zoom |

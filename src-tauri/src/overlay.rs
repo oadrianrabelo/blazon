@@ -82,6 +82,7 @@ pub fn open_peek(app: &AppHandle, url: &str) {
     let builder = WebviewBuilder::new(peek_of(win.label()), WebviewUrl::External(url))
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&space))
+        .additional_browser_args(&browser_args())
         .initialization_script(PEEK_JS)
         .browser_extensions_enabled(true)
         .zoom_hotkeys_enabled(true)
@@ -135,10 +136,10 @@ static PEEK_HANDLED: AtomicBool = AtomicBool::new(false);
 pub async fn open_overlay(app: AppHandle, mode: String, url: Option<String>) {
     match mode.as_str() {
         "peek" => open_peek(&app, url.as_deref().unwrap_or("")),
-        "welcome" => {
+        "welcome" | "address" => {
             let Some(win) = window(&app) else { return };
             close_existing(&app);
-            let _ = add_overlay(&win, "welcome");
+            let _ = add_overlay(&win, &mode);
         }
         _ => open_palette(&app),
     }

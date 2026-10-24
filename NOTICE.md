@@ -9,6 +9,7 @@ O Blazon é distribuído sob a [Mozilla Public License 2.0](LICENSE).
 | Motor do bloqueador | [adblock-rust](https://github.com/brave/adblock-rust), da Brave | MPL-2.0 | dependência `adblock` |
 | Listas de bloqueio | [EasyList e EasyPrivacy](https://easylist.to) | GPLv3 / CC BY-SA 3.0 | baixadas no build e em tempo de execução |
 | Modo leitura | [Readability](https://github.com/mozilla/readability), da Mozilla | Apache-2.0 | `src-tauri/src/vendor/` |
+| Fonte da interface | [Inter](https://rsms.me/inter/), de Rasmus Andersson (via Fontsource) | SIL OFL 1.1 | `ui/fonts/`, licença em `ui/fonts/OFL-Inter.txt` |
 | Framework | [Tauri](https://tauri.app) e [wry](https://github.com/tauri-apps/wry) | MIT / Apache-2.0 | dependências Rust |
 | Motor das páginas | Microsoft Edge WebView2 Runtime | Licença da Microsoft | componente do Windows |
 

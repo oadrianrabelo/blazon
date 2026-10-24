@@ -1,3 +1,27 @@
+/* Type. Mac (Appearance › Text, the default): Inter, the open font closest to
+   Apple's San Francisco, with its optical sizes, SF-like tracking and a touch
+   more weight, as the Mac's text smoothing gives; WebView2 also drops ClearType
+   for grayscale smoothing (--disable-lcd-text, see main.rs). Windows: Segoe UI. */
+@font-face { font-family: "Blazon Text"; font-style: normal; font-weight: 100 900; font-display: block;
+  src: url(fonts/inter-latin.woff2) format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD; }
+@font-face { font-family: "Blazon Text"; font-style: normal; font-weight: 100 900; font-display: block;
+  src: url(fonts/inter-latin-ext.woff2) format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF; }
+:root {
+  --font-text: "Blazon Text", "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Blazon Text", "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --text-weight: 430;
+  --tracking: -.011em;
+  --display-tracking: -.022em;
+}
+:root.win-type {
+  --font-text: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif;
+  --text-weight: 400;
+  --tracking: normal;
+  --display-tracking: normal;
+}
 /* Colors are set per Space by app.js: --c0/--c1/--c2 are the house palette. */
 :root {
   --c0: #1e2833;
@@ -17,7 +41,7 @@ html, body { margin: 0; height: 100%; overflow: hidden; }
 body {
   background: var(--c0);
   color: var(--fg);
-  font: 13px/1.3 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  font: 13px/1.3 var(--font-text);
   user-select: none;
 }
 
@@ -341,3 +365,58 @@ dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
 body.mica { background: transparent; }
 body.mica .banner { opacity: .38; }
 body.mica .banner::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--c0) 40%, transparent); }
+
+/* Tabs along the top (Appearance › Tabs: top), like Safari: a toolbar row with
+   the address in the middle and a row of tab chips under it. The page card
+   starts below (windowing.rs TOPBAR_HEIGHT = 84px). The sidebar's own pieces
+   are reordered into the two rows; ::after breaks the line. */
+body.horizontal #sidebar { right: 0; bottom: auto; width: auto; height: 84px; flex-flow: row wrap; align-items: center; align-content: flex-start; gap: 6px 4px; padding: 6px 8px 0; }
+body.horizontal #sidebar::before { content: ""; order: 5; flex: 1 1 0; align-self: stretch; min-width: 8px; }
+body.horizontal #sidebar::after { content: ""; order: 10; flex-basis: 100%; height: 0; }
+body.horizontal .topbar { display: contents; }
+body.horizontal .topbar > .icon { order: 2; }
+body.horizontal .topbar > .grow { order: 3; flex: 1 1 0; min-width: 8px; height: 30px; }
+body.horizontal .topbar > .winctl { order: 9; }
+body.horizontal.mac-controls .topbar > .winctl { order: 0; height: 30px; }
+body.horizontal .address { order: 4; flex: 0 1 640px; min-width: 220px; }
+body.horizontal .address #address { padding-top: 7px; padding-bottom: 7px; text-align: center; }
+body.horizontal .address:focus-within #address { text-align: left; }
+body.horizontal footer { order: 6; gap: 2px; }
+body.horizontal .switcher { max-width: 220px; }
+body.horizontal .space-head { order: 11; flex: 0 1 auto; max-width: 190px; padding: 0; }
+body.horizontal .space-head .space-name { padding: 4px 8px 4px 6px; }
+body.horizontal #space-menu { display: none; }
+body.horizontal .pinned { order: 12; display: flex; flex: 0 1 auto; max-width: 40%; gap: 4px; overflow: hidden; }
+body.horizontal .pinned:empty { display: none; }
+body.horizontal .pin { flex: none; width: 38px; height: 32px; }
+body.horizontal .scroll { order: 13; flex: 1 1 0; min-width: 0; height: 34px; margin: 0; padding: 1px 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+body.horizontal .scroll::-webkit-scrollbar { display: none; }
+body.horizontal .tabs { display: flex; gap: 4px; flex: none; }
+body.horizontal #folders:empty { display: none; }
+body.horizontal .new-tab { flex: none; width: 32px; height: 32px; padding: 0; justify-content: center; border: 0; border-radius: var(--radius); margin: 0; font-size: 0; }
+body.horizontal .new-tab svg { width: 15px; height: 15px; }
+body.horizontal .tab { flex: none; width: 196px; height: 32px; margin: 0; padding: 0 4px 0 10px; gap: 8px; }
+body.horizontal .tab.placeholder { height: 32px; }
+body.horizontal .folder { flex: none; max-width: 180px; height: 32px; padding: 0 10px; gap: 8px; }
+body.horizontal .folder .chev { margin-left: 2px; }
+body.horizontal .folder.open .chev { transform: rotate(-90deg); }
+body.horizontal .in-folder { padding-left: 10px; box-shadow: inset 2px 0 0 color-mix(in srgb, var(--c2) 70%, transparent); }
+body.horizontal .tab.active.in-folder { box-shadow: inset 2px 0 0 var(--c2), 0 1px 3px rgba(0, 0, 0, .18); }
+body.horizontal .deck { display: none !important; }
+body.horizontal .drop-before { box-shadow: inset 2px 0 0 var(--c2) !important; }
+/* Menus and dialogs spread over a picture of the page (see Cover in app.js). */
+.page-shot { position: fixed; z-index: 0; border-radius: 13px; object-fit: fill; pointer-events: none; }
+body.horizontal dialog { left: 50%; right: auto; top: 92px; width: 340px; max-height: calc(100vh - 108px); translate: -50% 0; }
+body.horizontal .toast { left: auto; right: 10px; top: 46px; bottom: auto; width: auto; max-width: min(620px, 62vw); height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; z-index: 40; }
+body.horizontal #toast-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+body.horizontal .toast-actions { margin: 0; flex: none; }
+body.horizontal .toast-actions button { padding: 3px 9px; }
+/* Hidden bar: a strip along the top edge brings it back. */
+body.horizontal .edge { right: 0; bottom: auto; width: auto; height: 10px; }
+body.horizontal.floating.collapsed #sidebar { transform: translateY(calc(-16px * var(--move))); }
+
+/* Type tuning (see the top of this file); after every `font:` shorthand. */
+body { font-weight: var(--text-weight); letter-spacing: var(--tracking); font-optical-sizing: auto; text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased; font-feature-settings: "calt", "kern"; }
+h1, h2 { letter-spacing: var(--display-tracking); }
+input, textarea, select, button { letter-spacing: inherit; font-weight: inherit; }
