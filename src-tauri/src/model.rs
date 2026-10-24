@@ -127,6 +127,8 @@ pub(crate) struct Settings {
     pub(crate) language: String,
     /// Look for a new version on GitHub once a day.
     pub(crate) auto_update: bool,
+    /// Folder kept up to date with a backup file (e.g. inside OneDrive); empty disables.
+    pub(crate) backup_folder: String,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -155,6 +157,7 @@ impl Default for Settings {
             archive_hours: 0,
             language: "auto".into(),
             auto_update: true,
+            backup_folder: String::new(),
         }
     }
 }
@@ -177,6 +180,8 @@ pub(crate) struct Data {
     pub(crate) windows: Vec<String>,
     /// When the last update check ran (Unix seconds).
     pub(crate) last_update_check: u64,
+    /// When the last automatic backup was written (Unix seconds).
+    pub(crate) last_backup: u64,
     /// Locked Spaces opened with Windows Hello this session.
     #[serde(skip_deserializing)]
     pub(crate) unlocked: Vec<String>,

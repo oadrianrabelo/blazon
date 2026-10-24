@@ -92,6 +92,9 @@ pub(crate) fn start_page_data(app: &AppHandle, space: &str) -> String {
 
 pub(crate) fn save_history(app: &AppHandle) {
     let s = state(app);
+    if backup::RESTORING.load(Ordering::Relaxed) {
+        return;
+    }
     if !s.history_dirty.swap(false, Ordering::Relaxed) {
         return;
     }

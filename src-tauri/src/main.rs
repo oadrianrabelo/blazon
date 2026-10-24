@@ -1,5 +1,6 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod backup;
 mod blocker;
 mod diag;
 mod downloads;
@@ -160,6 +161,9 @@ fn with_data<T>(app: &AppHandle, f: impl FnOnce(&mut Data) -> T) -> T {
 /// Persists the data and pushes it to the sidebar.
 fn commit(app: &AppHandle) {
     let s = state(app);
+    if backup::RESTORING.load(Ordering::Relaxed) {
+        return;
+    }
     let data = s.data.lock().unwrap().clone();
     if let Ok(json) = serde_json::to_string_pretty(&data) {
         let tmp = s.file.with_extension("tmp");
@@ -337,6 +341,8 @@ fn main() {
             windowing::open_panel,
             windowing::close_panel,
             support::open_default_apps,
+            backup::export_backup,
+            backup::restore_backup,
             support::app_version,
             support::check_update,
             support::install_update,
@@ -508,6 +514,7 @@ fn main() {
                 save_history(&handle);
                 sleep_idle_tabs(&handle);
                 archive_idle_tabs(&handle);
+                backup::auto_backup(&handle);
             });
             Ok(())
         })

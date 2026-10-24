@@ -22,7 +22,7 @@ struct Diag {
 
 static DIAG: OnceLock<Diag> = OnceLock::new();
 
-fn timestamp() -> String {
+pub(crate) fn timestamp() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
