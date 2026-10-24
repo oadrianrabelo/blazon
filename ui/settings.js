@@ -404,7 +404,7 @@ const SECTIONS = {
       return [
         ...header('Links', 'Como o Blazon abre links de outros apps e prévias rápidas.'),
         group('Links de outros apps',
-          select('Abrir em', 'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.', [['', 'Space atual'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
+          select('Abrir em', 'Quando nenhuma rota combina. A janela rápida abre o link numa janela pequena, onde você escolhe o Space; o Peek abre numa prévia flutuante.', [['', 'Space atual'], ['quick', 'Janela rápida'], ['peek', 'Peek (prévia flutuante)'], ...spaces], S('external_space'), setS('external_space'))),
         routesGroup,
         group('Peek',
           select('Abrir prévia com', 'Clique num link segurando a tecla para ver numa janela flutuante. Esc fecha.', [['shift', 'Shift + clique'], ['alt', 'Alt + clique'], ['off', 'Desligado']], S('peek_modifier'), setS('peek_modifier'))),
