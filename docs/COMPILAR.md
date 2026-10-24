@@ -58,9 +58,10 @@ Numa tag `v*`, cria também uma **Release** com os instaladores.
 
 1. Atualize `version` em `src-tauri/tauri.conf.json`, `src-tauri/Cargo.toml` e `package.json`,
    e acrescente a entrada no `CHANGELOG.md`.
-2. `git tag v0.2.0 && git push origin v0.2.0`.
-3. O CI publica a Release com `Blazon_<versão>_x64-setup.exe` e o `.msi`. Quem já tem o Blazon
-   instalado recebe o aviso de atualização em até um dia.
+2. Faça o merge no `main`. O CI vê que ainda não existe a Release `v<versão>` e cria a tag e a
+   Release com `Blazon_<versão>_x64-setup.exe` e o `.msi`. Uma tag `v*` enviada à mão também
+   funciona.
+3. Quem já tem o Blazon instalado recebe o aviso de atualização em até um dia.
 
 ### Como funciona a atualização
 
