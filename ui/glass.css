@@ -2,7 +2,7 @@
    the refracted, blurred backdrop; a thin tint from the Space's darkest color;
    a light that follows the pointer; and the rim highlight. */
 :root {
-  --lg-tint: color-mix(in srgb, var(--c0) 46%, transparent);
+  --lg-tint: color-mix(in srgb, var(--c0) var(--lg-amount, 46%), transparent);
   --lg-blur: 9px;
   --lg-rim: inset 0 1px 0.5px rgba(255, 255, 255, .42), inset 0 -1px 1px rgba(255, 255, 255, .10), inset 0 0 0 .5px rgba(255, 255, 255, .16);
   --lg-drop: 0 10px 34px rgba(0, 0, 0, .34), 0 2px 6px rgba(0, 0, 0, .18);

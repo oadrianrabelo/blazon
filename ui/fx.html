@@ -6,7 +6,7 @@
   <link rel="stylesheet" href="motion.css">
   <style>
     html, body { margin: 0; height: 100%; overflow: hidden; background: transparent; }
-    img { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: fill; border-radius: 13px; }
+    img { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: fill; border-radius: var(--page-radius, 13px); }
   </style>
 </head>
 <body>
@@ -24,6 +24,7 @@
     listen('fx-cover', async (e) => {
       ({ kind, dir } = e.payload);
       shot.getAnimations().forEach((a) => a.cancel());
+      document.documentElement.style.setProperty('--page-radius', `${e.payload.radius ?? 13}px`);
       shot.src = e.payload.image;
       await shot.decode().catch(() => {});
       invoke('fx_ready');

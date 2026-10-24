@@ -77,7 +77,12 @@ pub(crate) async fn cover(app: &AppHandle, kind: &str, dir: i32) -> bool {
         let _ = app.emit_to(
             EventTarget::webview(fx_of(&wl)),
             "fx-cover",
-            serde_json::json!({ "image": image, "kind": kind, "dir": dir }),
+            serde_json::json!({
+                "image": image,
+                "kind": kind,
+                "dir": dir,
+                "radius": with_data(app, |d| page_radius(&d.settings)),
+            }),
         );
         let painted = tauri::async_runtime::spawn_blocking(move || {
             rx.recv_timeout(std::time::Duration::from_millis(160))

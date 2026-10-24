@@ -4,6 +4,26 @@
 
 const I18N = (() => {
   const EN = {
+    // Window buttons, toolbar, corners, glass and speed
+    "Cantos da página": "Page corners",
+    "Arredondamento do cartão da página, do Peek e do painel.": "Rounding of the page card, Peek and the panel.",
+    "Retos": "Square",
+    "Estilo": "Style",
+    "Windows clássico, o Windows redesenhado do Blazon, as bolinhas do Mac ou as bolinhas em grafite (coloridas ao passar o mouse).": "Classic Windows, Blazon's redesigned Windows buttons, the Mac's traffic lights or graphite lights (colored on hover).",
+    "Grafite": "Graphite",
+    "Lado": "Side",
+    "Automático: Mac à esquerda, Windows à direita.": "Automatic: Mac on the left, Windows on the right.",
+    "Barra de ferramentas": "Toolbar",
+    "Voltar e avançar": "Back and forward",
+    "Arquivo e histórico": "Archive and history",
+    "Sem o botão, abra com Ctrl+, ou pela paleta.": "Without the button, open it with Ctrl+, or from the palette.",
+    "Intensidade do vidro": "Glass strength",
+    "Leve": "Light",
+    "Forte": "Strong",
+    "Velocidade das animações": "Animation speed",
+    "Calma": "Calm",
+    "Rápida": "Fast",
+    "Sem animação": "No animation",
     // Tab layout and text
     'Na lateral': 'On the side',
     'No topo': 'On top',

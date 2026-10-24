@@ -43,7 +43,10 @@ fn layout_quick(app: &AppHandle) {
         let _ = page.set_position(pos);
         let _ = page.set_size(size);
         #[cfg(windows)]
-        webview2::round_corners(&page, windowing::PAGE_RADIUS);
+        webview2::round_corners(
+            &page,
+            windowing::page_radius(&with_data(app, |d| d.settings.clone())),
+        );
     }
 }
 
@@ -107,7 +110,10 @@ pub(crate) fn open(app: &AppHandle, url: &str) {
         #[cfg(windows)]
         {
             webview2::install(app, &page, None, None, passwords);
-            webview2::round_corners(&page, windowing::PAGE_RADIUS);
+            webview2::round_corners(
+                &page,
+                windowing::page_radius(&with_data(app, |d| d.settings.clone())),
+            );
         }
         let _ = page.set_focus();
         let handle = app.clone();

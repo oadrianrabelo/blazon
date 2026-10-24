@@ -347,7 +347,10 @@ dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
 
 /* Mac-style window controls (Appearance › Window buttons: Mac): the three
    traffic lights at the start of the bar, glyphs shown on hover. */
-.mac-controls .topbar .winctl { order: -1; display: flex; align-items: center; gap: 8px; padding: 0 12px 0 6px; }
+.wc-left .topbar .winctl { order: -1; }
+.wc-right .topbar .winctl { order: 9; }
+.mac-controls .topbar .winctl { display: flex; align-items: center; gap: 8px; padding: 0 12px 0 6px; }
+.mac-controls.wc-right .topbar .winctl { padding: 0 6px 0 12px; }
 .mac-controls .topbar .winctl .icon { width: 12px; height: 12px; padding: 0; border-radius: 50%; color: transparent; box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .28); transition: filter var(--hover) ease-in-out; }
 .mac-controls .topbar .winctl .icon svg { width: 8px; height: 8px; stroke-width: 2.6; }
 .mac-controls .topbar #win-close { order: 1; background: #ff5f57; }
@@ -377,7 +380,8 @@ body.horizontal .topbar { display: contents; }
 body.horizontal .topbar > .icon { order: 2; }
 body.horizontal .topbar > .grow { order: 3; flex: 1 1 0; min-width: 8px; height: 30px; }
 body.horizontal .topbar > .winctl { order: 9; }
-body.horizontal.mac-controls .topbar > .winctl { order: 0; height: 30px; }
+body.horizontal.wc-left .topbar > .winctl { order: 0; }
+body.horizontal.mac-controls .topbar > .winctl { height: 30px; }
 body.horizontal .address { order: 4; flex: 0 1 640px; min-width: 220px; }
 body.horizontal .address #address { padding-top: 7px; padding-bottom: 7px; text-align: center; }
 body.horizontal .address:focus-within #address { text-align: left; }
@@ -405,7 +409,7 @@ body.horizontal .tab.active.in-folder { box-shadow: inset 2px 0 0 var(--c2), 0 1
 body.horizontal .deck { display: none !important; }
 body.horizontal .drop-before { box-shadow: inset 2px 0 0 var(--c2) !important; }
 /* Menus and dialogs spread over a picture of the page (see Cover in app.js). */
-.page-shot { position: fixed; z-index: 0; border-radius: 13px; object-fit: fill; pointer-events: none; }
+.page-shot { position: fixed; z-index: 0; border-radius: var(--page-radius, 13px); object-fit: fill; pointer-events: none; }
 body.horizontal dialog { left: 50%; right: auto; top: 92px; width: 340px; max-height: calc(100vh - 108px); translate: -50% 0; }
 body.horizontal .toast { left: auto; right: 10px; top: 46px; bottom: auto; width: auto; max-width: min(620px, 62vw); height: 32px; display: flex; align-items: center; gap: 10px; padding: 0 6px 0 12px; z-index: 40; }
 body.horizontal #toast-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -420,3 +424,23 @@ body { font-weight: var(--text-weight); letter-spacing: var(--tracking); font-op
   -webkit-font-smoothing: antialiased; font-feature-settings: "calt", "kern"; }
 h1, h2 { letter-spacing: var(--display-tracking); }
 input, textarea, select, button { letter-spacing: inherit; font-weight: inherit; }
+
+/* Window buttons, Graphite: the Mac's traffic lights in gray, colored on hover. */
+.graphite .topbar .winctl .icon { background: rgba(255, 255, 255, .26) !important; transition: background-color var(--hover) ease-in-out, filter var(--hover) ease-in-out; }
+.graphite .topbar .winctl:hover #win-close { background: #ff5f57 !important; }
+.graphite .topbar .winctl:hover #win-min { background: #febc2e !important; }
+.graphite .topbar .winctl:hover #win-max { background: #28c840 !important; }
+
+/* Window buttons, Blazon: Windows' minimize, maximize and close drawn finer,
+   in soft rounded keys that light up like glass; close glows red. */
+.wc-fluent .topbar .winctl { gap: 3px; padding: 0 1px; align-items: center; }
+.wc-fluent .topbar .winctl .icon { width: 30px; height: 26px; border-radius: 8px; color: var(--muted);
+  transition: background-color var(--hover) ease-in-out, color var(--hover) ease-in-out, box-shadow var(--hover) ease-in-out, transform var(--press) ease-out; }
+.wc-fluent .topbar .winctl .icon svg { width: 12px; height: 12px; stroke-width: 1.8; }
+.wc-fluent .topbar #win-max rect { rx: 1.6px; }
+.wc-fluent .topbar .winctl .icon:hover { background: rgba(255, 255, 255, .12); color: var(--fg); box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .22), 0 1px 3px rgba(0, 0, 0, .16); }
+.wc-fluent .topbar .winctl .close:hover { background: linear-gradient(#f0605d, #d83b3b); color: #fff;
+  box-shadow: inset 0 .5px 0 rgba(255, 255, 255, .35), 0 2px 10px rgba(216, 59, 59, .45); }
+
+/* Appearance › Toolbar: buttons the person turned off. */
+.btn-off { display: none !important; }

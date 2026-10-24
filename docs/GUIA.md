@@ -280,6 +280,19 @@ Em Configurações → Aparência você ajusta:
 | Páginas | Zoom padrão, de 50% a 300% |
 | Restaurar tudo | Volta tudo ao padrão |
 
+### Janela, botões e barra de ferramentas
+
+Em **Configurações → Aparência**:
+- **Botões da janela → Estilo**: Windows, **Blazon** (minimizar, maximizar e fechar redesenhados,
+  em teclas arredondadas que acendem como vidro; o fechar brilha em vermelho), **Mac** (as três
+  bolinhas) ou **Grafite** (bolinhas cinza que ganham cor ao passar o mouse). Uma prévia mostra
+  como fica.
+- **Botões da janela → Lado**: automático (Mac à esquerda, Windows à direita), esquerda ou direita.
+- **Barra de ferramentas**: desligue os botões que você não usa. Sem o botão de configurações,
+  use Ctrl+, ou a paleta.
+- **Cantos da página**: de retos (0px) a bem redondos (24px).
+- **Intensidade do vidro** e **Velocidade das animações** (em Materiais e movimento).
+
 ### Abas no topo ou na lateral
 
 Em **Configurações → Aparência → Abas**, escolha **Na lateral** (a barra do Crest) ou **No topo**

@@ -75,10 +75,24 @@ pub(crate) fn sync_windows(app: &AppHandle) {
     }
 }
 
-/// Corner radius of the page card (Crest's BrowserChromeLayout.pageCornerRadius)
-/// and of Peek's card, in logical pixels.
+/// Default corner radius of the page card (Crest's
+/// BrowserChromeLayout.pageCornerRadius), in logical pixels.
 pub(crate) const PAGE_RADIUS: f64 = 13.0;
-pub(crate) const PEEK_RADIUS: f64 = 12.0;
+
+/// Appearance › Page corners: the page card's radius (0 = square corners).
+pub(crate) fn page_radius(settings: &Settings) -> f64 {
+    settings
+        .appearance
+        .get("pageRadius")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(PAGE_RADIUS)
+        .clamp(0.0, 24.0)
+}
+
+/// Peek's card follows the page's corners, one pixel tighter (Crest's 13/12).
+pub(crate) fn peek_radius(settings: &Settings) -> f64 {
+    (page_radius(settings) - 1.0).max(0.0)
+}
 
 /// Height of the top bar when tabs are horizontal (Appearance › Tabs: top):
 /// the toolbar row and the tab row, as in Safari.
@@ -271,13 +285,13 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_position(pos);
             let _ = wv.set_size(size);
             #[cfg(windows)]
-            webview2::round_corners(&wv, PAGE_RADIUS);
+            webview2::round_corners(&wv, page_radius(&settings));
         } else if l == peek_l {
             let (p, s) = overlay::peek_rect(rects[1], win.scale_factor().unwrap_or(1.0));
             let _ = wv.set_position(p);
             let _ = wv.set_size(s);
             #[cfg(windows)]
-            webview2::round_corners(&wv, PEEK_RADIUS);
+            webview2::round_corners(&wv, peek_radius(&settings));
         } else if l == transition::fx_of(wl) {
             // Shown and hidden by transition.rs around a switch.
         } else if l == side_l {
@@ -286,7 +300,7 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
                     let _ = wv.set_position(p);
                     let _ = wv.set_size(s);
                     #[cfg(windows)]
-                    webview2::round_corners(&wv, PEEK_RADIUS);
+                    webview2::round_corners(&wv, peek_radius(&settings));
                     let _ = wv.show();
                 }
                 Some(_) => {
@@ -303,7 +317,7 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_position(*p);
             let _ = wv.set_size(PhysicalSize::new(w, size.height));
             #[cfg(windows)]
-            webview2::round_corners(&wv, PAGE_RADIUS);
+            webview2::round_corners(&wv, page_radius(&settings));
             if covered {
                 let _ = wv.hide();
             } else {

@@ -166,11 +166,23 @@ const SECTIONS = {
           toggle('Esconder a barra de abas', 'A página ocupa a janela toda; a barra volta ao encostar o mouse na borda (Ctrl+Shift+S).', S('floating_sidebar'), setS('floating_sidebar')),
           toggle('Barra de título do Windows', 'Usa a moldura padrão em vez da janela sem bordas.', S('native_frame'), setS('native_frame')),
           toggle('Faixas heráldicas', 'Mostra o padrão do brasão no fundo da barra.', L('banner'), setL('banner')),
-          segmented('Botões da janela', null, [['windows', 'Windows'], ['mac', 'Mac']], L('windowControls'), setL('windowControls'))),
+          range('Cantos da página', 'Arredondamento do cartão da página, do Peek e do painel.', 0, 24, 1, (v) => (v ? `${v}px` : 'Retos'), L('pageRadius'), setL('pageRadius'))),
+        group('Botões da janela',
+          windowButtonsPreview(),
+          segmented('Estilo', 'Windows clássico, o Windows redesenhado do Blazon, as bolinhas do Mac ou as bolinhas em grafite (coloridas ao passar o mouse).', [['windows', 'Windows'], ['fluent', 'Blazon'], ['mac', 'Mac'], ['graphite', 'Grafite']], L('windowControls'), (v) => { setL('windowControls')(v); render(); }),
+          segmented('Lado', 'Automático: Mac à esquerda, Windows à direita.', [['auto', 'Automático'], ['left', 'Esquerda'], ['right', 'Direita']], L('controlsSide'), (v) => { setL('controlsSide')(v); render(); })),
+        group('Barra de ferramentas',
+          ...TOOLBAR_BUTTONS.map(([key, name]) => toggle(name, key === 'settings' ? 'Sem o botão, abra com Ctrl+, ou pela paleta.' : null, () => !(appearance().hiddenButtons || []).includes(key), (on) => {
+            const off = new Set(appearance().hiddenButtons || []);
+            if (on) off.delete(key); else off.add(key);
+            saveLook({ hiddenButtons: [...off] });
+          }))),
         group('Texto',
           segmented('Fontes', 'Mac: a fonte Inter, parecida com a San Francisco, e suavização em tons de cinza também nas páginas, como no macOS. A suavização muda depois de reiniciar o Blazon.', [['mac', 'Mac'], ['windows', 'Windows']], L('fontRendering'), (v) => { document.documentElement.classList.toggle('win-type', v === 'windows'); setL('fontRendering')(v); })),
         group('Materiais e movimento',
           toggle('Liquid Glass', 'Menus, paleta, cartões e avisos de vidro que curva o que está atrás, como no macOS.', L('liquidGlass'), setL('liquidGlass')),
+          segmented('Intensidade do vidro', null, [['light', 'Leve'], ['normal', 'Normal'], ['strong', 'Forte']], L('glassStrength'), setL('glassStrength')),
+          segmented('Velocidade das animações', null, [['calm', 'Calma'], ['normal', 'Normal'], ['fast', 'Rápida'], ['instant', 'Sem animação']], L('motionSpeed'), setL('motionSpeed')),
           toggle('Barra translúcida (Mica)', 'A barra lateral mostra o papel de parede desfocado, como a barra do Finder. Fica completo depois de reiniciar o Blazon.', L('mica'), setL('mica')),
           toggle('Transição entre páginas', 'A página anterior esmaece ao trocar de aba e desliza ao trocar de Space.', L('pageTransitions'), setL('pageTransitions')),
           toggle('Rolagem elástica', 'A lista de abas estica um pouco ao chegar ao fim, como no Mac.', L('elastic'), setL('elastic'))),
@@ -1045,6 +1057,26 @@ function memoryGroup() {
   return group('Memória', row('Uso por Space', 'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.', refresh), list);
 }
 
+// A small window corner showing the chosen buttons where they will sit.
+function windowButtonsPreview() {
+  const a = appearance();
+  const style = a.windowControls || 'windows';
+  const mac = style === 'mac' || style === 'graphite';
+  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : mac ? 'left' : 'right';
+  const box = el('div', `wb-preview ${style} ${side}`);
+  const bar = el('div', 'wb-bar');
+  const keys = el('div', 'wb-keys');
+  const glyph = { min: '<path d="M6 12h12"/>', max: '<rect x="6" y="6" width="12" height="12" rx="2.5"/>', x: '<path d="m7 7 10 10M17 7 7 17"/>' };
+  for (const k of mac ? ['x', 'min', 'max'] : ['min', 'max', 'x']) {
+    const b = el('span', `wb-key ${k}`);
+    b.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">${glyph[k]}</svg>`;
+    keys.append(b);
+  }
+  bar.append(keys, el('span', 'wb-addr'));
+  box.append(bar);
+  return box;
+}
+
 function accentRow() {
   const wrap = el('div', 'seg');
   wrap.style.background = 'none';
@@ -1130,6 +1162,7 @@ function applySpaceLook() {
   if (!space) return;
   const { colors } = look(space);
   colors.forEach((c, i) => document.documentElement.style.setProperty(`--c${i}`, c));
+  applyLookVars(state.settings);
 }
 
 function render() {

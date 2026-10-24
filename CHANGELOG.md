@@ -19,6 +19,15 @@ Mais Mac:
 - **Esconder a barra de abas** com nome claro (Ctrl+Shift+S); ela volta ao encostar na borda.
 - **Fontes como no Mac**: Inter (parecida com a San Francisco) na interface e suavização em tons
   de cinza em todas as páginas. Dá para voltar a Segoe UI e ClearType em Aparência → Texto.
+- **Mais personalização** em Configurações → Aparência:
+  - botões da janela em quatro estilos: Windows, **Blazon** (os botões do Windows redesenhados,
+    em teclas arredondadas de vidro), Mac e Grafite; na esquerda ou na direita; maximizar vira
+    restaurar com a janela maximizada;
+  - barra de ferramentas: escolha quais botões aparecem (voltar/avançar, recarregar, bloqueador,
+    modo leitura, nova aba, configurações, extensões, downloads, arquivo);
+  - cantos da página, de retos a bem redondos;
+  - intensidade do vidro (leve, normal, forte) e velocidade das animações (calma, normal,
+    rápida ou sem animação).
 - **Atalhos personalizáveis** em Configurações → Atalhos, com novos comandos: modo leitura,
   fixar, duplicar, silenciar, configurações e abas no topo.
 

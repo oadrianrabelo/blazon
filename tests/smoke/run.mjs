@@ -137,6 +137,9 @@ try {
   await invoke('set_settings', { settings: { ...before.settings, appearance: { ...before.settings.appearance, windowControls: 'mac', mica: true } } });
   await sleep(1500);
   shot('botoes-mac-e-mica');
+  await invoke('set_settings', { settings: { ...before.settings, appearance: { ...before.settings.appearance, windowControls: 'fluent', controlsSide: 'left', pageRadius: 4, hiddenButtons: ['shield'] } } });
+  await sleep(1500);
+  shot('botoes-blazon-a-esquerda');
   await invoke('set_settings', { settings: before.settings });
   await sleep(800);
 

@@ -12,6 +12,7 @@ const ICONS = {
   key: '<circle cx="8" cy="15.5" r="3.8"/><path d="m10.8 12.8 7.7-7.7M16 7.6l2 2M13.9 9.7l1.6 1.6"/>',
   min: '<path d="M6 12h12"/>',
   max: '<rect x="6" y="6" width="12" height="12" rx="2.5"/>',
+  restore: '<rect x="6" y="9" width="9" height="9" rx="2"/><path d="M9 9V7.8C9 6.8 9.8 6 10.8 6h5.4c1 0 1.8.8 1.8 1.8v5.4c0 1-.8 1.8-1.8 1.8H15"/>',
   search: '<circle cx="10.5" cy="10.5" r="5.8"/><path d="m15 15 4.5 4.5"/>',
   more: '<circle cx="6" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.15" fill="currentColor" stroke="none"/><circle cx="18" cy="12" r="1.15" fill="currentColor" stroke="none"/>',
   plus: '<path d="M12 5.5v13M5.5 12h13"/>',
@@ -80,7 +81,16 @@ function applyAppearance(settings) {
   if (a.accent) root.setProperty('--c2', a.accent);
   const b = document.body.classList;
   if (window.Glass) Glass.setEnabled(a.liquidGlass !== false);
-  b.toggle('mac-controls', a.windowControls === 'mac');
+  const mac = a.windowControls === 'mac' || a.windowControls === 'graphite';
+  b.toggle('mac-controls', mac);
+  b.toggle('graphite', a.windowControls === 'graphite');
+  b.toggle('wc-fluent', a.windowControls === 'fluent');
+  const side = a.controlsSide === 'left' || a.controlsSide === 'right' ? a.controlsSide : mac ? 'left' : 'right';
+  b.toggle('wc-left', side === 'left');
+  b.toggle('wc-right', side === 'right');
+  const off = a.hiddenButtons || [];
+  for (const [key, , sel] of TOOLBAR_BUTTONS) document.querySelectorAll(sel).forEach((n) => n.classList.toggle('btn-off', off.includes(key)));
+  applyLookVars(settings);
   b.toggle('mica', !!a.mica);
   b.toggle('horizontal', a.tabLayout === 'horizontal');
   // Text: read by type.js before every interface page draws.
@@ -685,6 +695,17 @@ listen('focus-address', () => { document.body.classList.remove('collapsed'); $('
 // Window controls (borderless frame)
 $('win-min').onclick = () => appWindow.minimize();
 $('win-max').onclick = () => appWindow.toggleMaximize();
+// Maximize turns into restore while the window fills the screen.
+let maxShown = null;
+async function syncMaxButton() {
+  const max = !!(await Promise.resolve(appWindow.isMaximized?.()).catch(() => false));
+  if (max === maxShown) return;
+  maxShown = max;
+  setIcon($('win-max'), max ? 'restore' : 'max');
+  $('win-max').title = max ? 'Restaurar' : 'Maximizar';
+}
+addEventListener('resize', syncMaxButton);
+syncMaxButton();
 $('win-close').onclick = () => appWindow.close();
 
 // Address bar with suggestions from open tabs and history.
