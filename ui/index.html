@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <title>Crest</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <aside id="sidebar">
+    <header class="space-head">
+      <button id="space-name" class="space-name" title="Clique duplo para editar o Space"></button>
+      <button id="settings-btn" class="icon" title="Configurações">⚙</button>
+    </header>
+
+    <div class="nav">
+      <button class="icon" data-nav="back" title="Voltar (Alt+←)">←</button>
+      <button class="icon" data-nav="forward" title="Avançar (Alt+→)">→</button>
+      <button class="icon" id="reload" data-nav="reload" title="Recarregar (F5)">⟳</button>
+    </div>
+    <form id="address-form">
+      <input id="address" type="text" spellcheck="false" autocomplete="off" placeholder="Pesquisar ou digitar endereço">
+    </form>
+
+    <div id="pinned" class="pinned"></div>
+    <button id="new-tab" class="new-tab" title="Nova aba (Ctrl+T)">＋ Nova aba</button>
+    <ul id="tabs" class="tabs"></ul>
+
+    <footer>
+      <div id="spaces" class="spaces"></div>
+      <button id="add-space" class="icon" title="Novo Space">＋</button>
+    </footer>
+
+    <dialog id="settings">
+      <form method="dialog">
+        <h3>Configurações</h3>
+        <label><input type="checkbox" id="set-right"> Sidebar à direita</label>
+        <label>Mecanismo de busca
+          <select id="set-search">
+            <option value="https://duckduckgo.com/?q=">DuckDuckGo</option>
+            <option value="https://www.google.com/search?q=">Google</option>
+            <option value="https://www.bing.com/search?q=">Bing</option>
+            <option value="https://search.brave.com/search?q=">Brave Search</option>
+            <option value="https://www.startpage.com/do/search?q=">Startpage</option>
+          </select>
+        </label>
+        <h3>Space atual</h3>
+        <label>Nome <input id="space-edit-name" type="text"></label>
+        <label>Cor <input id="space-edit-color" type="color"></label>
+        <button type="button" id="space-delete" class="danger">Excluir Space (apaga cookies e dados)</button>
+        <p class="hint">Ctrl+T nova aba · Ctrl+W fechar · Ctrl+L endereço · Ctrl+Tab próxima · Ctrl+1–9 ir para aba · F12 DevTools</p>
+        <menu><button value="ok">Fechar</button></menu>
+      </form>
+    </dialog>
+  </aside>
+  <script src="app.js"></script>
+</body>
+</html>

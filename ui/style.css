@@ -1,0 +1,73 @@
+:root {
+  --accent: #3b82f6;
+  --bg: color-mix(in srgb, var(--accent) 14%, #f4f4f5);
+  --fg: #18181b;
+  --muted: #71717a;
+  --hover: rgba(0, 0, 0, .06);
+  --active: rgba(255, 255, 255, .85);
+  --field: rgba(255, 255, 255, .7);
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: color-mix(in srgb, var(--accent) 18%, #18181b);
+    --fg: #f4f4f5;
+    --muted: #a1a1aa;
+    --hover: rgba(255, 255, 255, .07);
+    --active: rgba(255, 255, 255, .14);
+    --field: rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; }
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px/1.3 "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+  user-select: none;
+}
+#sidebar { display: flex; flex-direction: column; height: 100%; padding: 8px; gap: 6px; }
+button { font: inherit; color: inherit; background: none; border: 0; border-radius: 6px; cursor: default; }
+button:hover { background: var(--hover); }
+.icon { width: 28px; height: 28px; font-size: 15px; flex: none; }
+.space-head { display: flex; align-items: center; gap: 4px; }
+.space-name { flex: 1; text-align: left; font-weight: 600; font-size: 14px; padding: 4px 6px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.space-name::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--accent); margin-right: 8px; }
+.nav { display: flex; gap: 2px; }
+#address {
+  width: 100%; padding: 7px 10px; border-radius: 8px; border: 1px solid transparent;
+  background: var(--field); color: var(--fg); font: inherit; outline: none;
+}
+#address:focus { border-color: var(--accent); user-select: text; }
+.pinned { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 6px; }
+.pinned:empty { display: none; }
+.pin { height: 40px; display: grid; place-items: center; background: var(--field); border-radius: 8px; }
+.pin.active { background: var(--active); outline: 2px solid var(--accent); }
+.new-tab { text-align: left; padding: 6px 8px; color: var(--muted); }
+.tabs { list-style: none; margin: 0; padding: 0; overflow-y: auto; flex: 1; }
+.tab { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: 8px; }
+.tab:hover { background: var(--hover); }
+.tab.active { background: var(--active); box-shadow: 0 1px 2px rgba(0, 0, 0, .08); }
+.tab .title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab .close { width: 20px; height: 20px; font-size: 12px; visibility: hidden; flex: none; }
+.tab:hover .close, .tab.active .close { visibility: visible; }
+.fav { width: 16px; height: 16px; flex: none; border-radius: 3px; display: grid; place-items: center; font-size: 10px; font-weight: 700; color: #fff; background: var(--accent); overflow: hidden; }
+.fav img { width: 16px; height: 16px; }
+.loading .fav { animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { opacity: .35; } }
+.drop-before { box-shadow: inset 0 2px 0 var(--accent); }
+footer { display: flex; align-items: center; gap: 4px; padding-top: 6px; border-top: 1px solid var(--hover); }
+.spaces { display: flex; gap: 4px; flex: 1; overflow-x: auto; }
+.dot { width: 28px; height: 28px; display: grid; place-items: center; }
+.dot span { width: 12px; height: 12px; border-radius: 4px; }
+.dot.active span { width: 16px; height: 16px; outline: 2px solid var(--fg); outline-offset: 1px; }
+dialog { border: 0; border-radius: 10px; padding: 14px; width: 240px; background: var(--bg); color: var(--fg); box-shadow: 0 8px 30px rgba(0, 0, 0, .35); }
+dialog h3 { margin: 4px 0 8px; font-size: 13px; }
+dialog label { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+dialog label:has(input[type=checkbox]) { flex-direction: row; align-items: center; }
+dialog input[type=text], dialog select { padding: 5px; border-radius: 6px; border: 1px solid var(--hover); background: var(--field); color: var(--fg); font: inherit; }
+dialog menu { padding: 0; margin: 8px 0 0; text-align: right; }
+dialog menu button { padding: 5px 12px; background: var(--accent); color: #fff; }
+.danger { color: #dc2626; padding: 5px 0; text-align: left; }
+.hint { color: var(--muted); font-size: 11px; }
