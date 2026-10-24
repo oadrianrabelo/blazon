@@ -25,6 +25,7 @@ const ICONS = {
   muted: '<path d="M11 5 6 9H3v6h3l5 4Z"/><path d="m22 9-6 6M16 9l6 6"/>',
   book: '<path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2Z"/><path d="M4 21V5M8 7h7"/>',
   lock: '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  download: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14"/>',
   archive: '<rect x="3" y="4" width="18" height="4" rx="1"/><path d="M5 8v11a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8M10 12h4"/>',
 };
 const COLORS = ['#3b82f6', '#16a34a', '#e11d48', '#f59e0b', '#8b5cf6', '#0891b2', '#db2777', '#65a30d'];
@@ -240,8 +241,8 @@ function render() {
   const current = activeTab();
   applyLook(space);
   applyAppearance(state.settings);
-  document.body.classList.toggle('right', state.settings.sidebar_right);
-  document.body.classList.toggle('native', state.settings.native_frame);
+  document.body.classList.toggle('right', !!state.settings.sidebar_right);
+  document.body.classList.toggle('native', !!state.settings.native_frame);
   document.title = current ? `${tabTitle(current)} — Blazon` : 'Blazon';
 
   const name = $('space-name');
@@ -592,6 +593,48 @@ listen('tab-crashed', (e) => {
     ['Relatar', () => invoke('open_panel', { section: 'report' })],
   ]);
 });
+
+// Downloads
+let downloads = [];
+const fmtBytes = (n) => (n > 1e9 ? `${(n / 1e9).toFixed(1)} GB` : n > 1e6 ? `${(n / 1e6).toFixed(1)} MB` : `${Math.max(0, Math.round(n / 1e3))} KB`);
+function drawDownloads() {
+  const active = downloads.filter((d) => d.state === 'progress').length;
+  $('dl-badge').hidden = !active;
+  $('dl-badge').textContent = String(active);
+  const ul = $('dl-list');
+  ul.replaceChildren();
+  if (!downloads.length) ul.append(el('li', 'meta', 'Nenhum download nesta sessão.'));
+  for (const d of [...downloads].reverse()) {
+    const li = el('li');
+    li.append(el('span', 'name', d.name));
+    const pct = d.total > 0 ? Math.min(100, (d.received / d.total) * 100) : 0;
+    const status = d.state === 'done' ? `Concluído · ${fmtBytes(d.received)}` : d.state === 'failed' ? 'Falhou ou foi cancelado' : `${fmtBytes(d.received)}${d.total > 0 ? ` de ${fmtBytes(d.total)}` : ''}`;
+    li.append(el('span', 'meta', `${d.host} · ${status}`));
+    if (d.state === 'progress') {
+      const bar = el('div', 'bar');
+      const fill = el('i');
+      fill.style.width = `${pct}%`;
+      bar.append(fill);
+      li.append(bar);
+    }
+    const acts = el('div', 'acts');
+    const act = (label, action) => { const b = el('button', '', label); b.type = 'button'; b.onclick = () => invoke('download_action', { id: d.id, action }); acts.append(b); };
+    if (d.state === 'done') { act('Abrir', 'open'); act('Mostrar na pasta', 'folder'); }
+    if (d.state === 'progress') act('Cancelar', 'cancel');
+    else act('Remover', 'remove');
+    li.append(acts);
+    ul.append(li);
+  }
+}
+listen('downloads', (e) => {
+  const before = downloads.length;
+  downloads = e.payload;
+  drawDownloads();
+  if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
+});
+$('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };
+$('dl-clear').onclick = () => invoke('clear_downloads');
+invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
 
 invoke('get_state').then((s) => { state = s; render(); });
 invoke('take_crash_report').then((crash) => {

@@ -73,6 +73,7 @@ pub fn open_peek(app: &AppHandle, url: &str) {
         .incognito(private)
         .data_directory(state(app).root.join("spaces").join(&space))
         .initialization_script(PEEK_JS)
+        .browser_extensions_enabled(true)
         .zoom_hotkeys_enabled(true)
         .on_new_window(move |url, _| {
             let app = app_nw.clone();

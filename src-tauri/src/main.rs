@@ -395,6 +395,107 @@ struct AppState {
     peek: AtomicBool,
     /// Section shown in the settings panel, when open.
     panel: Mutex<Option<String>>,
+    /// Downloads of this session, newest last.
+    downloads: Mutex<Vec<Download>>,
+}
+
+#[derive(Clone, Serialize)]
+pub struct Download {
+    id: u64,
+    name: String,
+    path: String,
+    host: String,
+    received: i64,
+    total: i64,
+    /// progress | done | failed
+    state: &'static str,
+    time: u64,
+    #[serde(skip)]
+    last_emit: u128,
+}
+
+fn emit_downloads(app: &AppHandle) {
+    let list = state(app).downloads.lock().unwrap().clone();
+    let _ = app.emit_to(UI, "downloads", list);
+}
+
+fn millis() -> u128 {
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0)
+}
+
+pub(crate) fn download_started(app: &AppHandle, path: &str, uri: &str, total: i64) -> u64 {
+    let id = with_data(app, |d| d.new_id());
+    let name = PathBuf::from(path)
+        .file_name()
+        .map(|n| n.to_string_lossy().to_string())
+        .unwrap_or_else(|| "download".into());
+    diag::info(&format!("download iniciado de {}", diag::host(uri)));
+    {
+        let mut list = state(app).downloads.lock().unwrap();
+        list.push(Download {
+            id,
+            name,
+            path: path.into(),
+            host: diag::host(uri),
+            received: 0,
+            total,
+            state: "progress",
+            time: now(),
+            last_emit: 0,
+        });
+        if list.len() > 50 {
+            list.remove(0);
+        }
+    }
+    emit_downloads(app);
+    id
+}
+
+pub(crate) fn download_progress(app: &AppHandle, id: u64, received: i64, total: i64) {
+    let emit = {
+        let mut list = state(app).downloads.lock().unwrap();
+        let Some(d) = list.iter_mut().find(|d| d.id == id) else {
+            return;
+        };
+        d.received = received;
+        d.total = total;
+        let now = millis();
+        let emit = now - d.last_emit > 300;
+        if emit {
+            d.last_emit = now;
+        }
+        emit
+    };
+    if emit {
+        emit_downloads(app);
+    }
+}
+
+pub(crate) fn download_state(
+    app: &AppHandle,
+    id: u64,
+    new_state: &'static str,
+    received: i64,
+    total: i64,
+) {
+    if let Some(d) = state(app)
+        .downloads
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .find(|d| d.id == id)
+    {
+        d.state = new_state;
+        d.received = received;
+        d.total = total;
+    }
+    if new_state == "failed" {
+        diag::warn("download interrompido");
+    }
+    emit_downloads(app);
 }
 
 fn now() -> u64 {
@@ -692,6 +793,7 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result
             d.settings.peek_modifier.clone()
         })))
         .zoom_hotkeys_enabled(true)
+        .browser_extensions_enabled(true)
         .devtools(true)
         .on_page_load(move |wv, payload| {
             let url = payload.url();
@@ -2110,6 +2212,152 @@ async fn bug_report(app: AppHandle, description: String) -> String {
     )
 }
 
+#[tauri::command]
+async fn downloads_list(app: AppHandle) -> Vec<Download> {
+    state(&app).downloads.lock().unwrap().clone()
+}
+
+/// open | folder | cancel | remove
+#[tauri::command]
+async fn download_action(app: AppHandle, id: u64, action: String) {
+    let path = state(&app)
+        .downloads
+        .lock()
+        .unwrap()
+        .iter()
+        .find(|d| d.id == id)
+        .map(|d| d.path.clone());
+    match action.as_str() {
+        #[cfg(windows)]
+        "open" => {
+            if let Some(p) = path {
+                let _ = std::process::Command::new("explorer").arg(p).spawn();
+            }
+        }
+        #[cfg(windows)]
+        "folder" => {
+            if let Some(p) = path {
+                let _ = std::process::Command::new("explorer")
+                    .arg(format!("/select,{p}"))
+                    .spawn();
+            }
+        }
+        #[cfg(windows)]
+        "cancel" => webview2::cancel_download(&app, id),
+        "remove" => state(&app).downloads.lock().unwrap().retain(|d| d.id != id),
+        _ => {}
+    }
+    emit_downloads(&app);
+}
+
+#[tauri::command]
+async fn clear_downloads(app: AppHandle) {
+    state(&app)
+        .downloads
+        .lock()
+        .unwrap()
+        .retain(|d| d.state == "progress");
+    emit_downloads(&app);
+}
+
+/// A live webview of a Space, to reach its WebView2 profile.
+fn space_webview(app: &AppHandle, space: &str) -> Result<tauri::Webview, String> {
+    let ids = with_data(app, |d| {
+        d.tabs
+            .iter()
+            .filter(|t| t.space == space && t.awake)
+            .map(|t| t.id)
+            .collect::<Vec<_>>()
+    });
+    ids.into_iter()
+        .find_map(|id| app.get_webview(&label(id)))
+        .ok_or_else(|| {
+            "Abra uma aba neste Space primeiro (as configurações ficam no perfil do Space)."
+                .to_string()
+        })
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn list_permissions(
+    app: AppHandle,
+    space: String,
+) -> Result<Vec<webview2::Permission>, String> {
+    Ok(webview2::list_permissions(&space_webview(&app, &space)?).await)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn set_permission(
+    app: AppHandle,
+    space: String,
+    kind: i32,
+    origin: String,
+    value: String,
+) -> Result<bool, String> {
+    Ok(webview2::set_permission(&space_webview(&app, &space)?, kind, origin, value).await)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn list_extensions(
+    app: AppHandle,
+    space: String,
+) -> Result<Vec<webview2::Extension>, String> {
+    Ok(webview2::list_extensions(&space_webview(&app, &space)?).await)
+}
+
+/// Picks an unpacked extension folder and installs it in a Space.
+#[cfg(windows)]
+#[tauri::command]
+async fn add_extension(app: AppHandle, space: String) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let wv = space_webview(&app, &space)?;
+    let Some(folder) = app.dialog().file().blocking_pick_folder() else {
+        return Err("Nenhuma pasta escolhida.".into());
+    };
+    let name = webview2::add_extension(&wv, folder.to_string()).await?;
+    diag::info(&format!("extensão instalada: {name}"));
+    Ok(name)
+}
+
+#[cfg(windows)]
+#[tauri::command]
+async fn change_extension(
+    app: AppHandle,
+    space: String,
+    id: String,
+    action: String,
+) -> Result<bool, String> {
+    Ok(webview2::change_extension(&space_webview(&app, &space)?, id, action).await)
+}
+
+#[cfg(not(windows))]
+#[tauri::command]
+async fn list_permissions() -> Result<Vec<()>, String> {
+    Err("Só no Windows.".into())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+async fn set_permission() -> Result<bool, String> {
+    Err("Só no Windows.".into())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+async fn list_extensions() -> Result<Vec<()>, String> {
+    Err("Só no Windows.".into())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+async fn add_extension() -> Result<String, String> {
+    Err("Só no Windows.".into())
+}
+#[cfg(not(windows))]
+#[tauri::command]
+async fn change_extension() -> Result<bool, String> {
+    Err("Só no Windows.".into())
+}
+
 /// Opens Windows' default apps page so Crest can be picked as the browser.
 #[tauri::command]
 async fn open_default_apps() {
@@ -2188,6 +2436,14 @@ fn main() {
             open_panel,
             close_panel,
             open_default_apps,
+            downloads_list,
+            download_action,
+            clear_downloads,
+            list_permissions,
+            set_permission,
+            list_extensions,
+            add_extension,
+            change_extension,
             report_js_error,
             take_crash_report,
             open_logs_folder,
@@ -2317,6 +2573,7 @@ fn main() {
                 closed: Mutex::new(vec![]),
                 peek: AtomicBool::new(false),
                 panel: Mutex::new(None),
+                downloads: Mutex::new(vec![]),
             });
 
             let win = tauri::window::WindowBuilder::new(app, WINDOW)

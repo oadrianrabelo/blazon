@@ -1,13 +1,16 @@
 //! WebView2 features Tauri doesn't expose: request blocking, audio state and
-//! muting, per-Space download folders and saved passwords.
+//! muting, downloads, saved passwords, site permissions and extensions.
 
-use std::path::PathBuf;
+use std::{cell::RefCell, collections::HashMap, path::PathBuf, sync::mpsc, time::Duration};
 
 use tauri::{AppHandle, Emitter, Webview};
 use webview2_com::{
-    take_pwstr, DownloadStartingEventHandler, IsDocumentPlayingAudioChangedEventHandler,
+    take_pwstr, BrowserExtensionEnableCompletedHandler, BrowserExtensionRemoveCompletedHandler,
+    BytesReceivedChangedEventHandler, DownloadStartingEventHandler,
+    GetNonDefaultPermissionSettingsCompletedHandler, IsDocumentPlayingAudioChangedEventHandler,
     Microsoft::Web::WebView2::Win32::*, ProcessFailedEventHandler,
-    WebResourceRequestedEventHandler,
+    ProfileAddBrowserExtensionCompletedHandler, ProfileGetBrowserExtensionsCompletedHandler,
+    SetPermissionStateCompletedHandler, StateChangedEventHandler, WebResourceRequestedEventHandler,
 };
 use windows_core::{w, Interface, BOOL, HSTRING, PWSTR};
 
@@ -127,17 +130,23 @@ pub fn install(
             &mut token,
         );
 
-        if let (Some(dir), Ok(c4)) = (downloads, core.cast::<ICoreWebView2_4>()) {
+        // Downloads: saved to the Space's folder and shown in Blazon's own list.
+        if let Ok(c4) = core.cast::<ICoreWebView2_4>() {
+            let app_dl = app.clone();
             let _ = c4.add_DownloadStarting(
                 &DownloadStartingEventHandler::create(Box::new(move |_, args| {
                     let Some(args) = args else { return Ok(()) };
-                    let mut path = PWSTR::null();
-                    args.ResultFilePath(&mut path)?;
-                    let path = PathBuf::from(take_pwstr(path));
-                    if let Some(name) = path.file_name() {
-                        let _ = std::fs::create_dir_all(&dir);
-                        args.SetResultFilePath(&HSTRING::from(dir.join(name).as_os_str()))?;
+                    if let Some(dir) = &downloads {
+                        let mut path = PWSTR::null();
+                        args.ResultFilePath(&mut path)?;
+                        let path = PathBuf::from(take_pwstr(path));
+                        if let Some(name) = path.file_name() {
+                            let _ = std::fs::create_dir_all(dir);
+                            args.SetResultFilePath(&HSTRING::from(dir.join(name).as_os_str()))?;
+                        }
                     }
+                    args.SetHandled(true)?;
+                    track_download(&app_dl, &args.DownloadOperation()?);
                     Ok(())
                 })),
                 &mut token,
@@ -176,4 +185,320 @@ pub async fn can_go_back(wv: &Webview) -> bool {
     })
     .await
     .unwrap_or(true)
+}
+
+// Downloads
+
+thread_local! {
+    /// Live download operations by id; COM objects stay on the UI thread.
+    static OPERATIONS: RefCell<HashMap<u64, ICoreWebView2DownloadOperation>> = RefCell::new(HashMap::new());
+}
+
+fn download_numbers(op: &ICoreWebView2DownloadOperation) -> (i64, i64) {
+    let (mut received, mut total) = (0i64, 0i64);
+    unsafe {
+        let _ = op.BytesReceived(&mut received);
+        let _ = op.TotalBytesToReceive(&mut total);
+    }
+    (received, total)
+}
+
+fn track_download(app: &AppHandle, op: &ICoreWebView2DownloadOperation) {
+    let mut path = PWSTR::null();
+    let path = unsafe {
+        op.ResultFilePath(&mut path)
+            .map(|_| take_pwstr(path))
+            .unwrap_or_default()
+    };
+    let mut uri = PWSTR::null();
+    let uri = unsafe {
+        op.Uri(&mut uri)
+            .map(|_| take_pwstr(uri))
+            .unwrap_or_default()
+    };
+    let (_, total) = download_numbers(op);
+    let id = crate::download_started(app, &path, &uri, total);
+    OPERATIONS.with(|m| m.borrow_mut().insert(id, op.clone()));
+    let mut token = 0i64;
+    let app_p = app.clone();
+    unsafe {
+        let _ = op.add_BytesReceivedChanged(
+            &BytesReceivedChangedEventHandler::create(Box::new(move |op, _| {
+                if let Some(op) = op {
+                    let (received, total) = download_numbers(&op);
+                    crate::download_progress(&app_p, id, received, total);
+                }
+                Ok(())
+            })),
+            &mut token,
+        );
+        let app_s = app.clone();
+        let _ = op.add_StateChanged(
+            &StateChangedEventHandler::create(Box::new(move |op, _| {
+                let Some(op) = op else { return Ok(()) };
+                let mut state = COREWEBVIEW2_DOWNLOAD_STATE::default();
+                op.State(&mut state)?;
+                let name = match state {
+                    COREWEBVIEW2_DOWNLOAD_STATE_COMPLETED => "done",
+                    COREWEBVIEW2_DOWNLOAD_STATE_INTERRUPTED => "failed",
+                    _ => "progress",
+                };
+                if name != "progress" {
+                    OPERATIONS.with(|m| m.borrow_mut().remove(&id));
+                }
+                let (received, total) = download_numbers(&op);
+                crate::download_state(&app_s, id, name, received, total);
+                Ok(())
+            })),
+            &mut token,
+        );
+    }
+}
+
+pub fn cancel_download(app: &AppHandle, id: u64) {
+    let _ = app.run_on_main_thread(move || {
+        OPERATIONS.with(|m| {
+            if let Some(op) = m.borrow().get(&id) {
+                let _ = unsafe { op.Cancel() };
+            }
+        })
+    });
+}
+
+// Profile features: site permissions and extensions. Each Space has its own
+// profile (data folder), reached through one of its webviews.
+
+fn profile(pv: &tauri::webview::PlatformWebview) -> Option<ICoreWebView2Profile> {
+    unsafe {
+        pv.controller()
+            .CoreWebView2()
+            .ok()?
+            .cast::<ICoreWebView2_13>()
+            .ok()?
+            .Profile()
+            .ok()
+    }
+}
+
+/// Runs `start` on the UI thread and waits for the value it sends back.
+async fn ask<T: Send + 'static>(
+    wv: &Webview,
+    start: impl FnOnce(tauri::webview::PlatformWebview, mpsc::Sender<T>) + Send + 'static,
+) -> Option<T> {
+    let (tx, rx) = mpsc::channel();
+    wv.with_webview(move |pv| start(pv, tx)).ok()?;
+    tauri::async_runtime::spawn_blocking(move || rx.recv_timeout(Duration::from_secs(8)).ok())
+        .await
+        .ok()
+        .flatten()
+}
+
+#[derive(serde::Serialize)]
+pub struct Permission {
+    pub kind: i32,
+    pub origin: String,
+    pub state: &'static str,
+}
+
+pub async fn list_permissions(wv: &Webview) -> Vec<Permission> {
+    ask(wv, |pv, tx| unsafe {
+        let Some(p4) = profile(&pv).and_then(|p| p.cast::<ICoreWebView2Profile4>().ok()) else {
+            let _ = tx.send(vec![]);
+            return;
+        };
+        let tx2 = tx.clone();
+        let started = p4.GetNonDefaultPermissionSettings(
+            &GetNonDefaultPermissionSettingsCompletedHandler::create(Box::new(move |_, list| {
+                let mut out = vec![];
+                if let Some(list) = list {
+                    let mut n = 0u32;
+                    list.Count(&mut n)?;
+                    for i in 0..n {
+                        let item = list.GetValueAtIndex(i)?;
+                        let (mut kind, mut state, mut origin) = (
+                            COREWEBVIEW2_PERMISSION_KIND::default(),
+                            COREWEBVIEW2_PERMISSION_STATE::default(),
+                            PWSTR::null(),
+                        );
+                        item.PermissionKind(&mut kind)?;
+                        item.PermissionState(&mut state)?;
+                        item.PermissionOrigin(&mut origin)?;
+                        out.push(Permission {
+                            kind: kind.0,
+                            origin: take_pwstr(origin),
+                            state: if state == COREWEBVIEW2_PERMISSION_STATE_ALLOW {
+                                "allow"
+                            } else {
+                                "deny"
+                            },
+                        });
+                    }
+                }
+                let _ = tx2.send(out);
+                Ok(())
+            })),
+        );
+        if started.is_err() {
+            let _ = tx.send(vec![]);
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Sets a site permission; "default" makes the site ask again.
+pub async fn set_permission(wv: &Webview, kind: i32, origin: String, state: String) -> bool {
+    ask(wv, move |pv, tx| unsafe {
+        let Some(p4) = profile(&pv).and_then(|p| p.cast::<ICoreWebView2Profile4>().ok()) else {
+            let _ = tx.send(false);
+            return;
+        };
+        let state = match state.as_str() {
+            "allow" => COREWEBVIEW2_PERMISSION_STATE_ALLOW,
+            "deny" => COREWEBVIEW2_PERMISSION_STATE_DENY,
+            _ => COREWEBVIEW2_PERMISSION_STATE_DEFAULT,
+        };
+        let tx2 = tx.clone();
+        let r = p4.SetPermissionState(
+            COREWEBVIEW2_PERMISSION_KIND(kind),
+            &HSTRING::from(origin),
+            state,
+            &SetPermissionStateCompletedHandler::create(Box::new(move |hr| {
+                let _ = tx2.send(hr.is_ok());
+                Ok(())
+            })),
+        );
+        if r.is_err() {
+            let _ = tx.send(false);
+        }
+    })
+    .await
+    .unwrap_or(false)
+}
+
+#[derive(serde::Serialize)]
+pub struct Extension {
+    pub id: String,
+    pub name: String,
+    pub enabled: bool,
+}
+
+fn extension_info(e: &ICoreWebView2BrowserExtension) -> Extension {
+    let (mut id, mut name, mut enabled) = (PWSTR::null(), PWSTR::null(), BOOL::default());
+    unsafe {
+        let _ = e.Id(&mut id);
+        let _ = e.Name(&mut name);
+        let _ = e.IsEnabled(&mut enabled);
+    }
+    Extension {
+        id: take_pwstr(id),
+        name: take_pwstr(name),
+        enabled: enabled.as_bool(),
+    }
+}
+
+fn with_extensions(
+    pv: &tauri::webview::PlatformWebview,
+    f: impl FnOnce(Vec<ICoreWebView2BrowserExtension>) + 'static,
+) -> bool {
+    let Some(p7) = profile(pv).and_then(|p| p.cast::<ICoreWebView2Profile7>().ok()) else {
+        return false;
+    };
+    let mut f = Some(f);
+    unsafe {
+        p7.GetBrowserExtensions(&ProfileGetBrowserExtensionsCompletedHandler::create(
+            Box::new(move |_, list| {
+                let mut out = vec![];
+                if let Some(list) = list {
+                    let mut n = 0u32;
+                    list.Count(&mut n)?;
+                    for i in 0..n {
+                        out.push(list.GetValueAtIndex(i)?);
+                    }
+                }
+                if let Some(f) = f.take() {
+                    f(out);
+                }
+                Ok(())
+            }),
+        ))
+        .is_ok()
+    }
+}
+
+pub async fn list_extensions(wv: &Webview) -> Vec<Extension> {
+    ask(wv, |pv, tx| {
+        let tx2 = tx.clone();
+        if !with_extensions(&pv, move |list| {
+            let _ = tx2.send(list.iter().map(extension_info).collect());
+        }) {
+            let _ = tx.send(vec![]);
+        }
+    })
+    .await
+    .unwrap_or_default()
+}
+
+/// Installs an unpacked extension folder; returns its name or an error.
+pub async fn add_extension(wv: &Webview, folder: String) -> Result<String, String> {
+    ask(wv, move |pv, tx| unsafe {
+        let Some(p7) = profile(&pv).and_then(|p| p.cast::<ICoreWebView2Profile7>().ok()) else {
+            let _ = tx.send(Err("Esta versão do WebView2 não suporta extensões.".to_string()));
+            return;
+        };
+        let tx2 = tx.clone();
+        let r = p7.AddBrowserExtension(
+            &HSTRING::from(folder),
+            &ProfileAddBrowserExtensionCompletedHandler::create(Box::new(move |hr, ext| {
+                let _ = tx2.send(match (hr.is_ok(), ext) {
+                    (true, Some(e)) => Ok(extension_info(&e).name),
+                    _ => Err(format!("A extensão não pôde ser instalada ({hr:?}). Ela precisa ser uma pasta descompactada com manifest.json.")),
+                });
+                Ok(())
+            })),
+        );
+        if let Err(e) = r {
+            let _ = tx.send(Err(e.to_string()));
+        }
+    })
+    .await
+    .unwrap_or_else(|| Err("Tempo esgotado.".into()))
+}
+
+/// Enables, disables ("enable"/"disable") or removes ("remove") an extension.
+pub async fn change_extension(wv: &Webview, id: String, action: String) -> bool {
+    ask(wv, move |pv, tx| {
+        let tx2 = tx.clone();
+        let started = with_extensions(&pv, move |list| unsafe {
+            let Some(e) = list.into_iter().find(|e| extension_info(e).id == id) else {
+                let _ = tx2.send(false);
+                return;
+            };
+            let tx3 = tx2.clone();
+            let r = if action == "remove" {
+                e.Remove(&BrowserExtensionRemoveCompletedHandler::create(Box::new(
+                    move |hr| {
+                        let _ = tx3.send(hr.is_ok());
+                        Ok(())
+                    },
+                )))
+            } else {
+                e.Enable(
+                    action == "enable",
+                    &BrowserExtensionEnableCompletedHandler::create(Box::new(move |hr| {
+                        let _ = tx3.send(hr.is_ok());
+                        Ok(())
+                    })),
+                )
+            };
+            if r.is_err() {
+                let _ = tx2.send(false);
+            }
+        });
+        if !started {
+            let _ = tx.send(false);
+        }
+    })
+    .await
+    .unwrap_or(false)
 }

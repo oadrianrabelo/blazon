@@ -49,7 +49,10 @@
         <div id="spaces" class="spaces"></div>
         <button id="add-space" class="icon" data-i="plus" title="Novo Space"></button>
       </div>
-      <button id="history-btn" class="icon" data-i="archive" title="Histórico (Ctrl+H)"></button>
+      <div class="foot-right">
+        <button id="downloads-btn" class="icon" data-i="download" title="Downloads"><span id="dl-badge" class="badge" hidden></span></button>
+        <button id="history-btn" class="icon" data-i="archive" title="Arquivo e histórico (Ctrl+H)"></button>
+      </div>
     </footer>
   </aside>
 
@@ -66,6 +69,13 @@
     </form>
   </dialog>
 
+  <dialog id="downloads">
+    <form method="dialog">
+      <h3>Downloads</h3>
+      <ul id="dl-list" class="dl-list"></ul>
+      <menu><button type="button" id="dl-clear" class="danger">Limpar concluídos</button><button value="ok" class="primary">Fechar</button></menu>
+    </form>
+  </dialog>
   <dialog id="folder-dialog">
     <form method="dialog">
       <h3>Cor e ícone da pasta</h3>

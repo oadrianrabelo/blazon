@@ -11,6 +11,7 @@ const ICONS = {
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   import: '<path d="M12 3v12M7 10l5 5 5-5M5 21h14"/>',
   keys: '<rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/>',
+  puzzle: '<path d="M10 3a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6Z"/>',
   bug: '<path d="M8 6a4 4 0 0 1 8 0v1H8Z"/><rect x="6" y="7" width="12" height="13" rx="6"/><path d="M12 11v9M3 13h3M18 13h3M4 7l2.5 2M20 7l-2.5 2M4 20l2.5-2.5M20 20l-2.5-2.5"/>',
   about: '<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
@@ -263,8 +264,48 @@ const SECTIONS = {
         group('Senhas e formulários',
           toggle('Oferecer para salvar senhas e preencher formulários', 'Guardado pelo próprio WebView2, separado por Space. Vale para abas novas.', S('passwords'), setS('passwords'))),
         downloads,
-        group('Permissões de sites',
-          row('Câmera, microfone, localização e notificações', 'Cada site pede permissão na primeira vez; a escolha fica salva no Space.', el('span'))),
+        permissionsGroup(),
+      ];
+    },
+  },
+  extensions: {
+    title: 'Extensões',
+    icon: 'puzzle',
+    render() {
+      let space = state.active_space;
+      const list = el('div');
+      const load = async () => {
+        list.replaceChildren(el('p', 'lead', 'Carregando…'));
+        try {
+          const exts = await invoke('list_extensions', { space });
+          list.replaceChildren();
+          if (!exts.length) list.append(el('p', 'lead', 'Nenhuma extensão neste Space.'));
+          for (const x of exts) {
+            const wrap = el('div', 'seg');
+            wrap.style.background = 'none';
+            const on = el('input', 'switch');
+            on.type = 'checkbox';
+            on.checked = x.enabled;
+            on.onchange = () => invoke('change_extension', { space, id: x.id, action: on.checked ? 'enable' : 'disable' });
+            const del = el('button', 'btn danger', 'Remover');
+            del.onclick = async () => { if (confirm(`Remover "${x.name}"?`)) { await invoke('change_extension', { space, id: x.id, action: 'remove' }); load(); } };
+            wrap.append(on, del);
+            list.append(row(x.name, x.id, wrap));
+          }
+        } catch (err) { list.replaceChildren(el('p', 'lead', String(err))); }
+      };
+      const add = el('button', 'btn primary', 'Adicionar extensão (pasta)…');
+      add.onclick = async () => {
+        try { alert(`Extensão instalada: ${await invoke('add_extension', { space })}. Recarregue as abas para usar.`); load(); } catch (err) { alert(String(err)); }
+      };
+      load();
+      return [
+        ...header('Extensões', 'Extensões descompactadas (uma pasta com manifest.json), instaladas por Space. O WebView2 não acessa a Chrome Web Store e suporta só parte das APIs de extensão.'),
+        group('Space', row('Instalar e gerenciar em', null, spacePicker((v) => { space = v; load(); }))),
+        group('Instaladas', list, (() => { const r = el('div', 'row-btns'); r.append(add); return r; })()),
+        group('Como conseguir uma extensão descompactada',
+          row('Do código-fonte', 'Muitas extensões publicam a pasta pronta no GitHub (procure por "unpacked" ou baixe o .zip da release e extraia).', el('span')),
+          row('De um .crx', 'Um .crx é um .zip com cabeçalho: renomeie para .zip, extraia e escolha a pasta.', el('span'))),
       ];
     },
   },
@@ -746,6 +787,50 @@ function renderStudio() {
   const studio = el('div', 'studio');
   studio.append(list, editor);
   return [...header('Spaces e Studio', 'Cada Space tem seu brasão, cores e fundo. Escolha um modelo ou monte peça por peça.'), studio];
+}
+
+// Site permissions and extensions live in each Space's WebView2 profile.
+const PERMISSION_KINDS = {
+  1: 'Microfone', 2: 'Câmera', 3: 'Localização', 4: 'Notificações', 5: 'Outros sensores', 6: 'Leitura da área de transferência',
+  7: 'Downloads automáticos', 8: 'Acesso a arquivos', 9: 'Reprodução automática', 10: 'Fontes locais', 11: 'Mensagens MIDI', 12: 'Janelas',
+};
+
+function spacePicker(onChange) {
+  const sel = el('select');
+  for (const s of state.spaces.filter((x) => !x.private)) {
+    const o = el('option', '', s.name);
+    o.value = s.id;
+    sel.append(o);
+  }
+  sel.value = state.active_space;
+  sel.onchange = () => onChange(sel.value);
+  return sel;
+}
+
+function permissionsGroup() {
+  const list = el('div');
+  const load = async (space) => {
+    list.replaceChildren(el('p', 'lead', 'Carregando…'));
+    try {
+      const perms = await invoke('list_permissions', { space });
+      list.replaceChildren();
+      if (!perms.length) list.append(el('p', 'lead', 'Nenhuma permissão salva neste Space. Os sites pedem na primeira vez que precisam.'));
+      for (const p of perms) {
+        const sel = el('select');
+        for (const [v, l] of [['allow', 'Permitir'], ['deny', 'Bloquear'], ['default', 'Perguntar de novo']]) {
+          const o = el('option', '', l);
+          o.value = v;
+          sel.append(o);
+        }
+        sel.value = p.state;
+        sel.onchange = async () => { await invoke('set_permission', { space, kind: p.kind, origin: p.origin, value: sel.value }); if (sel.value === 'default') load(space); };
+        list.append(row(p.origin.replace(/^https?:\/\//, ''), PERMISSION_KINDS[p.kind] || `Permissão ${p.kind}`, sel));
+      }
+    } catch (err) { list.replaceChildren(el('p', 'lead', String(err))); }
+  };
+  const g = group('Permissões de sites', row('Space', 'Câmera, microfone, localização, notificações e outras.', spacePicker(load)), list);
+  load(state.active_space);
+  return g;
 }
 
 function accentRow() {
