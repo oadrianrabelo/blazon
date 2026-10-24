@@ -280,6 +280,17 @@ Em Configurações → Aparência você ajusta:
 | Páginas | Zoom padrão, de 50% a 300% |
 | Restaurar tudo | Volta tudo ao padrão |
 
+### Materiais e movimento
+
+Em **Configurações → Aparência → Materiais e movimento**:
+- **Liquid Glass**: menus, paleta, avisos e cartões de vidro que curva o que está atrás, como no
+  macOS 26. Desligue se o computador for mais simples; também desliga sozinho com as
+  transparências do Windows desligadas.
+- **Barra translúcida (Mica)**: a barra mostra o papel de parede desfocado. Fica completa depois
+  de reiniciar o Blazon.
+- **Transição entre páginas** e **Rolagem elástica**.
+- Em **Janela e barra lateral → Botões da janela**, escolha **Mac** para as três bolinhas.
+
 ### Animações
 
 As animações seguem as do Crest, com os mesmos tempos e molas:

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.4
+
+Mais Mac:
+- **Liquid Glass**: menus, sugestões, avisos, cartões de widget, seletor de Spaces, paleta, Peek e
+  boas-vindas em vidro que curva o que está atrás nas bordas, com brilho na borda e uma luz que
+  segue o mouse. Os menus nascem do botão (ou do ponto) que os abriu.
+- **Barra translúcida (Mica)**: a barra lateral mostra o papel de parede desfocado (Acrylic no
+  Windows 10).
+- **Transição entre páginas**: a página anterior esmaece ao trocar de aba e desliza ao trocar de
+  Space.
+- **Rolagem elástica** na lista de abas.
+- **Botões da janela estilo Mac** (as três bolinhas), opcionais.
+- **Ícones** redesenhados no estilo do SF Symbols.
+- Tudo em Configurações → Aparência → Materiais e movimento.
+
 ## 0.1.3
 
 - **Senhas**: importa do Chrome, Edge, Brave, Vivaldi e Opera e de CSV (Chrome, Edge, Firefox,

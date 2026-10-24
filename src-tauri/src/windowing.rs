@@ -230,6 +230,8 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_size(s);
             #[cfg(windows)]
             webview2::round_corners(&wv, PEEK_RADIUS);
+        } else if l == transition::fx_of(wl) {
+            // Shown and hidden by transition.rs around a switch.
         } else if l == side_l {
             match side_rect {
                 Some((p, s)) if panel.is_none() => {
@@ -295,17 +297,49 @@ pub(crate) async fn open_panel(app: AppHandle, section: String) {
 
 /// Builds a browser window with its sidebar webview and event handlers.
 /// Must not run on the main thread after startup (see `layout`).
+/// Appearance › Translucent sidebar (stored in the UI's appearance options).
+pub(crate) fn mica_on(settings: &Settings) -> bool {
+    settings
+        .appearance
+        .get("mica")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false)
+}
+
+/// Puts Windows 11's Mica material (Acrylic on Windows 10) behind the window,
+/// which the sidebar shows through when it is translucent.
+pub(crate) fn apply_material(win: &Window, on: bool) {
+    use tauri::window::{Effect, EffectsBuilder};
+    let _ = if on {
+        let effect = if diag::windows_build() >= 22000 {
+            Effect::Mica
+        } else {
+            Effect::Acrylic
+        };
+        win.set_effects(EffectsBuilder::new().effect(effect).build())
+    } else {
+        win.set_effects(None)
+    };
+}
+
 pub(crate) fn build_window(app: &AppHandle, wl: &str) -> tauri::Result<Window> {
-    let native_frame = with_data(app, |d| d.settings.native_frame);
+    let (native_frame, mica) = with_data(app, |d| (d.settings.native_frame, mica_on(&d.settings)));
     let win = tauri::window::WindowBuilder::new(app, wl)
         .title("Blazon")
         .inner_size(1280.0, 820.0)
         .min_inner_size(640.0, 400.0)
         .decorations(native_frame)
+        // A see-through window only when the material is on (shadows stay otherwise).
+        .transparent(mica)
         .build()?;
+    if mica {
+        apply_material(&win, true);
+    }
     let size = win.inner_size()?;
     win.add_child(
         interface_webview(ui_of(wl), WebviewUrl::App("index.html".into()))
+            // Transparent so the Mica material can show through the sidebar.
+            .background_color(tauri::window::Color(0, 0, 0, 0))
             // HTML5 drag and drop for tab reordering.
             .disable_drag_drop_handler(),
         PhysicalPosition::new(0, 0),

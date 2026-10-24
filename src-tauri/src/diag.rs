@@ -158,6 +158,21 @@ pub fn os_version() -> String {
     }
 }
 
+/// Windows build number (22000 and up is Windows 11), 0 when unknown.
+pub fn windows_build() -> u32 {
+    static BUILD: std::sync::OnceLock<u32> = std::sync::OnceLock::new();
+    *BUILD.get_or_init(|| parse_build(&os_version()))
+}
+
+/// "Microsoft Windows [Version 10.0.22631.4317]" → 22631.
+pub fn parse_build(ver: &str) -> u32 {
+    ver.split(|c: char| !c.is_ascii_digit() && c != '.')
+        .find(|p| p.matches('.').count() >= 2)
+        .and_then(|v| v.split('.').nth(2))
+        .and_then(|b| b.parse().ok())
+        .unwrap_or(0)
+}
+
 /// Installed WebView2 runtime version.
 pub fn webview2_version() -> String {
     #[cfg(windows)]
@@ -184,6 +199,19 @@ pub fn webview2_version() -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn reads_the_windows_build() {
+        assert_eq!(
+            super::parse_build("Microsoft Windows [Version 10.0.22631.4317]"),
+            22631
+        );
+        assert_eq!(
+            super::parse_build("Microsoft Windows [versão 10.0.19045.3803]"),
+            19045
+        );
+        assert_eq!(super::parse_build("linux"), 0);
+    }
+
     #[test]
     fn timestamp_is_iso_like() {
         let t = super::timestamp();

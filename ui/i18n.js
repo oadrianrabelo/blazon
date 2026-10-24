@@ -4,6 +4,17 @@
 
 const I18N = (() => {
   const EN = {
+    // Materials and motion
+    'Botões da janela': 'Window buttons',
+    'Materiais e movimento': 'Materials and motion',
+    'Liquid Glass': 'Liquid Glass',
+    'Menus, paleta, cartões e avisos de vidro que curva o que está atrás, como no macOS.': 'Menus, palette, cards and notices made of glass that bends what is behind it, like on macOS.',
+    'Barra translúcida (Mica)': 'Translucent sidebar (Mica)',
+    'A barra lateral mostra o papel de parede desfocado, como a barra do Finder. Fica completo depois de reiniciar o Blazon.': 'The sidebar shows your blurred wallpaper, like the Finder sidebar. Fully applies after restarting Blazon.',
+    'Transição entre páginas': 'Page transitions',
+    'A página anterior esmaece ao trocar de aba e desliza ao trocar de Space.': 'The previous page fades when you switch tabs and slides when you switch Spaces.',
+    'Rolagem elástica': 'Elastic scrolling',
+    'A lista de abas estica um pouco ao chegar ao fim, como no Mac.': 'The tab list stretches a little at its ends, like on the Mac.',
     // Passwords and extension panel
     'Fechar painel': 'Close panel',
     'Abrir ao lado da página': 'Open beside the page',

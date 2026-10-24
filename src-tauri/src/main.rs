@@ -20,6 +20,7 @@ mod spaces;
 mod sqlite;
 mod support;
 mod tabs;
+mod transition;
 mod updater;
 #[cfg(windows)]
 mod webview2;
@@ -315,8 +316,10 @@ async fn set_settings(app: AppHandle, settings: Settings) {
             }
         }
     }
+    let mica = windowing::mica_on(&settings);
     for win in app.windows().into_values() {
         let _ = win.set_decorations(settings.native_frame);
+        windowing::apply_material(&win, mica);
     }
     blocker::configure(settings.adblock, &settings.adblock_allow);
     with_data(&app, |d| d.settings = settings);
@@ -441,6 +444,8 @@ fn main() {
             passwords::clear_logins,
             passwords::logins_for_tab,
             passwords::fill_login,
+            transition::fx_ready,
+            transition::fx_done,
             sidepanel::extension_panels,
             sidepanel::open_side_panel,
             sidepanel::close_side_panel,

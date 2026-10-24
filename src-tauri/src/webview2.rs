@@ -675,3 +675,26 @@ pub fn round_corners(wv: &Webview, radius: f64) {
         let _ = SetWindowRgn(host, Some(rgn), true);
     });
 }
+
+/// Raises a webview's window above its siblings (the transition layer must sit
+/// over pages created after it).
+pub fn bring_to_front(wv: &Webview) {
+    use windows::Win32::{
+        Foundation::HWND,
+        UI::WindowsAndMessaging::{SetWindowPos, HWND_TOP, SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOSIZE},
+    };
+    let _ = wv.with_webview(|pv| unsafe {
+        let mut host = HWND::default();
+        if pv.controller().ParentWindow(&mut host).is_ok() && !host.is_invalid() {
+            let _ = SetWindowPos(
+                host,
+                Some(HWND_TOP),
+                0,
+                0,
+                0,
+                0,
+                SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE,
+            );
+        }
+    });
+}

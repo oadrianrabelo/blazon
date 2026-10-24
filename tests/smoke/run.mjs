@@ -110,6 +110,36 @@ try {
   await sleep(5000);
   shot('site-fora-do-ar');
 
+  // Switching back to the first page: the old page fades over the new one.
+  const tabs = (await invoke('get_state')).tabs;
+  const first = tabs.find((t) => t.url.startsWith('https://example.com'));
+  if (first) {
+    await invoke('activate_tab', { id: tabs[tabs.length - 1].id });
+    await sleep(1500);
+    invoke('activate_tab', { id: first.id });
+    await sleep(120);
+    shot('transicao-de-aba');
+    await sleep(1500);
+  }
+
+  // A context menu in Liquid Glass.
+  const tab = await ui.$('#tabs [data-tab], #folders [data-tab]');
+  if (tab) {
+    await tab.click({ button: 'right' });
+    await sleep(900);
+    shot('menu-de-vidro');
+    await ui.mouse.click(5, 300);
+    await sleep(400);
+  }
+
+  // Mac-style window buttons and the Mica material.
+  const before = await invoke('get_state');
+  await invoke('set_settings', { settings: { ...before.settings, appearance: { ...before.settings.appearance, windowControls: 'mac', mica: true } } });
+  await sleep(1500);
+  shot('botoes-mac-e-mica');
+  await invoke('set_settings', { settings: before.settings });
+  await sleep(800);
+
   await invoke('open_overlay', { mode: 'peek', url: 'https://en.wikipedia.org/wiki/Heraldry' });
   await sleep(5000);
   shot('peek');

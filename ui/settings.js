@@ -168,7 +168,7 @@ const SECTIONS = {
           segmented('Botões da janela', null, [['windows', 'Windows'], ['mac', 'Mac']], L('windowControls'), setL('windowControls'))),
         group('Materiais e movimento',
           toggle('Liquid Glass', 'Menus, paleta, cartões e avisos de vidro que curva o que está atrás, como no macOS.', L('liquidGlass'), setL('liquidGlass')),
-          toggle('Barra translúcida (Mica)', 'A barra lateral mostra o papel de parede desfocado, como a barra do Finder. Windows 11.', L('mica'), setL('mica')),
+          toggle('Barra translúcida (Mica)', 'A barra lateral mostra o papel de parede desfocado, como a barra do Finder. Fica completo depois de reiniciar o Blazon.', L('mica'), setL('mica')),
           toggle('Transição entre páginas', 'A página anterior esmaece ao trocar de aba e desliza ao trocar de Space.', L('pageTransitions'), setL('pageTransitions')),
           toggle('Rolagem elástica', 'A lista de abas estica um pouco ao chegar ao fim, como no Mac.', L('elastic'), setL('elastic'))),
         group('Abas',
