@@ -17,7 +17,9 @@ const I18N = (() => {
     'Nenhum outro navegador encontrado. Dá para importar um arquivo HTML de favoritos em Configurações › Importar.': 'No other browser found. You can import an HTML bookmarks file in Settings › Import.',
     'Seus Spaces estão prontos': 'Your Spaces are ready', 'Tornar navegador padrão': 'Make default browser', 'Abrir o Blazon': 'Open Blazon',
     'Ctrl+K abre a paleta de comandos. Shift+clique num link abre o Peek. Tudo se ajusta em Configurações.': 'Ctrl+K opens the command palette. Shift+click a link to open it in Peek. Everything else is in Settings.',
-    'Rever boas-vindas': 'Show welcome again', 'Primeiros passos': 'Getting started', 'Tela de boas-vindas': 'Welcome screen',
+    'Rever boas-vindas': 'Show welcome again', 'Abrir guia': 'Open guide', 'Guia': 'Guide',
+    'Lições com prática: fixar, pastas, limpar, lado a lado, paleta e Peek.': 'Lessons with practice: pinning, folders, clearing, side by side, palette and Peek.',
+    'Ctrl+K abre a paleta de comandos. Shift+clique num link abre o Peek. Os Primeiros passos abrem em seguida.': 'Ctrl+K opens the command palette. Shift+click a link to open it in Peek. Getting started opens next.', 'Primeiros passos': 'Getting started', 'Tela de boas-vindas': 'Welcome screen',
     'Escolher a casa, criar Spaces e importar de outros navegadores.': 'Pick a house, create Spaces and import from other browsers.',
     // Durations
     '1 dia': '1 day', '1 hora': '1 hour', '1 semana': '1 week', '12 horas': '12 hours', '15 minutos': '15 minutes',
