@@ -26,8 +26,12 @@ function applyType(t) {
   root.setProperty('--text-weight', t.mac ? '430' : '400');
 }
 
+let storedType = null;
 function storeType(a) {
   const t = typeOf(a);
+  const key = JSON.stringify(t);
+  if (key === storedType) return;
+  storedType = key;
   applyType(t);
   try { localStorage.setItem('blazon.type', JSON.stringify(t)); } catch {}
 }

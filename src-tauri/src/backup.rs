@@ -107,17 +107,20 @@ pub(crate) async fn restore_backup(app: AppHandle, mode: String) -> Result<Strin
         let s = state(&app);
         let mut data = backup.data;
         data.repair();
+        let state_json = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
+        let history_json = serde_json::to_string(&backup.history).map_err(|e| e.to_string())?;
+        // Holding the data lock keeps the saver thread from writing over it.
+        let guard = s.data.lock().unwrap();
         RESTORING.store(true, Ordering::Relaxed);
-        fs::write(
-            &s.file,
-            serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
-        fs::write(
-            s.root.join("history.json"),
-            serde_json::to_string(&backup.history).map_err(|e| e.to_string())?,
-        )
-        .map_err(|e| e.to_string())?;
+        let written = fs::write(&s.file, state_json)
+            .and_then(|_| fs::write(s.root.join("history.json"), history_json));
+        // Released before restarting: closing windows save under it, and
+        // RESTORING already keeps them from writing.
+        drop(guard);
+        if let Err(e) = written {
+            RESTORING.store(false, Ordering::Relaxed);
+            return Err(e.to_string());
+        }
         s.history_dirty.store(false, Ordering::Relaxed);
         diag::info("backup restaurado (substituir); reiniciando");
         app.restart();

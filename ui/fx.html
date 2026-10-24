@@ -15,22 +15,39 @@
   <script>
     // The transition layer (transition.rs): shows a picture of the old page over
     // the card, then fades it (tab switch) or slides it away (Space switch).
+    // The picture usually arrives ahead of the switch (fx-preload, painted while
+    // hidden) and the switch only arms it (fx-arm); otherwise fx-cover brings it.
     const { invoke } = window.__TAURI__.core;
     const { listen } = window.__TAURI__.event;
     const shot = document.getElementById('shot');
     let kind = 'tab';
     let dir = 1;
     let safety = null;
-    listen('fx-cover', async (e) => {
-      ({ kind, dir } = e.payload);
+    async function paint({ image, radius }) {
       shot.getAnimations().forEach((a) => a.cancel());
-      document.documentElement.style.setProperty('--page-radius', `${e.payload.radius ?? 13}px`);
-      shot.src = e.payload.image;
+      document.documentElement.style.setProperty('--page-radius', `${radius ?? 13}px`);
+      shot.src = image;
       await shot.decode().catch(() => {});
-      invoke('fx_ready');
-      // Never stay over the page if the switch doesn't finish.
+    }
+    // Never stay over the page if the switch doesn't finish.
+    function arm(e) {
+      ({ kind, dir } = e);
+      shot.getAnimations().forEach((a) => a.cancel());
       clearTimeout(safety);
       safety = setTimeout(() => invoke('fx_done'), 1500);
+    }
+    listen('fx-preload', async (e) => {
+      // A switch still fading out ends now (and hides the layer) rather than
+      // being frozen over the page by the new picture.
+      shot.getAnimations().forEach((a) => a.finish());
+      await paint(e.payload);
+      invoke('fx_ready', { preload: true });
+    });
+    listen('fx-arm', (e) => arm(e.payload));
+    listen('fx-cover', async (e) => {
+      await paint(e.payload);
+      arm(e.payload);
+      invoke('fx_ready', { preload: false });
     });
     listen('fx-reveal', () => {
       clearTimeout(safety);

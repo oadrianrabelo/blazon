@@ -171,26 +171,63 @@ fn with_data<T>(app: &AppHandle, f: impl FnOnce(&mut Data) -> T) -> T {
     f(&mut state(app).data.lock().unwrap())
 }
 
-/// Persists the data and pushes it to the sidebar.
+/// A change to the data: the sidebars hear about it within a frame and the
+/// file is written a moment later. A page loading fires many changes in a row
+/// (title, address, favicon, loading); they become one update and one write
+/// instead of a full rewrite of state.json and a full redraw each.
 fn commit(app: &AppHandle) {
-    let s = state(app);
     if backup::RESTORING.load(Ordering::Relaxed) {
         return;
     }
-    let data = s.data.lock().unwrap().clone();
-    if let Ok(json) = serde_json::to_string_pretty(&data) {
+    SAVE_PENDING.store(true, Ordering::Relaxed);
+    if !EMIT_PENDING.swap(true, Ordering::AcqRel) {
+        let app = app.clone();
+        std::thread::spawn(move || {
+            std::thread::sleep(Duration::from_millis(12));
+            EMIT_PENDING.store(false, Ordering::Release);
+            emit_state(&app);
+        });
+    }
+}
+
+static EMIT_PENDING: AtomicBool = AtomicBool::new(false);
+static SAVE_PENDING: AtomicBool = AtomicBool::new(false);
+
+/// Pushes the data to every window's sidebar and settings panel; each sees
+/// its own Space as the active one.
+fn emit_state(app: &AppHandle) {
+    let s = state(app);
+    let Ok(mut view) = serde_json::to_value(&*s.data.lock().unwrap()) else {
+        return;
+    };
+    let wins = s.windows.lock().unwrap().clone();
+    for (win, space) in wins {
+        view["active_space"] = serde_json::Value::String(space);
+        let _ = app.emit_to(ui_of(&win), "state", &view);
+        if app.get_webview(&panel_of(&win)).is_some() {
+            let _ = app.emit_to(panel_of(&win), "state", &view);
+        }
+    }
+}
+
+/// Writes state.json if something changed since the last write (every half
+/// second from the saver thread, and right away when the browser closes).
+pub(crate) fn save_now(app: &AppHandle) {
+    if backup::RESTORING.load(Ordering::Relaxed) || !SAVE_PENDING.swap(false, Ordering::AcqRel) {
+        return;
+    }
+    let s = state(app);
+    // Written under the lock: a backup restore takes it to replace the file,
+    // and an older write must never land after that.
+    let data = s.data.lock().unwrap();
+    if backup::RESTORING.load(Ordering::Relaxed) {
+        return;
+    }
+    if let Ok(json) = serde_json::to_vec(&*data) {
         let tmp = s.file.with_extension("tmp");
         if fs::write(&tmp, json).is_ok() {
             let _ = fs::rename(&tmp, &s.file);
         }
-    }
-    // Each window's sidebar sees its own Space as the active one.
-    let wins = s.windows.lock().unwrap().clone();
-    for (win, space) in wins {
-        let mut view = data.clone();
-        view.active_space = space;
-        let _ = app.emit_to(ui_of(&win), "state", view.clone());
-        let _ = app.emit_to(panel_of(&win), "state", view);
     }
 }
 
@@ -531,6 +568,7 @@ fn main() {
             passwords::logins_for_tab,
             passwords::fill_login,
             transition::fx_ready,
+            transition::prepare_switch,
             transition::fx_done,
             sidepanel::extension_panels,
             sidepanel::open_side_panel,
@@ -667,6 +705,11 @@ fn main() {
                 }
             });
             schedule_update_check(app.handle());
+            let handle = app.handle().clone();
+            std::thread::spawn(move || loop {
+                std::thread::sleep(Duration::from_millis(500));
+                save_now(&handle);
+            });
             let handle = app.handle().clone();
             std::thread::spawn(move || loop {
                 std::thread::sleep(Duration::from_secs(30));

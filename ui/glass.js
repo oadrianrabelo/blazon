@@ -71,10 +71,28 @@ const Glass = (() => {
     return c.toDataURL();
   }
 
+  // Sizes are rounded to 4px so menus of nearly the same size share a map,
+  // and at most MAX_FILTERS are kept: the least recently used one that no
+  // surface on screen still uses goes first.
+  const MAX_FILTERS = 32;
+  let serial = 0;
+  function evict() {
+    if (filters.size <= MAX_FILTERS) return;
+    const used = new Set([...document.querySelectorAll('.lg')].map((n) => n.style.getPropertyValue('--lg-filter')));
+    for (const [key, f] of [...filters].sort((a, b) => a[1].last - b[1].last)) {
+      if (filters.size <= MAX_FILTERS) break;
+      if (used.has(`url(#${f.id})`)) continue;
+      f.node.remove();
+      filters.delete(key);
+    }
+  }
   function filterFor(w, h, r) {
-    const key = `${Math.round(w)}x${Math.round(h)}r${Math.round(r)}`;
-    if (filters.has(key)) return filters.get(key);
-    const id = `lg-${filters.size}`;
+    w = Math.max(8, Math.round(w / 4) * 4);
+    h = Math.max(8, Math.round(h / 4) * 4);
+    const key = `${w}x${h}r${Math.round(r)}`;
+    const known = filters.get(key);
+    if (known) { known.last = performance.now(); return known.id; }
+    const id = `lg-${serial++}`;
     const f = document.createElementNS(NS, 'filter');
     f.id = id;
     for (const [k, v] of Object.entries({ x: 0, y: 0, width: w, height: h, filterUnits: 'userSpaceOnUse', primitiveUnits: 'userSpaceOnUse', 'color-interpolation-filters': 'sRGB' })) f.setAttribute(k, v);
@@ -85,7 +103,8 @@ const Glass = (() => {
     for (const [k, v] of Object.entries({ in: 'SourceGraphic', in2: 'map', scale: Math.min(56, Math.min(w, h) / 3), xChannelSelector: 'R', yChannelSelector: 'G' })) d.setAttribute(k, v);
     f.append(im, d);
     host().append(f);
-    filters.set(key, id);
+    filters.set(key, { id, node: f, last: performance.now() });
+    evict();
     return id;
   }
 
@@ -136,6 +155,7 @@ const Glass = (() => {
 
   // Settings › Appearance › Liquid Glass, or Windows' "Transparency effects" off.
   function setEnabled(on) {
+    if (on === enabled) return;
     enabled = on;
     document.documentElement.classList.toggle('no-lg', !on);
     document.querySelectorAll('.lg').forEach((el) => { sized.delete(el); apply(el); });

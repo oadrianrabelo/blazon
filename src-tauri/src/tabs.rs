@@ -90,6 +90,7 @@ pub(crate) fn update_tab(app: &AppHandle, id: u64, f: impl FnOnce(&mut Tab)) {
 /// Creates a tab's webview; `layout` positions it right after.
 pub(crate) fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab) -> tauri::Result<()> {
     let id = tab.id;
+    windowing::forget_memory_state(&label(id));
     let url = match Url::parse(&tab.url) {
         Ok(u) if !tab.url.is_empty() => WebviewUrl::External(u),
         _ => WebviewUrl::App(NEWTAB_PAGE.into()),

@@ -485,3 +485,6 @@ body.horizontal .folder, body.horizontal .in-folder { padding-left: 10px; }
 body.wc-corner #sidebar { top: 36px; padding-top: 0; }
 body.wc-corner .edge { top: 36px; }
 body.wc-corner dialog { top: 84px; }
+/* The footer keeps its size with big icons, so the Space switcher fits. */
+footer .icon { width: 30px; height: 30px; }
+.switcher { flex-shrink: 0; }
