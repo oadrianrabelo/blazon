@@ -1057,9 +1057,42 @@ listen('downloads', (e) => {
   const before = downloads.length;
   downloads = e.payload;
   drawDownloads();
-  if (downloads.length > before) Motion.pulse($('downloads-btn'), 'm-bounce');
-  if (downloads.length > before && !$('downloads').open) toast(`Baixando "${downloads[downloads.length - 1].name}"`, [['Ver downloads', () => $('downloads').showModal(), true]]);
+  if (downloads.length > before) flyDownload();
 });
+// A new download flies from the page edge to the downloads button along an
+// arc, shrinking as it goes (BrowserMacDownloadFeedbackLayer / FlightPath).
+function flyDownload() {
+  const button = $('downloads-btn');
+  const land = () => Motion.pulse(button, 'm-bounce');
+  if (Motion.reduced.matches) return land();
+  const bar = $('sidebar').getBoundingClientRect();
+  const to = button.getBoundingClientRect();
+  const src = { x: state?.settings.sidebar_right ? bar.left + 24 : bar.right - 24, y: innerHeight * 0.4 };
+  const dst = { x: to.left + to.width / 2, y: to.top + to.height / 2 };
+  const lift = Math.min(140, Math.hypot(dst.x - src.x, dst.y - src.y) * 0.3);
+  const ctl = { x: (src.x + dst.x) / 2, y: Math.max(20, Math.min(src.y, dst.y) - lift) };
+  const at = (t) => ({
+    x: (1 - t) ** 2 * src.x + 2 * (1 - t) * t * ctl.x + t * t * dst.x,
+    y: (1 - t) ** 2 * src.y + 2 * (1 - t) * t * ctl.y + t * t * dst.y,
+  });
+  const ease = (t) => (t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2);
+  const fly = el('div', 'dl-flight');
+  fly.append(icon('download'));
+  document.body.append(fly);
+  // 0.14s appearing, 0.1s pause, 0.78s flight; fades over the last 10%.
+  const total = 1.02;
+  const frames = [{ offset: 0, opacity: 0, transform: `translate(${src.x}px, ${src.y}px) scale(.55)` },
+    { offset: 0.14 / total, opacity: 1, transform: `translate(${src.x}px, ${src.y}px) scale(1)`, easing: 'linear' },
+    { offset: 0.24 / total, opacity: 1, transform: `translate(${src.x}px, ${src.y}px) scale(1)` }];
+  for (let i = 1; i <= 20; i++) {
+    const p = i / 20;
+    const t = ease(p);
+    const pt = at(t);
+    frames.push({ offset: (0.24 + 0.78 * p) / total, opacity: p > 0.9 ? 1 - (p - 0.9) / 0.1 : 1, transform: `translate(${pt.x}px, ${pt.y}px) scale(${1 - t * 0.68})` });
+  }
+  fly.animate(frames, { duration: total * 1000, fill: 'forwards' }).onfinish = () => { fly.remove(); land(); };
+}
+
 $('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal(); };
 $('dl-clear').onclick = () => invoke('clear_downloads');
 invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });

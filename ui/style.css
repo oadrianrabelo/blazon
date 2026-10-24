@@ -306,3 +306,8 @@ dialog[open]::backdrop { animation: m-fade-in var(--floating-pane) ease-out; }
 .deck-dot::after { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--fg); opacity: .3; transition: opacity var(--selection) ease-in-out; }
 .deck-dot.on::after { opacity: .72; }
 .deck-dot:hover { background: none; }
+
+/* Download flight (see flyDownload). */
+.dl-flight { position: fixed; left: -14px; top: -14px; z-index: 70; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; pointer-events: none;
+  background: var(--c2); color: var(--c0); box-shadow: 0 2px 8px rgba(0, 0, 0, .18); }
+.dl-flight svg { width: 16px; height: 16px; }
