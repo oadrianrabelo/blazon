@@ -186,6 +186,8 @@ pub(crate) struct Data {
     pub(crate) last_update_check: u64,
     /// When the last automatic backup was written (Unix seconds).
     pub(crate) last_backup: u64,
+    /// Unpacked extension folders by extension id, to read their manifests.
+    pub(crate) extension_dirs: HashMap<String, String>,
     /// Locked Spaces opened with Windows Hello this session.
     #[serde(skip_deserializing)]
     pub(crate) unlocked: Vec<String>,

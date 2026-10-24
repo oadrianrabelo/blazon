@@ -157,7 +157,19 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
         overlay::overlay_of(wl),
         overlay::peek_of(wl),
     );
-    let (pos, size) = rects[1];
+    let scale = win.scale_factor().unwrap_or(1.0);
+    // An extension side panel takes a column beside the page.
+    let side_panel = sidepanel::panel_for(wl, space);
+    let side_l = sidepanel::side_of(wl);
+    let (page_rect, side_rect) = match &side_panel {
+        Some(_) => {
+            let (p, s) = sidepanel::split(rects[1], scale);
+            (p, Some(s))
+        }
+        None => (rects[1], None),
+    };
+    sidepanel::tell_ui(app, wl, side_panel.as_ref(), side_rect, scale);
+    let (pos, size) = page_rect;
     // Split View: equal halves with a card gap between them.
     let n = visible.len().max(1) as u32;
     let gap = (CARD_MARGIN * win.scale_factor().unwrap_or(1.0)) as u32;
@@ -218,6 +230,23 @@ pub(crate) fn layout_window(app: &AppHandle, wl: &str, space: &str, create: bool
             let _ = wv.set_size(s);
             #[cfg(windows)]
             webview2::round_corners(&wv, PEEK_RADIUS);
+        } else if l == side_l {
+            match side_rect {
+                Some((p, s)) if panel.is_none() => {
+                    let _ = wv.set_position(p);
+                    let _ = wv.set_size(s);
+                    #[cfg(windows)]
+                    webview2::round_corners(&wv, PEEK_RADIUS);
+                    let _ = wv.show();
+                }
+                Some(_) => {
+                    let _ = wv.hide();
+                }
+                // The window now shows another Space: the panel goes away.
+                None => {
+                    let _ = wv.close();
+                }
+            }
         } else if panel.is_some() {
             let _ = wv.hide();
         } else if let Some((_, p)) = slots.iter().find(|(s, _)| *s == l) {

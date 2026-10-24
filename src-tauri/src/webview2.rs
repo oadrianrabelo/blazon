@@ -488,7 +488,7 @@ pub async fn list_extensions(wv: &Webview) -> Vec<Extension> {
 }
 
 /// Installs an unpacked extension folder; returns its name or an error.
-pub async fn add_extension(wv: &Webview, folder: String) -> Result<String, String> {
+pub async fn add_extension(wv: &Webview, folder: String) -> Result<Extension, String> {
     ask(wv, move |pv, tx| unsafe {
         let Some(p7) = profile(&pv).and_then(|p| p.cast::<ICoreWebView2Profile7>().ok()) else {
             let _ = tx.send(Err("Esta versão do WebView2 não suporta extensões.".to_string()));
@@ -499,7 +499,7 @@ pub async fn add_extension(wv: &Webview, folder: String) -> Result<String, Strin
             &HSTRING::from(folder),
             &ProfileAddBrowserExtensionCompletedHandler::create(Box::new(move |hr, ext| {
                 let _ = tx2.send(match (hr.is_ok(), ext) {
-                    (true, Some(e)) => Ok(extension_info(&e).name),
+                    (true, Some(e)) => Ok(extension_info(&e)),
                     _ => Err(format!("A extensão não pôde ser instalada ({hr:?}). Ela precisa ser uma pasta descompactada com manifest.json.")),
                 });
                 Ok(())

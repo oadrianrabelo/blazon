@@ -4,6 +4,33 @@
 
 const I18N = (() => {
   const EN = {
+    // Passwords and extension panel
+    'Fechar painel': 'Close panel',
+    'Abrir ao lado da página': 'Open beside the page',
+    'Painel': 'Panel',
+    'Janela da extensão': 'Extension popup',
+    'Opções': 'Options',
+    'Nenhuma extensão com painel neste Space.': 'No extension with a panel in this Space.',
+    'Instalar extensões…': 'Install extensions…',
+    'Preencher senha salva': 'Fill saved password',
+    'Preencher com': 'Fill with',
+    'Mostrar': 'Show',
+    'Apagar': 'Delete',
+    'Nenhum navegador com senhas encontrado.': 'No browser with saved passwords found.',
+    'Importar arquivo CSV…': 'Import CSV file…',
+    'Pesquisar site ou usuário': 'Search site or username',
+    'Nada encontrado.': 'Nothing found.',
+    'Nenhuma senha importada ainda.': 'No passwords imported yet.',
+    'sem usuário': 'no username',
+    'Apagar todas': 'Delete all',
+    'Apagar todas as senhas importadas no Blazon?': 'Delete all passwords imported into Blazon?',
+    'Senhas trazidas de outros navegadores ficam num cofre criptografado pelo Windows, que só a sua conta abre. Num site com senha salva, a chave na barra lateral preenche o login.': 'Passwords brought from other browsers live in a vault encrypted by Windows that only your account can open. On a site with a saved password, the key in the sidebar fills in the login.',
+    'De um navegador': 'From a browser',
+    'De um arquivo': 'From a file',
+    'Chrome, Edge, Brave, Vivaldi e Opera. Versões novas do Chrome protegem as senhas: nesse caso, exporte em CSV.': 'Chrome, Edge, Brave, Vivaldi and Opera. Newer Chrome versions protect their passwords: in that case, export them as CSV.',
+    'CSV exportado pelo Chrome, Edge, Firefox, Safari ou Bitwarden.': 'CSV exported by Chrome, Edge, Firefox, Safari or Bitwarden.',
+    'Salvas': 'Saved',
+    'Limpar o cofre': 'Empty the vault',
     // Welcome flow
     'Bem-vindo ao Blazon': 'Welcome to Blazon', 'A internet nas suas cores.': 'The internet in your colors.', 'Começar': 'Get started',
     '01 — Aparência': '01 — Appearance', 'Escolha a casa do seu Space': 'Choose your Space’s house',

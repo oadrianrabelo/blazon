@@ -7,6 +7,7 @@ const ICONS = {
   forward: '<path d="m9 18 6-6-6-6"/>',
   reload: '<path d="M20 12a8 8 0 1 1-2.3-5.7L20 8.5"/><path d="M20 3.5v5h-5"/>',
   x: '<path d="M18 6 6 18M6 6l12 12"/>',
+  puzzle: '<path d="M10 3a2 2 0 0 1 4 0v2h4v4h2a2 2 0 0 1 0 4h-2v6h-6v-2a2 2 0 0 0-4 0v2H4v-6h2a2 2 0 0 0 0-4H4V5h6Z"/>',
   key: '<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 9.8-9.8M17 6l2.5 2.5M14.5 8.5 17 11"/>',
   min: '<path d="M5 12h14"/>',
   max: '<rect x="5" y="5" width="14" height="14" rx="1.5"/>',
@@ -1028,6 +1029,34 @@ function cycleDeck(direction) {
     if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { e.preventDefault(); cycleDeck(e.key === 'ArrowRight' ? 1 : -1); }
   });
 })();
+
+// Extension side panel (Crest's ExtensionSidePanel): the footer button lists
+// the Space's extensions that have a panel, popup or options page; the page
+// opens in a column beside the site, under a header drawn here.
+$('ext-btn').onclick = async () => {
+  const r = $('ext-btn').getBoundingClientRect();
+  const at = { clientX: r.left, clientY: r.top - 8 };
+  let pages = [];
+  try { pages = await invoke('extension_panels', { space: state.active_space }); } catch (err) {
+    return showMenu(at, [{ sub: String(err) }]);
+  }
+  const KIND = { panel: 'Painel', popup: 'Janela da extensão', options: 'Opções' };
+  showMenu(at, pages.length
+    ? [{ sub: 'Abrir ao lado da página' }, ...pages.map((p) => ({ label: `${p.name} · ${KIND[p.kind]}`, icon: 'puzzle', run: () => invoke('open_side_panel', { id: p.id, page: p.page, name: p.name }).catch((e) => toast(String(e))) }))]
+    : [{ sub: 'Nenhuma extensão com painel neste Space.' }, { label: 'Instalar extensões…', icon: 'plus', run: () => invoke('open_panel', { section: 'extensions' }) }]);
+  // The menu opens upward from the footer.
+  const m = $('ctx');
+  m.style.top = `${Math.max(6, r.top - m.offsetHeight - 6)}px`;
+};
+listen('side-panel', (e) => {
+  const head = $('side-head');
+  const p = e.payload;
+  if (!p) { head.hidden = true; return; }
+  Object.assign(head.style, { left: `${p.x}px`, top: `${p.y}px`, width: `${p.w}px` });
+  $('side-name').textContent = p.name;
+  if (head.hidden) Motion.show(head, 'rise');
+});
+$('side-close').onclick = () => invoke('close_side_panel');
 
 // Toasts: crash notices and other one-off messages.
 function toast(text, actions = []) {

@@ -14,6 +14,7 @@ mod overlay;
 mod passwords;
 mod profile;
 mod quick;
+mod sidepanel;
 mod spaces;
 #[cfg(windows)]
 mod sqlite;
@@ -440,6 +441,9 @@ fn main() {
             passwords::clear_logins,
             passwords::logins_for_tab,
             passwords::fill_login,
+            sidepanel::extension_panels,
+            sidepanel::open_side_panel,
+            sidepanel::close_side_panel,
             quick::quick_state,
             quick::quick_to_tab,
             quick::quick_close,
