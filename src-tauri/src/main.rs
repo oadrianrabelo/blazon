@@ -168,7 +168,9 @@ impl Data {
 
     /// Tabs on screen: the active tab, or its Split View pair.
     fn visible(&self) -> Vec<u64> {
-        let Some(id) = self.active_tab_id() else { return vec![] };
+        let Some(id) = self.active_tab_id() else {
+            return vec![];
+        };
         match self.splits.iter().find(|p| p.contains(&id)) {
             Some(pair) => pair.to_vec(),
             None => vec![id],
@@ -195,7 +197,12 @@ impl Data {
                 house: "winter".into(),
             });
         }
-        let spaces: Vec<String> = self.spaces.iter().filter(|s| !s.private).map(|s| s.id.clone()).collect();
+        let spaces: Vec<String> = self
+            .spaces
+            .iter()
+            .filter(|s| !s.private)
+            .map(|s| s.id.clone())
+            .collect();
         self.tabs.retain(|t| spaces.contains(&t.space));
         let spaces: Vec<String> = self.spaces.iter().map(|s| s.id.clone()).collect();
         self.folders.retain(|f| spaces.contains(&f.space));
@@ -210,7 +217,8 @@ impl Data {
         }
         let tabs = &self.tabs;
         let space_of = |id: u64| tabs.iter().find(|t| t.id == id).map(|t| t.space.clone());
-        self.splits.retain(|[a, b]| a != b && space_of(*a).is_some() && space_of(*a) == space_of(*b));
+        self.splits
+            .retain(|[a, b]| a != b && space_of(*a).is_some() && space_of(*a) == space_of(*b));
         self.active_tab
             .retain(|s, id| tabs.iter().any(|t| t.id == *id && &t.space == s));
         let max_tab = self.tabs.iter().map(|t| t.id).max().unwrap_or(0);
@@ -233,7 +241,10 @@ struct AppState {
 }
 
 fn now() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map(|d| d.as_secs()).unwrap_or(0)
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map(|d| d.as_secs())
+        .unwrap_or(0)
 }
 
 fn record_visit(app: &AppHandle, space: &str, url: &str, title: &str) {
@@ -245,11 +256,24 @@ fn record_visit(app: &AppHandle, space: &str, url: &str, title: &str) {
     let (title, count) = match h.iter().position(|v| v.space == space && v.url == url) {
         Some(i) => {
             let old = h.remove(i);
-            (if title.is_empty() { old.title } else { title.to_string() }, old.count.saturating_add(1))
+            (
+                if title.is_empty() {
+                    old.title
+                } else {
+                    title.to_string()
+                },
+                old.count.saturating_add(1),
+            )
         }
         None => (title.to_string(), 1),
     };
-    h.push(Visit { space: space.into(), url: url.into(), title, time: now(), count });
+    h.push(Visit {
+        space: space.into(),
+        url: url.into(),
+        title,
+        time: now(),
+        count,
+    });
     if h.len() > HISTORY_LIMIT {
         let extra = h.len() - HISTORY_LIMIT;
         h.drain(..extra);
@@ -259,7 +283,14 @@ fn record_visit(app: &AppHandle, space: &str, url: &str, title: &str) {
 
 fn set_visit_title(app: &AppHandle, space: &str, url: &str, title: &str) {
     let s = state(app);
-    if let Some(v) = s.history.lock().unwrap().iter_mut().rev().find(|v| v.space == space && v.url == url) {
+    if let Some(v) = s
+        .history
+        .lock()
+        .unwrap()
+        .iter_mut()
+        .rev()
+        .find(|v| v.space == space && v.url == url)
+    {
         v.title = title.into();
         s.history_dirty.store(true, Ordering::Relaxed);
     }
@@ -267,10 +298,26 @@ fn set_visit_title(app: &AppHandle, space: &str, url: &str, title: &str) {
 
 /// What the start page shows: the Space's look and its most visited sites.
 fn start_page_data(app: &AppHandle, space: &str) -> String {
-    let (sp, search) = with_data(app, |d| (d.spaces.iter().find(|s| s.id == space).cloned(), d.settings.search.clone()));
+    let (sp, search) = with_data(app, |d| {
+        (
+            d.spaces.iter().find(|s| s.id == space).cloned(),
+            d.settings.search.clone(),
+        )
+    });
     let mut by_host: HashMap<String, (u32, Visit)> = HashMap::new();
-    for v in state(app).history.lock().unwrap().iter().filter(|v| v.space == space) {
-        let Some(host) = Url::parse(&v.url).ok().and_then(|u| u.host_str().map(String::from)) else { continue };
+    for v in state(app)
+        .history
+        .lock()
+        .unwrap()
+        .iter()
+        .filter(|v| v.space == space)
+    {
+        let Some(host) = Url::parse(&v.url)
+            .ok()
+            .and_then(|u| u.host_str().map(String::from))
+        else {
+            continue;
+        };
         let e = by_host.entry(host).or_insert((0, v.clone()));
         e.0 += v.count;
         if v.count > e.1.count {
@@ -278,7 +325,7 @@ fn start_page_data(app: &AppHandle, space: &str) -> String {
         }
     }
     let mut top: Vec<(u32, Visit)> = by_host.into_values().collect();
-    top.sort_by(|a, b| b.0.cmp(&a.0));
+    top.sort_by_key(|t| std::cmp::Reverse(t.0));
     let sites: Vec<_> = top
         .into_iter()
         .take(8)
@@ -308,7 +355,12 @@ fn sleep_idle_tabs(app: &AppHandle) {
         let cutoff = now().saturating_sub(limit);
         let mut ids = vec![];
         for t in d.tabs.iter_mut() {
-            if limit > 0 && t.awake && !t.pinned && !visible.contains(&t.id) && t.last_active < cutoff {
+            if limit > 0
+                && t.awake
+                && !t.pinned
+                && !visible.contains(&t.id)
+                && t.last_active < cutoff
+            {
                 t.awake = false;
                 t.loading = false;
                 ids.push(t.id);
@@ -338,7 +390,9 @@ fn arg_to_url(arg: &str) -> Option<String> {
     }
     let path = PathBuf::from(arg);
     if path.is_file() {
-        return Url::from_file_path(fs::canonicalize(&path).ok()?).ok().map(|u| u.to_string());
+        return Url::from_file_path(fs::canonicalize(&path).ok()?)
+            .ok()
+            .map(|u| u.to_string());
     }
     None
 }
@@ -383,12 +437,19 @@ fn to_url(input: &str, search: &str) -> String {
         return String::new();
     }
     if let Ok(u) = Url::parse(s) {
-        if matches!(u.scheme(), "http" | "https" | "file" | "about" | "data" | "view-source") {
+        if matches!(
+            u.scheme(),
+            "http" | "https" | "file" | "about" | "data" | "view-source"
+        ) {
             return u.to_string();
         }
     }
     if !s.contains(char::is_whitespace) {
-        let scheme = if s.starts_with("localhost") || s.starts_with("127.") { "http" } else { "https" };
+        let scheme = if s.starts_with("localhost") || s.starts_with("127.") {
+            "http"
+        } else {
+            "https"
+        };
         if s.contains('.') || s.starts_with("localhost") {
             if let Ok(u) = Url::parse(&format!("{scheme}://{s}")) {
                 return u.to_string();
@@ -401,7 +462,10 @@ fn to_url(input: &str, search: &str) -> String {
 
 /// UI and page rectangles in physical pixels. The UI covers the whole window
 /// (sidebar plus the Space background); the page sits on it as an inset card.
-fn layout_rects(win: &Window, right: bool) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
+fn layout_rects(
+    win: &Window,
+    right: bool,
+) -> Option<[(PhysicalPosition<i32>, PhysicalSize<u32>); 2]> {
     let size = win.inner_size().ok()?;
     let scale = win.scale_factor().ok()?;
     let sw = ((SIDEBAR_WIDTH * scale) as u32).min(size.width);
@@ -411,12 +475,17 @@ fn layout_rects(win: &Window, right: bool) -> Option<[(PhysicalPosition<i32>, Ph
     let content_x = if right { m } else { sw };
     Some([
         (PhysicalPosition::new(0, 0), size),
-        (PhysicalPosition::new(content_x as i32, m as i32), PhysicalSize::new(cw, ch)),
+        (
+            PhysicalPosition::new(content_x as i32, m as i32),
+            PhysicalSize::new(cw, ch),
+        ),
     ])
 }
 
 fn update_tab(app: &AppHandle, id: u64, f: impl FnOnce(&mut Tab)) {
-    let found = with_data(app, |d| d.tabs.iter_mut().find(|t| t.id == id).map(f).is_some());
+    let found = with_data(app, |d| {
+        d.tabs.iter_mut().find(|t| t.id == id).map(f).is_some()
+    });
     if found {
         commit(app);
     }
@@ -441,11 +510,18 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
         .on_page_load(move |wv, payload| {
             let url = payload.url();
             let newtab = is_newtab(url);
-            let url = if newtab { String::new() } else { url.to_string() };
+            let url = if newtab {
+                String::new()
+            } else {
+                url.to_string()
+            };
             let loading = matches!(payload.event(), PageLoadEvent::Started);
             let app = wv.app_handle();
             if newtab && !loading {
-                let _ = wv.eval(format!("window.crestStart && window.crestStart({})", start_page_data(app, &space)));
+                let _ = wv.eval(format!(
+                    "window.crestStart && window.crestStart({})",
+                    start_page_data(app, &space)
+                ));
             }
             let mut title = String::new();
             update_tab(app, id, |t| {
@@ -493,8 +569,13 @@ fn create_tab_webview(app: &AppHandle, win: &Window, tab: &Tab, right: bool) -> 
     Ok(())
 }
 
-/// Creates the active tab's webview if needed, shows it and hides the rest.
+/// Creates the visible tabs' webviews if needed, shows them and hides the rest.
 fn apply_layout(app: &AppHandle) {
+    layout(app, true);
+}
+
+/// `create` must be false on the main thread: creating a webview there deadlocks on Windows.
+fn layout(app: &AppHandle, create: bool) {
     let Some(win) = window(app) else { return };
     let (visible, right) = with_data(app, |d| {
         let ids = d.visible();
@@ -507,10 +588,15 @@ fn apply_layout(app: &AppHandle) {
                 t.clone()
             })
             .collect();
-        let ordered: Vec<Tab> = ids.iter().filter_map(|id| tabs.iter().find(|t| t.id == *id).cloned()).collect();
+        let ordered: Vec<Tab> = ids
+            .iter()
+            .filter_map(|id| tabs.iter().find(|t| t.id == *id).cloned())
+            .collect();
         (ordered, d.settings.sidebar_right)
     });
-    let Some(rects) = layout_rects(&win, right) else { return };
+    let Some(rects) = layout_rects(&win, right) else {
+        return;
+    };
     let (pos, size) = rects[1];
     // Split View: equal halves with a card gap between them.
     let n = visible.len().max(1) as u32;
@@ -519,9 +605,14 @@ fn apply_layout(app: &AppHandle) {
     let slots: Vec<(String, PhysicalPosition<i32>)> = visible
         .iter()
         .enumerate()
-        .map(|(i, t)| (label(t.id), PhysicalPosition::new(pos.x + (i as u32 * (w + gap)) as i32, pos.y)))
+        .map(|(i, t)| {
+            (
+                label(t.id),
+                PhysicalPosition::new(pos.x + (i as u32 * (w + gap)) as i32, pos.y),
+            )
+        })
         .collect();
-    for tab in &visible {
+    for tab in visible.iter().filter(|_| create) {
         if app.get_webview(&label(tab.id)).is_none() {
             let _ = create_tab_webview(app, &win, tab, right);
         }
@@ -560,7 +651,17 @@ async fn open_tab(app: &AppHandle, url: String) {
     with_data(app, |d| {
         let id = d.new_id();
         let space = d.active_space.clone();
-        d.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, folder: None, loading: true, awake: false, last_active: now() });
+        d.tabs.push(Tab {
+            id,
+            space: space.clone(),
+            url,
+            title: String::new(),
+            pinned: false,
+            folder: None,
+            loading: true,
+            awake: false,
+            last_active: now(),
+        });
         d.active_tab.insert(space, id);
     });
     apply_layout(app);
@@ -591,7 +692,13 @@ async fn run_cmd(app: &AppHandle, cmd: &str) {
                 let tabs = d.space_tabs(&d.active_space);
                 let i = tabs.iter().position(|t| Some(*t) == d.active_tab_id())?;
                 let n = tabs.len();
-                Some(tabs[if cmd == "next" { (i + 1) % n } else { (i + n - 1) % n }])
+                Some(
+                    tabs[if cmd == "next" {
+                        (i + 1) % n
+                    } else {
+                        (i + n - 1) % n
+                    }],
+                )
             });
             if let Some(id) = next {
                 activate_tab(app.clone(), id).await;
@@ -607,7 +714,11 @@ async fn run_cmd(app: &AppHandle, cmd: &str) {
             let n: usize = c[3..].parse().unwrap_or(1);
             let id = with_data(app, |d| {
                 let tabs = d.space_tabs(&d.active_space);
-                if n == 9 { tabs.last().copied() } else { tabs.get(n - 1).copied() }
+                if n == 9 {
+                    tabs.last().copied()
+                } else {
+                    tabs.get(n - 1).copied()
+                }
             });
             if let Some(id) = id {
                 activate_tab(app.clone(), id).await;
@@ -626,7 +737,9 @@ async fn get_state(app: AppHandle) -> Data {
 
 #[tauri::command]
 async fn new_tab(app: AppHandle, url: Option<String>) {
-    let url = with_data(&app, |d| to_url(url.as_deref().unwrap_or(""), &d.settings.search));
+    let url = with_data(&app, |d| {
+        to_url(url.as_deref().unwrap_or(""), &d.settings.search)
+    });
     let blank = url.is_empty();
     open_tab(&app, url).await;
     if blank {
@@ -657,7 +770,12 @@ async fn close_tab(app: AppHandle, id: u64) {
         let space = d.tabs.iter().find(|t| t.id == id)?.space.clone();
         let order = d.space_tabs(&space);
         let i = order.iter().position(|t| *t == id).unwrap_or(0);
-        let url = d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()).unwrap_or_default();
+        let url = d
+            .tabs
+            .iter()
+            .find(|t| t.id == id)
+            .map(|t| t.url.clone())
+            .unwrap_or_default();
         d.unsplit(id);
         if !url.is_empty() {
             let mut closed = state(&app).closed.lock().unwrap();
@@ -668,7 +786,10 @@ async fn close_tab(app: AppHandle, id: u64) {
         }
         d.tabs.retain(|t| t.id != id);
         if d.active_tab.get(&space) == Some(&id) {
-            match order.get(i + 1).or(i.checked_sub(1).and_then(|j| order.get(j))) {
+            match order
+                .get(i + 1)
+                .or(i.checked_sub(1).and_then(|j| order.get(j)))
+            {
                 Some(next) => {
                     d.active_tab.insert(space.clone(), *next);
                 }
@@ -693,7 +814,9 @@ async fn close_tab(app: AppHandle, id: u64) {
 
 #[tauri::command]
 async fn reopen_tab(app: AppHandle) {
-    let Some((space, url)) = state(&app).closed.lock().unwrap().pop() else { return };
+    let Some((space, url)) = state(&app).closed.lock().unwrap().pop() else {
+        return;
+    };
     let exists = with_data(&app, |d| {
         let ok = d.spaces.iter().any(|s| s.id == space);
         if ok {
@@ -723,9 +846,16 @@ async fn suggest(app: AppHandle, query: String) -> Vec<Suggestion> {
     let active = with_data(&app, |d| d.active_tab_id());
     let mut out: Vec<Suggestion> = tabs
         .iter()
-        .filter(|t| t.space == space && Some(t.id) != active && !t.url.is_empty() && hit(&t.url, &t.title))
+        .filter(|t| {
+            t.space == space && Some(t.id) != active && !t.url.is_empty() && hit(&t.url, &t.title)
+        })
         .take(3)
-        .map(|t| Suggestion { kind: "tab", url: t.url.clone(), title: t.title.clone(), tab: Some(t.id) })
+        .map(|t| Suggestion {
+            kind: "tab",
+            url: t.url.clone(),
+            title: t.title.clone(),
+            tab: Some(t.id),
+        })
         .collect();
     let history = state(&app).history.lock().unwrap();
     for v in history.iter().rev() {
@@ -733,7 +863,12 @@ async fn suggest(app: AppHandle, query: String) -> Vec<Suggestion> {
             break;
         }
         if v.space == space && hit(&v.url, &v.title) && !out.iter().any(|s| s.url == v.url) {
-            out.push(Suggestion { kind: "history", url: v.url.clone(), title: v.title.clone(), tab: None });
+            out.push(Suggestion {
+                kind: "history",
+                url: v.url.clone(),
+                title: v.title.clone(),
+                tab: None,
+            });
         }
     }
     out
@@ -749,7 +884,12 @@ async fn history_list(app: AppHandle, query: String) -> Vec<Visit> {
         .unwrap()
         .iter()
         .rev()
-        .filter(|v| v.space == space && (q.is_empty() || v.url.to_lowercase().contains(&q) || v.title.to_lowercase().contains(&q)))
+        .filter(|v| {
+            v.space == space
+                && (q.is_empty()
+                    || v.url.to_lowercase().contains(&q)
+                    || v.title.to_lowercase().contains(&q))
+        })
         .take(300)
         .cloned()
         .collect()
@@ -766,11 +906,15 @@ async fn clear_history(app: AppHandle) {
 
 #[tauri::command]
 async fn navigate(app: AppHandle, input: String) {
-    let (id, url) = with_data(&app, |d| (d.active_tab_id(), to_url(&input, &d.settings.search)));
+    let (id, url) = with_data(&app, |d| {
+        (d.active_tab_id(), to_url(&input, &d.settings.search))
+    });
     let Some(id) = id else {
         return new_tab(app, Some(input)).await;
     };
-    let Some(wv) = app.get_webview(&label(id)) else { return };
+    let Some(wv) = app.get_webview(&label(id)) else {
+        return;
+    };
     if let Ok(u) = Url::parse(&url) {
         let _ = wv.navigate(u);
         let _ = wv.set_focus();
@@ -779,8 +923,12 @@ async fn navigate(app: AppHandle, input: String) {
 
 #[tauri::command]
 async fn nav(app: AppHandle, action: String) {
-    let Some(id) = with_data(&app, |d| d.active_tab_id()) else { return };
-    let Some(wv) = app.get_webview(&label(id)) else { return };
+    let Some(id) = with_data(&app, |d| d.active_tab_id()) else {
+        return;
+    };
+    let Some(wv) = app.get_webview(&label(id)) else {
+        return;
+    };
     let _ = match action.as_str() {
         "back" => wv.eval("history.back()"),
         "forward" => wv.eval("history.forward()"),
@@ -820,18 +968,27 @@ async fn move_tab(app: AppHandle, id: u64, before: Option<u64>, pinned: bool, fo
 /// Shows `id` side by side with `with`, or with a new tab when `with` is None.
 #[tauri::command]
 async fn split_tab(app: AppHandle, id: u64, with: Option<u64>) {
-    let space = with_data(&app, |d| d.tabs.iter().find(|t| t.id == id).map(|t| t.space.clone()));
+    let space = with_data(&app, |d| {
+        d.tabs.iter().find(|t| t.id == id).map(|t| t.space.clone())
+    });
     let Some(space) = space else { return };
     let other = match with {
         Some(o) => o,
-        None => {
-            let o = with_data(&app, |d| {
-                let o = d.new_id();
-                d.tabs.push(Tab { id: o, space: space.clone(), url: String::new(), title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: now() });
-                o
+        None => with_data(&app, |d| {
+            let o = d.new_id();
+            d.tabs.push(Tab {
+                id: o,
+                space: space.clone(),
+                url: String::new(),
+                title: String::new(),
+                pinned: false,
+                folder: None,
+                loading: false,
+                awake: false,
+                last_active: now(),
             });
             o
-        }
+        }),
     };
     let ok = with_data(&app, |d| {
         if id == other || d.tabs.iter().find(|t| t.id == other).map(|t| &t.space) != Some(&space) {
@@ -841,7 +998,8 @@ async fn split_tab(app: AppHandle, id: u64, with: Option<u64>) {
         d.unsplit(other);
         d.splits.push([id, other]);
         d.active_space = space.clone();
-        d.active_tab.insert(space, if with.is_some() { id } else { other });
+        d.active_tab
+            .insert(space, if with.is_some() { id } else { other });
         true
     });
     if ok {
@@ -867,18 +1025,38 @@ async fn import_sources() -> Vec<import::Source> {
     import::sources()
 }
 
-const HOUSES: [&str; 9] = ["winter", "lion", "storm", "dragon", "meadow", "iron", "river", "sun", "vigil"];
-const HOUSE_ACCENTS: [&str; 9] = ["#86adc4", "#c9a254", "#b08f4a", "#be4438", "#bca766", "#9c9781", "#a85c41", "#d09e65", "#7b838c"];
+const HOUSES: [&str; 9] = [
+    "winter", "lion", "storm", "dragon", "meadow", "iron", "river", "sun", "vigil",
+];
+const HOUSE_ACCENTS: [&str; 9] = [
+    "#86adc4", "#c9a254", "#b08f4a", "#be4438", "#bca766", "#9c9781", "#a85c41", "#d09e65",
+    "#7b838c",
+];
 
 fn push_tab(d: &mut Data, space: &str, e: import::Entry, pinned: bool, folder: Option<u64>) {
     let id = d.new_id();
-    d.tabs.push(Tab { id, space: space.into(), url: e.url, title: e.title, pinned, folder, loading: false, awake: false, last_active: 0 });
+    d.tabs.push(Tab {
+        id,
+        space: space.into(),
+        url: e.url,
+        title: e.title,
+        pinned,
+        folder,
+        loading: false,
+        awake: false,
+        last_active: 0,
+    });
 }
 
 fn push_folders(d: &mut Data, space: &str, folders: Vec<import::Folder>) {
     for f in folders {
         let fid = d.new_id();
-        d.folders.push(Folder { id: fid, space: space.into(), name: f.name, open: false });
+        d.folders.push(Folder {
+            id: fid,
+            space: space.into(),
+            name: f.name,
+            open: false,
+        });
         for e in f.tabs {
             push_tab(d, space, e, false, Some(fid));
         }
@@ -903,7 +1081,13 @@ async fn import_browser(app: AppHandle, id: String) -> Result<String, String> {
                 for sp in spaces {
                     let sid = format!("space-{}", d.new_id());
                     let h = d.spaces.len() % HOUSES.len();
-                    d.spaces.push(Space { id: sid.clone(), name: sp.name, color: HOUSE_ACCENTS[h].into(), private: false, house: HOUSES[h].into() });
+                    d.spaces.push(Space {
+                        id: sid.clone(),
+                        name: sp.name,
+                        color: HOUSE_ACCENTS[h].into(),
+                        private: false,
+                        house: HOUSES[h].into(),
+                    });
                     for e in sp.pinned {
                         push_tab(d, &sid, e, true, None);
                     }
@@ -926,7 +1110,12 @@ async fn add_folder(app: AppHandle, name: String, tab: Option<u64>) {
     with_data(&app, |d| {
         let id = d.new_id();
         let space = d.active_space.clone();
-        d.folders.push(Folder { id, space, name, open: true });
+        d.folders.push(Folder {
+            id,
+            space,
+            name,
+            open: true,
+        });
         if let Some(t) = d.tabs.iter_mut().find(|t| Some(t.id) == tab) {
             t.folder = Some(id);
             t.pinned = false;
@@ -964,7 +1153,9 @@ async fn delete_folder(app: AppHandle, id: u64) {
 
 #[tauri::command]
 async fn duplicate_tab(app: AppHandle, id: u64) {
-    let url = with_data(&app, |d| d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone()));
+    let url = with_data(&app, |d| {
+        d.tabs.iter().find(|t| t.id == id).map(|t| t.url.clone())
+    });
     if let Some(url) = url {
         open_tab(&app, url).await;
         focus_active(&app);
@@ -975,7 +1166,13 @@ async fn duplicate_tab(app: AppHandle, id: u64) {
 async fn add_space(app: AppHandle, name: String, color: String, private: bool, house: String) {
     with_data(&app, |d| {
         let id = format!("space-{}", d.new_id());
-        d.spaces.push(Space { id: id.clone(), name, color, private, house });
+        d.spaces.push(Space {
+            id: id.clone(),
+            name,
+            color,
+            private,
+            house,
+        });
         d.active_space = id;
     });
     open_tab(&app, String::new()).await;
@@ -1030,7 +1227,12 @@ async fn delete_space(app: AppHandle, id: String) {
             return None;
         }
         d.spaces.retain(|s| s.id != id);
-        let closed: Vec<u64> = d.tabs.iter().filter(|t| t.space == id).map(|t| t.id).collect();
+        let closed: Vec<u64> = d
+            .tabs
+            .iter()
+            .filter(|t| t.space == id)
+            .map(|t| t.id)
+            .collect();
         d.tabs.retain(|t| t.space != id);
         d.folders.retain(|f| f.space != id);
         d.active_tab.remove(&id);
@@ -1132,13 +1334,33 @@ fn main() {
             if data.active_tab_id().is_none() {
                 let id = data.new_id();
                 let space = data.active_space.clone();
-                data.tabs.push(Tab { id, space: space.clone(), url: String::new(), title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: 0 });
+                data.tabs.push(Tab {
+                    id,
+                    space: space.clone(),
+                    url: String::new(),
+                    title: String::new(),
+                    pinned: false,
+                    folder: None,
+                    loading: false,
+                    awake: false,
+                    last_active: 0,
+                });
                 data.active_tab.insert(space, id);
             }
             for url in std::env::args().skip(1).filter_map(|a| arg_to_url(&a)) {
                 let id = data.new_id();
                 let space = data.active_space.clone();
-                data.tabs.push(Tab { id, space: space.clone(), url, title: String::new(), pinned: false, folder: None, loading: false, awake: false, last_active: 0 });
+                data.tabs.push(Tab {
+                    id,
+                    space: space.clone(),
+                    url,
+                    title: String::new(),
+                    pinned: false,
+                    folder: None,
+                    loading: false,
+                    awake: false,
+                    last_active: 0,
+                });
                 data.active_tab.insert(space, id);
             }
             let history: Vec<Visit> = fs::read_to_string(root.join("history.json"))
@@ -1175,7 +1397,9 @@ fn main() {
 
             let handle = app.handle().clone();
             win.on_window_event(move |e| match e {
-                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => apply_layout(&handle),
+                WindowEvent::Resized(_) | WindowEvent::ScaleFactorChanged { .. } => {
+                    layout(&handle, false)
+                }
                 WindowEvent::CloseRequested { .. } => save_history(&handle),
                 _ => {}
             });
