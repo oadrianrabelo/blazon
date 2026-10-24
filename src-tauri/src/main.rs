@@ -425,7 +425,12 @@ fn main() {
             diag::init(&root);
             let file = root.join("state.json");
             let mut data: Data = match fs::read_to_string(&file) {
-                Err(_) => Data::default(),
+                // First run: show the welcome flow.
+                Err(_) => {
+                    let mut d = Data::default();
+                    d.settings.welcomed = false;
+                    d
+                }
                 Ok(text) => serde_json::from_str(&text).unwrap_or_else(|e| {
                     // Never overwrite unreadable data: keep a copy for recovery.
                     let backup = root.join(format!("state.broken-{}.json", now()));

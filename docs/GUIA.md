@@ -13,6 +13,16 @@
 - A janela não tem bordas por padrão. Para usar a barra de título do Windows, vá em
   Configurações → Aparência → **Barra de título do Windows**.
 
+## Boas-vindas
+
+Na primeira vez que o Blazon abre, uma tela de boas-vindas (como a do Crest) ajuda a:
+1. escolher a casa do primeiro Space;
+2. dar nome a ele e criar outros Spaces (Trabalho, Estudos, Pesquisa);
+3. importar favoritos e histórico de outros navegadores;
+4. tornar o Blazon o navegador padrão.
+
+Para ver de novo: **Configurações → Sobre → Rever boas-vindas**.
+
 ## Spaces
 
 Um Space é um navegador dentro do navegador. Cada Space tem separados:
@@ -164,6 +174,12 @@ Em Configurações → **Extensões**:
 - O WebView2 não acessa a Chrome Web Store e suporta só parte das APIs de extensão: extensões
   simples (tema, leitura, produtividade) costumam funcionar, as mais complexas podem não funcionar.
 - Para extensões que vêm como `.crx`: renomeie para `.zip`, extraia e escolha a pasta.
+
+## Site fora do ar
+
+Quando um site não abre (endereço errado, sem internet, servidor fora do ar), o Blazon mostra uma
+página própria no estilo do Crest, com dicas, **Tentar de novo** e os detalhes técnicos. Páginas de
+erro do próprio site (404, 500) e avisos de certificado continuam como vêm.
 
 ## Modo leitura
 

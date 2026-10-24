@@ -4,6 +4,21 @@
 
 const I18N = (() => {
   const EN = {
+    // Welcome flow
+    'Bem-vindo ao Blazon': 'Welcome to Blazon', 'A internet nas suas cores.': 'The internet in your colors.', 'Começar': 'Get started',
+    '01 — Aparência': '01 — Appearance', 'Escolha a casa do seu Space': 'Choose your Space’s house',
+    'O brasão e as cores da barra lateral vêm juntos. Formato, campo, faixa, borda e acabamento ficam em Configurações › Spaces.': 'The crest and the sidebar colors come together. Shape, field, band, border and finish live in Settings › Spaces.',
+    'Continuar': 'Continue', '02 — Seus Spaces': '02 — Your Spaces', 'Um Space para cada parte da sua vida': 'A Space for each part of your life',
+    'Cada Space tem as próprias abas, logins e histórico. Acrescente outros agora ou depois.': 'Each Space has its own tabs, logins and history. Add more now or later.',
+    'Nome do seu Space': 'Your Space’s name', 'Pessoal': 'Personal', 'Trabalho': 'Work', 'Estudos': 'Studies', 'Pesquisa': 'Research',
+    '03 — Seus dados': '03 — Your data', 'Traga o que você já tem': 'Bring what you already have',
+    'Favoritos e histórico vão para o Space atual. Do Arc, vêm os Spaces e as pastas.': 'Bookmarks and history go to the current Space. From Arc, Spaces and folders come along.',
+    'Procurando outros navegadores…': 'Looking for other browsers…', 'Importando…': 'Importing…', 'Importado': 'Imported', 'Falhou': 'Failed',
+    'Nenhum outro navegador encontrado. Dá para importar um arquivo HTML de favoritos em Configurações › Importar.': 'No other browser found. You can import an HTML bookmarks file in Settings › Import.',
+    'Seus Spaces estão prontos': 'Your Spaces are ready', 'Tornar navegador padrão': 'Make default browser', 'Abrir o Blazon': 'Open Blazon',
+    'Ctrl+K abre a paleta de comandos. Shift+clique num link abre o Peek. Tudo se ajusta em Configurações.': 'Ctrl+K opens the command palette. Shift+click a link to open it in Peek. Everything else is in Settings.',
+    'Rever boas-vindas': 'Show welcome again', 'Primeiros passos': 'Getting started', 'Tela de boas-vindas': 'Welcome screen',
+    'Escolher a casa, criar Spaces e importar de outros navegadores.': 'Pick a house, create Spaces and import from other browsers.',
     // Durations
     '1 dia': '1 day', '1 hora': '1 hour', '1 semana': '1 week', '12 horas': '12 hours', '15 minutos': '15 minutes',
     '3 dias': '3 days', '30 minutos': '30 minutes', '4 horas': '4 hours', 'Nunca': 'Never',
@@ -165,7 +180,7 @@ const I18N = (() => {
     'Quando nenhuma rota combina. Peek abre o link numa prévia flutuante, sem criar aba.': "When no route matches. Peek opens the link in a floating preview, without a tab.",
     'Spaces fora de qualquer janela adormecem por completo (fixadas incluídas) e liberam o processo deles.': 'Spaces not open in any window sleep completely (pinned tabs included) and release their process.',
     'Medir de novo': 'Measure again', 'Dormir agora': 'Sleep now', 'Nenhum Space com abas carregadas.': 'No Space with loaded tabs.', 'Interface do Blazon': 'Blazon interface',
-    'Tocando agora': 'Now playing', 'Pastas': 'Folders',
+    'Tocando agora': 'Now playing',
     'Barra de favoritos': 'Bookmarks bar', 'Outros favoritos': 'Other bookmarks', 'Favoritos do celular': 'Mobile bookmarks', 'Menu de favoritos': 'Bookmarks menu',
   };
 

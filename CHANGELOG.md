@@ -17,6 +17,9 @@
   do Windows.
 - **Arrastar como no Mac**: a aba levanta, as outras abrem espaço e ela assenta no lugar.
 - **Paleta de vidro** sobre a página e **Peek** que cresce e encolhe.
+- **Boas-vindas** na primeira abertura, como o setup do Crest: casa, Spaces, importação e navegador
+  padrão.
+- **Página de site fora do ar** no estilo do Crest, no lugar da página do Edge.
 - Código do app dividido em módulos.
 
 ## 0.1.0

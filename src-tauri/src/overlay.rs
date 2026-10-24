@@ -135,6 +135,11 @@ static PEEK_HANDLED: AtomicBool = AtomicBool::new(false);
 pub async fn open_overlay(app: AppHandle, mode: String, url: Option<String>) {
     match mode.as_str() {
         "peek" => open_peek(&app, url.as_deref().unwrap_or("")),
+        "welcome" => {
+            let Some(win) = window(&app) else { return };
+            close_existing(&app);
+            let _ = add_overlay(&win, "welcome");
+        }
         _ => open_palette(&app),
     }
 }

@@ -8,7 +8,7 @@ const shut = () => invoke('close_overlay');
 // (CrestMotion.dismissal / peekDismissal).
 let closing = false;
 const close = () => {
-  if (closing) return;
+  if (closing || mode === 'welcome') return;
   closing = true;
   if (mode === 'peek') return dismissPeek();
   if (Motion.reduced.matches) return shut();
@@ -289,5 +289,6 @@ invoke('get_state').then((s) => {
   I18N.sync(state.settings.language);
   applySpaceLook();
   if (mode === 'peek') startPeek();
+  else if (mode === 'welcome') startWelcome();
   else startPalette();
 });

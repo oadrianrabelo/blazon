@@ -8,13 +8,31 @@ use webview2_com::{
     take_pwstr, BrowserExtensionEnableCompletedHandler, BrowserExtensionRemoveCompletedHandler,
     BytesReceivedChangedEventHandler, CapturePreviewCompletedHandler, DownloadStartingEventHandler,
     GetNonDefaultPermissionSettingsCompletedHandler, IsDocumentPlayingAudioChangedEventHandler,
-    Microsoft::Web::WebView2::Win32::*, ProcessFailedEventHandler,
+    Microsoft::Web::WebView2::Win32::*, NavigationCompletedEventHandler, ProcessFailedEventHandler,
     ProfileAddBrowserExtensionCompletedHandler, ProfileGetBrowserExtensionsCompletedHandler,
     SetPermissionStateCompletedHandler, StateChangedEventHandler, WebResourceRequestedEventHandler,
 };
 use windows_core::{w, Interface, BOOL, HSTRING, PWSTR};
 
 use crate::{blocker, update_tab};
+
+const ERROR_JS: &str = include_str!("error.js");
+
+/// Network failures that get Blazon's own page; None leaves WebView2's page.
+fn failure_code(status: COREWEBVIEW2_WEB_ERROR_STATUS) -> Option<&'static str> {
+    Some(match status {
+        COREWEBVIEW2_WEB_ERROR_STATUS_HOST_NAME_NOT_RESOLVED => "HOST_NAME_NOT_RESOLVED",
+        COREWEBVIEW2_WEB_ERROR_STATUS_TIMEOUT => "TIMEOUT",
+        COREWEBVIEW2_WEB_ERROR_STATUS_DISCONNECTED => "DISCONNECTED",
+        COREWEBVIEW2_WEB_ERROR_STATUS_SERVER_UNREACHABLE => "SERVER_UNREACHABLE",
+        COREWEBVIEW2_WEB_ERROR_STATUS_CANNOT_CONNECT => "CANNOT_CONNECT",
+        COREWEBVIEW2_WEB_ERROR_STATUS_CONNECTION_RESET => "CONNECTION_RESET",
+        COREWEBVIEW2_WEB_ERROR_STATUS_ERROR_HTTP_INVALID_SERVER_RESPONSE => {
+            "INVALID_SERVER_RESPONSE"
+        }
+        _ => return None,
+    })
+}
 
 fn request_kind(ctx: COREWEBVIEW2_WEB_RESOURCE_CONTEXT) -> &'static str {
     match ctx {
@@ -109,6 +127,36 @@ pub fn install(
                 &mut token,
             );
         }
+
+        // A site that can't be reached gets Crest's failure page instead of
+        // Edge's. Server error pages (404, 500…) and certificate warnings stay.
+        let app_nc = app.clone();
+        let _ = core.add_NavigationCompleted(
+            &NavigationCompletedEventHandler::create(Box::new(move |sender, args| {
+                let (Some(sender), Some(args)) = (sender, args) else {
+                    return Ok(());
+                };
+                let mut ok = BOOL::default();
+                args.IsSuccess(&mut ok)?;
+                if ok.as_bool() {
+                    return Ok(());
+                }
+                let mut status = COREWEBVIEW2_WEB_ERROR_STATUS::default();
+                args.WebErrorStatus(&mut status)?;
+                let Some(code) = failure_code(status) else {
+                    return Ok(());
+                };
+                let mut uri = PWSTR::null();
+                sender.Source(&mut uri)?;
+                let url = take_pwstr(uri);
+                let lang = crate::with_data(&app_nc, |d| d.settings.language.clone());
+                let data = serde_json::json!({ "url": url, "code": code, "lang": lang });
+                let script = format!("const BLAZON_ERROR = {data};\n{}", ERROR_JS);
+                let _ = sender.ExecuteScript(&HSTRING::from(script), None);
+                Ok(())
+            })),
+            &mut token,
+        );
 
         // A crashed page process leaves a blank tab: log it and tell the sidebar.
         let app_pf = app.clone();

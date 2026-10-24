@@ -79,6 +79,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `hello.rs` | Windows Hello (`UserConsentVerifier`) para Spaces bloqueados |
 | `import.rs` | Importação: Arc, família Chromium, família Firefox e HTML de favoritos |
 | `sqlite.rs` | Leitura mínima de SQLite via `winsqlite3.dll` do Windows (histórico e favoritos do Firefox) |
+| `error.js` | Página de site fora do ar, injetada quando a navegação falha por rede |
 | `reader.js` + `vendor/Readability.js` | Modo leitura, injetado na aba |
 | `diag.rs` | Log em arquivo, relatório de travamento (panic hook), versões do Windows e do WebView2 |
 | `updater.rs` | Atualizações: última Release no GitHub, download via `curl.exe`, verificação SHA-256, instalador em modo passivo |
@@ -92,6 +93,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `overlay.*` | Paleta de comandos e barra do Peek |
 | `newtab.*` | Página inicial |
 | `motion.css`, `motion.js` | Animações do Crest: os tempos do `CrestMotion`, molas do SwiftUI convertidas em curvas `linear()`, reordenação estilo FLIP, seleção que desliza, troca de Space, painéis flutuantes e o modo de movimento reduzido do Windows |
+| `welcome.js` | Boas-vindas da primeira abertura (no overlay, sobre a janela inteira) |
 | `i18n.js` | Tradução para inglês: dicionário e padrões aplicados a todo texto exibido (observador de DOM) |
 | `diag.js` | Envia erros de JavaScript da interface para o log |
 | `houses.js` | Paletas e padrões da barra das 9 casas, opções de aparência e presets |

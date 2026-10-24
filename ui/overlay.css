@@ -44,3 +44,43 @@ html, body { background: transparent !important; overflow: hidden; }
 .peek-card { position: fixed; border-radius: 12px; background: #fff; background-size: 100% 100%;
   box-shadow: 0 30px 80px rgba(0, 0, 0, .5), 0 0 0 1px rgba(255, 255, 255, .08); transform-origin: center; }
 .pbtn { backdrop-filter: blur(16px) saturate(1.5); background: color-mix(in srgb, var(--panel) 75%, transparent); }
+
+/* Welcome flow (welcome.js): the houses' fields behind a glass card. */
+.welcome { position: fixed; inset: 0; display: grid; place-items: center; background: #000; overflow: hidden; z-index: 10; }
+.welcome-mode .backdrop { display: none; }
+.w-field { position: absolute; inset: 0; opacity: 0; transition: opacity 1.6s ease-in-out; }
+.w-field.on { opacity: 1; }
+.w-field .banner { position: absolute; inset: 0; }
+.w-card { position: relative; width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 48px); overflow-y: auto; padding: 28px 32px 24px;
+  border-radius: 20px; background: color-mix(in srgb, var(--c0) 62%, transparent); backdrop-filter: blur(34px) saturate(1.6);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, .45), 0 0 0 1px rgba(255, 255, 255, .1); scrollbar-width: thin; }
+.w-rail { display: flex; gap: 6px; margin-bottom: 22px; }
+.w-rail i { height: 4px; flex: 1; border-radius: 2px; background: rgba(255, 255, 255, .14); transition: background-color var(--selection) ease-in-out; }
+.w-rail i.done { background: color-mix(in srgb, var(--c2) 55%, transparent); }
+.w-rail i.on { background: var(--c2); }
+.w-body h1 { font: 600 30px/1.15 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; margin: 6px 0 6px; text-align: center; }
+.w-body h2 { font: 600 22px/1.2 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; margin: 2px 0 6px; }
+.w-eyebrow { margin: 0; color: var(--c2); font-size: 12px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.w-lead { color: var(--muted); margin: 0 0 16px; line-height: 1.5; }
+.w-body h1 + .w-lead { text-align: center; font-size: 15px; }
+.w-emblem { width: 132px; height: 132px; margin: 6px auto 4px; }
+.w-emblem svg, .w-emblem img { width: 100%; height: 100%; }
+.w-houses { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 8px; }
+.w-house { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 6px 8px; border-radius: 14px; background: rgba(255, 255, 255, .06); font-size: 12px; color: var(--muted); }
+.w-house svg { width: 58px; height: 58px; }
+.w-house.sel { background: rgba(255, 255, 255, .16); color: var(--fg); box-shadow: inset 0 0 0 2px var(--c2); }
+.w-field-label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); font-size: 12px; margin-bottom: 14px; }
+.w-input { padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255, 255, 255, .12); background: rgba(0, 0, 0, .25); color: var(--fg); font: inherit; font-size: 15px; outline: none; user-select: text; }
+.w-input:focus { border-color: var(--c2); }
+.w-spaces { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; justify-content: center; }
+.w-space { display: flex; align-items: center; gap: 8px; padding: 6px 12px 6px 8px; border-radius: 12px; background: rgba(255, 255, 255, .08); }
+.w-space svg { width: 28px; height: 28px; }
+.w-space.add { color: var(--muted); background: transparent; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .16); }
+.w-space .plus { width: 28px; text-align: center; font-size: 18px; }
+.w-imports { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; }
+.w-import { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 8px 8px 12px; border-radius: 12px; background: rgba(255, 255, 255, .06); }
+.w-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+.w-btn { padding: 9px 16px; border-radius: 10px; background: rgba(255, 255, 255, .1); font-weight: 600; }
+.w-btn:hover { background: rgba(255, 255, 255, .16); }
+.w-btn.primary { background: var(--c2); color: var(--c0); }
+.w-btn.primary:hover { background: color-mix(in srgb, var(--c2) 88%, #fff); }

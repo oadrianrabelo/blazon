@@ -583,11 +583,14 @@ const SECTIONS = {
       const updates = group('Atualizações',
         row('Procurar atualizações automaticamente', 'Uma vez por dia, nas versões publicadas no GitHub. Nada é instalado sem você confirmar.', (() => { const c = el('input', 'switch'); c.type = 'checkbox'; c.checked = state.settings.auto_update !== false; c.onchange = () => saveSettings({ auto_update: c.checked }); return c; })()),
         row('Agora', null, check), status);
+      const again = el('button', 'btn', 'Rever boas-vindas');
+      again.onclick = () => invoke('close_panel').then(() => invoke('open_overlay', { mode: 'welcome' }));
       return [
         logo,
         ...header('Blazon', 'Um navegador leve para Windows, com Spaces e brasões. Feito em Rust com Tauri e o WebView2 do Windows.'),
         version,
         updates,
+        group('Primeiros passos', row('Tela de boas-vindas', 'Escolher a casa, criar Spaces e importar de outros navegadores.', again)),
         p('Inspirado no Crest de Paul Joda (github.com/pauljoda/Crest), licença MPL-2.0. Brasões e paletas do Crest Studio vêm do projeto original; figuras heráldicas de Lorc (game-icons.net), CC BY 3.0.'),
       ];
     },

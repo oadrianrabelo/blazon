@@ -129,6 +129,9 @@ pub(crate) struct Settings {
     pub(crate) auto_update: bool,
     /// Folder kept up to date with a backup file (e.g. inside OneDrive); empty disables.
     pub(crate) backup_folder: String,
+    /// The welcome flow ran. Defaults to true so existing installs skip it;
+    /// a fresh install sets it to false.
+    pub(crate) welcomed: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -158,6 +161,7 @@ impl Default for Settings {
             language: "auto".into(),
             auto_update: true,
             backup_folder: String::new(),
+            welcomed: true,
         }
     }
 }

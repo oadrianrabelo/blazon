@@ -931,7 +931,12 @@ $('downloads-btn').onclick = () => { drawDownloads(); $('downloads').showModal()
 $('dl-clear').onclick = () => invoke('clear_downloads');
 invoke('downloads_list').then((l) => { downloads = l; drawDownloads(); });
 
-invoke('get_state').then((s) => { state = s; render(); });
+invoke('get_state').then((s) => {
+  state = s;
+  render();
+  // First run: Crest-style welcome flow over the whole window.
+  if (!s.settings.welcomed) setTimeout(() => invoke('open_overlay', { mode: 'welcome' }), 300);
+});
 listen('update-available', (e) => {
   toast(`Blazon ${e.payload.version} disponível.`, [
     ['Atualizar', () => { toast('Baixando a atualização…'); invoke('install_update').catch((err) => toast(String(err))); }, true],
