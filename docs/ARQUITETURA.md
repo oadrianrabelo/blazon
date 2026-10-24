@@ -62,7 +62,16 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 
 | Arquivo | Responsabilidade |
 | --- | --- |
-| `main.rs` | Modelo de dados (`Data`, `Space`, `Tab`, `Folder`, `Settings`), comandos, layout das webviews, persistência, histórico, sono e arquivo de abas, rotas de links, instância única |
+| `main.rs` | Estado do app (`AppState`), `commit`, comandos gerais, script de atalhos das páginas e a inicialização |
+| `model.rs` | Modelo de dados (`Data`, `Space`, `Tab`, `Folder`, `Settings`…) e regras de reparo |
+| `tabs.rs` | Webviews das abas, navegação, fixar, pastas, lado a lado, sono, arquivo, modo leitura |
+| `spaces.rs` | Criar, trocar, ordenar e bloquear Spaces; rotas de links |
+| `windowing.rs` | Janelas, layout das webviews, painel de configurações, barra flutuante |
+| `history.rs` | Histórico, sugestões, página inicial e mesclagem de histórico importado |
+| `importer.rs` | Aplica importações no estado (o parsing fica em `import.rs`) |
+| `downloads.rs` | Lista de downloads |
+| `profile.rs` | Permissões de sites e extensões por Space |
+| `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
 | `overlay.rs` | Paleta e Peek |
 | `blocker.rs` | Bloqueador: motor `adblock` (Brave), listas EasyList/EasyPrivacy, atualização semanal via `curl.exe`, CSS para esconder anúncios |
 | `webview2.rs` | APIs COM do WebView2: filtro de requisições (bloqueio), áudio e mudo, pasta de downloads, senhas e preenchimento |
