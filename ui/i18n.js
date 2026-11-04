@@ -4,6 +4,20 @@
 
 const I18N = (() => {
   const EN = {
+    // Printing
+    "Sites e downloads perigosos": "Dangerous sites and downloads",
+    "Proteção do Microsoft SmartScreen": "Microsoft SmartScreen protection",
+    "Avisa antes de abrir sites de phishing ou malware e de baixar arquivos perigosos, como no Edge. Para isso, o Windows consulta a Microsoft sobre os endereços. Muda depois de reiniciar o Blazon.": "Warns before opening phishing or malware sites and before downloading dangerous files, like Edge. To do so, Windows checks addresses with Microsoft. Changes after restarting Blazon.",
+    "A versão nova não veio assinada. Por segurança ela não foi instalada; baixe pela página de versões se confiar nela.": "The new version isn't signed. For safety it wasn't installed; download it from the releases page if you trust it.",
+    "A assinatura da atualização não confere. Nada foi instalado.": "The update's signature doesn't match. Nothing was installed.",
+    "Não deu para salvar o PDF desta página.": "Couldn't save this page as a PDF.",
+    "Nenhuma página aberta.": "No page open.",
+    "A página ainda está carregando.": "The page is still loading.",
+    "Imprimir…": "Print…",
+    "Salvar como PDF…": "Save as PDF…",
+    "Imprimir com a janela do Windows…": "Print with the Windows dialog…",
+    "Imprimir": "Print",
+    "Salvar como PDF": "Save as PDF",
     // Nested folders, icon size and the corner title bar
     "Nova subpasta": "New subfolder",
     "Mover para outra pasta…": "Move to another folder…",
@@ -334,6 +348,8 @@ const I18N = (() => {
     [/^Instalar (.+)$/, 'Install $1'],
     [/^Bug: (.+)$/, 'Bug: $1'],
     [/^Padrão: (.+)$/, 'Default: $1'],
+    [/^PDF salvo em (.+)$/, 'PDF saved to $1'],
+    [/^O download da assinatura falhou \((.+)\)\.$/, 'Downloading the signature failed ($1).'],
     [/^(.+) saiu de “(.+)”, que agora está sem atalho\.$/, (m, k, c) => `${k} was taken from “${t(c)}”, which now has no shortcut.`],
   ];
 

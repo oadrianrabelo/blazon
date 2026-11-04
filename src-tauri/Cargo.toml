@@ -1,6 +1,6 @@
 [package]
 name = "blazon"
-version = "0.1.6"
+version = "0.1.7"
 description = "Blazon - a lightweight Windows browser with Spaces and heraldic crests"
 edition = "2021"
 license = "MPL-2.0"
@@ -16,6 +16,8 @@ base64 = "0.22"
 url = "2"
 tauri-plugin-single-instance = "2"
 tauri-plugin-dialog = "2"
+ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
+sha2 = "0.10"
 adblock = { version = "0.13", default-features = false, features = ["embedded-domain-resolver", "full-regex-handling"] }
 
 [target.'cfg(windows)'.dependencies]

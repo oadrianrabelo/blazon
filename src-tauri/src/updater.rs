@@ -1,6 +1,9 @@
 //! Updates from GitHub Releases. The latest release's NSIS installer is
-//! downloaded with Windows' curl.exe, checked against the SHA-256 digest
-//! GitHub publishes for it, and run in passive mode, which reopens Blazon.
+//! downloaded with Windows' curl.exe and only run (in passive mode, which
+//! reopens Blazon) when its Ed25519 signature checks out against the key built
+//! into this app: the CI signs each release with the private half, kept as the
+//! BLAZON_UPDATE_KEY secret (scripts/sign-update.mjs). A release someone
+//! uploaded without that key, even through the repository, is refused.
 
 use serde::Serialize;
 use serde_json::Value;
@@ -16,6 +19,49 @@ pub struct Update {
     pub page: String,
     /// "sha256:<hex>" when GitHub provides it.
     pub digest: Option<String>,
+    /// The installer's signature file (`<installer>.sig`).
+    pub signature: Option<String>,
+}
+
+/// Public half of the release signing key (Ed25519).
+pub const UPDATE_KEY: &str = "ee7e94697c2d981c74ddbe34d4ce0dd66382ca6c251301329e417e4aec4dd031";
+
+/// What the CI signs: the version and the installer's SHA-256, so a signature
+/// can't be moved to another file or replayed for another version.
+fn signed_message(version: &str, installer: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let hash: String = Sha256::digest(installer)
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
+    format!("blazon-update:{}:{hash}", version.trim_start_matches('v'))
+}
+
+/// Checks a base64 Ed25519 signature of an installer against `key` (hex).
+pub fn verify(
+    version: &str,
+    installer: &[u8],
+    signature_b64: &str,
+    key: &str,
+) -> Result<(), String> {
+    use base64::Engine;
+    use ed25519_dalek::{Signature, Verifier, VerifyingKey};
+    let refuse = || "A assinatura da atualização não confere. Nada foi instalado.".to_string();
+    let key: Vec<u8> = (0..key.len())
+        .step_by(2)
+        .filter_map(|i| u8::from_str_radix(key.get(i..i + 2)?, 16).ok())
+        .collect();
+    let key: [u8; 32] = key.try_into().map_err(|_| refuse())?;
+    let key = VerifyingKey::from_bytes(&key).map_err(|_| refuse())?;
+    let sig = base64::engine::general_purpose::STANDARD
+        .decode(signature_b64.trim())
+        .map_err(|_| refuse())?;
+    let sig: [u8; 64] = sig.try_into().map_err(|_| refuse())?;
+    key.verify(
+        signed_message(version, installer).as_bytes(),
+        &Signature::from_bytes(&sig),
+    )
+    .map_err(|_| refuse())
 }
 
 fn version_parts(v: &str) -> Vec<u64> {
@@ -78,6 +124,14 @@ pub fn check() -> Result<Option<Update>, String> {
                 .is_some_and(|n| n.ends_with("-setup.exe"))
         })
         .ok_or("A versão nova não tem instalador para Windows.")?;
+    let installer = asset["name"].as_str().unwrap_or_default();
+    let signature = json["assets"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .find(|a| a["name"].as_str() == Some(&format!("{installer}.sig")))
+        .and_then(|a| a["browser_download_url"].as_str())
+        .map(String::from);
     Ok(Some(Update {
         version: tag.trim_start_matches('v').to_string(),
         notes: json["body"]
@@ -92,6 +146,7 @@ pub fn check() -> Result<Option<Update>, String> {
             .to_string(),
         page: json["html_url"].as_str().unwrap_or_default().to_string(),
         digest: asset["digest"].as_str().map(String::from),
+        signature,
     }))
 }
 
@@ -104,6 +159,13 @@ pub fn install(update: &Update) -> Result<(), String> {
     if !update.url.starts_with("https://github.com/") {
         return Err("Endereço de download inesperado.".into());
     }
+    let Some(sig_url) = update
+        .signature
+        .as_deref()
+        .filter(|u| u.starts_with("https://github.com/"))
+    else {
+        return Err("A versão nova não veio assinada. Por segurança ela não foi instalada; baixe pela página de versões se confiar nela.".into());
+    };
     let dir = std::env::temp_dir().join("blazon-update");
     let _ = std::fs::remove_dir_all(&dir);
     std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
@@ -130,6 +192,18 @@ pub fn install(update: &Update) -> Result<(), String> {
             );
         }
     }
+    let signature =
+        curl(&[sig_url]).map_err(|e| format!("O download da assinatura falhou ({e})."))?;
+    let installer = std::fs::read(&file).map_err(|e| e.to_string())?;
+    if let Err(e) = verify(
+        &update.version,
+        &installer,
+        &String::from_utf8_lossy(&signature),
+        UPDATE_KEY,
+    ) {
+        let _ = std::fs::remove_file(&file);
+        return Err(e);
+    }
     std::process::Command::new(&file)
         .args(["/P", "/R", "/UPDATE"])
         .spawn()
@@ -149,7 +223,46 @@ pub fn install(_: &Update) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
-    use super::is_newer;
+    use super::*;
+
+    #[test]
+    fn only_a_signature_by_the_release_key_passes() {
+        use base64::Engine;
+        use ed25519_dalek::{Signer, SigningKey};
+        let signer = SigningKey::from_bytes(&[7u8; 32]);
+        let public: String = signer
+            .verifying_key()
+            .to_bytes()
+            .iter()
+            .map(|b| format!("{b:02x}"))
+            .collect();
+        let file = b"installer bytes";
+        let sig = base64::engine::general_purpose::STANDARD.encode(
+            signer
+                .sign(signed_message("0.1.7", file).as_bytes())
+                .to_bytes(),
+        );
+        assert!(verify("v0.1.7", file, &sig, &public).is_ok());
+        assert!(
+            verify("0.1.8", file, &sig, &public).is_err(),
+            "other version"
+        );
+        assert!(
+            verify("0.1.7", b"tampered", &sig, &public).is_err(),
+            "other file"
+        );
+        assert!(
+            verify("0.1.7", file, &sig, UPDATE_KEY).is_err(),
+            "other key"
+        );
+        assert!(verify("0.1.7", file, "garbage", &public).is_err());
+    }
+
+    #[test]
+    fn release_key_is_well_formed() {
+        assert_eq!(UPDATE_KEY.len(), 64);
+        assert!(UPDATE_KEY.chars().all(|c| c.is_ascii_hexdigit()));
+    }
 
     #[test]
     fn compares_versions_numerically() {

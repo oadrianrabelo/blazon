@@ -821,3 +821,73 @@ pub(crate) async fn translate_page(app: AppHandle, target: String) {
     )
     .await;
 }
+
+/// Prints the active page: Edge's print preview, or Windows' own print dialog
+/// (`system`). The page gets the focus first, so the dialog opens over it.
+#[tauri::command]
+pub(crate) async fn print_page(app: AppHandle, system: Option<bool>) -> Result<(), String> {
+    let id = with_data(&app, |d| d.active_tab_id()).ok_or("Nenhuma página aberta.")?;
+    let wv = app
+        .get_webview(&label(id))
+        .ok_or("A página ainda está carregando.")?;
+    let _ = wv.set_focus();
+    #[cfg(windows)]
+    if webview2::show_print_ui(&wv, system.unwrap_or(false)).await {
+        return Ok(());
+    }
+    #[cfg(not(windows))]
+    let _ = system;
+    // Older WebView2 runtimes: the page's own print, which opens the same preview.
+    wv.eval("window.print()").map_err(|e| e.to_string())
+}
+
+/// Saves the active page as a PDF in a file the person picks.
+#[tauri::command]
+pub(crate) async fn save_pdf(app: AppHandle) -> Result<String, String> {
+    use tauri_plugin_dialog::DialogExt;
+    let (id, title) = with_data(&app, |d| {
+        let id = d.active_tab_id()?;
+        let title = d
+            .tabs
+            .iter()
+            .find(|t| t.id == id)
+            .map(|t| t.title.clone())?;
+        Some((id, title))
+    })
+    .ok_or("Nenhuma página aberta.")?;
+    let wv = app
+        .get_webview(&label(id))
+        .ok_or("A página ainda está carregando.")?;
+    let name: String = title
+        .chars()
+        .map(|c| if r#"\/:*?"<>|"#.contains(c) { '-' } else { c })
+        .take(80)
+        .collect();
+    let name = if name.trim().is_empty() {
+        "pagina".to_string()
+    } else {
+        name.trim().to_string()
+    };
+    let Some(path) = app
+        .dialog()
+        .file()
+        .set_file_name(format!("{name}.pdf"))
+        .add_filter("PDF", &["pdf"])
+        .blocking_save_file()
+    else {
+        return Err("Nenhum arquivo escolhido.".into());
+    };
+    let path = path.into_path().map_err(|e| e.to_string())?;
+    #[cfg(windows)]
+    {
+        if webview2::print_to_pdf(&wv, path.clone()).await {
+            return Ok(path.to_string_lossy().into_owned());
+        }
+        Err("Não deu para salvar o PDF desta página.".into())
+    }
+    #[cfg(not(windows))]
+    {
+        let _ = (wv, path);
+        Err("Só no Windows.".into())
+    }
+}

@@ -91,6 +91,17 @@ try {
   await sleep(4000);
   shot('pagina');
 
+  // Printing, as Ctrl+P does in a page: the print preview over the page.
+  const keys = (k) => execFileSync('powershell', ['-NoProfile', '-Command', `(New-Object -ComObject WScript.Shell).SendKeys('${k}')`]);
+  await invoke('run_command', { cmd: 'focuspage' });
+  await sleep(500);
+  keys('^p');
+  await sleep(5000);
+  shot('impressao');
+  keys('{ESC}');
+  await sleep(1500);
+  shot('impressao-fechada');
+
   await invoke('open_overlay', { mode: 'palette' });
   await sleep(1800);
   shot('paleta');

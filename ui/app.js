@@ -450,6 +450,8 @@ function tabMenu(e, t) {
   }
   items.push('-',
     { label: 'Traduzir página', icon: 'book', run: () => invoke('activate_tab', { id: t.id }).then(() => invoke('translate_page', { target: I18N.lang() })) },
+    { label: 'Imprimir…', icon: 'book', run: () => invoke('activate_tab', { id: t.id }).then(() => invoke('print_page', {})) },
+    { label: 'Salvar como PDF…', icon: 'download', run: () => invoke('activate_tab', { id: t.id }).then(() => invoke('run_command', { cmd: 'savepdf' })) },
     { label: 'Duplicar', icon: 'plus', run: () => invoke('duplicate_tab', { id: t.id }) },
     { label: 'Copiar link', icon: 'copy', run: () => navigator.clipboard.writeText(t.url) },
     { label: 'Fechar', icon: 'x', run: () => invoke('close_tab', { id: t.id }) });
@@ -1320,6 +1322,9 @@ function toast(text, actions = []) {
   }
   Motion.show($('toast'), 'rise');
 }
+
+listen('pdf-saved', (e) => toast(`PDF salvo em ${e.payload}`));
+listen('pdf-failed', (e) => toast(String(e.payload)));
 
 listen('tab-crashed', (e) => {
   const t = state?.tabs.find((x) => x.id === e.payload);

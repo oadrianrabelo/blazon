@@ -1,0 +1,34 @@
+name: Security
+
+# Known vulnerabilities in Blazon's dependencies (RustSec advisory database and
+# npm). Runs on every push and pull request and once a week, so an advisory
+# published after a release still shows up as a red check.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  schedule:
+    - cron: "17 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      # Fails on vulnerabilities; "unmaintained" notices (Linux-only GTK crates
+      # Tauri pulls in, unused on Windows) are only listed.
+      - name: Rust dependencies
+        working-directory: src-tauri
+        run: cargo audit
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm dependencies
+        run: npm audit --audit-level=high

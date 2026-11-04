@@ -137,6 +137,8 @@ pub(crate) struct Settings {
     pub(crate) welcomed: bool,
     /// Keyboard shortcuts changed in Settings: command id → combo ("" = off).
     pub(crate) shortcuts: HashMap<String, String>,
+    /// Microsoft SmartScreen on site pages (applies after a restart).
+    pub(crate) smartscreen: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -168,6 +170,7 @@ impl Default for Settings {
             backup_folder: String::new(),
             welcomed: true,
             shortcuts: HashMap::new(),
+            smartscreen: true,
         }
     }
 }
