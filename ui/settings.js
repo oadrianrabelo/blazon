@@ -33,7 +33,7 @@ function el(tag, cls, text) {
 }
 
 // Repository for problem reports (GitHub redirects it if the repository is renamed).
-const REPO_URL = 'https://github.com/oadrianrabelo/crest-windows-vibe-coded';
+const REPO_URL = 'https://github.com/oadrianrabelo/blazon';
 let reportDraft = '';
 const SEARCH_ENGINES = [
   ['https://duckduckgo.com/?q=', 'DuckDuckGo'],

@@ -9,7 +9,7 @@ use serde::Serialize;
 use serde_json::Value;
 
 /// GitHub follows renames, so this keeps working if the repository moves.
-pub const REPO: &str = "oadrianrabelo/crest-windows-vibe-coded";
+pub const REPO: &str = "oadrianrabelo/blazon";
 
 #[derive(Clone, Serialize)]
 pub struct Update {

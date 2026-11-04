@@ -113,12 +113,11 @@ OV ganham reputação aos poucos.
   RegisteredApplications, associações http/https/html/pdf) e removem tudo na desinstalação.
 - **MSI**: alternativa para implantação corporativa; não registra o navegador.
 
-## Renomear o repositório
+## Nome do repositório
 
-O app já se chama Blazon. O repositório ainda se chama `crest-windows-vibe-coded`. Para renomear:
+O repositório se chama `oadrianrabelo/blazon` (antes `crest-windows-vibe-coded`; o GitHub
+redireciona os endereços antigos). Em clones antigos:
+`git remote set-url origin https://github.com/oadrianrabelo/blazon.git`.
 
-1. No GitHub: **Settings → General → Repository name** → por exemplo `blazon`. O GitHub
-   redireciona os endereços antigos.
-2. Em cada clone: `git remote set-url origin https://github.com/<usuário>/blazon.git`.
-
-Nada no código depende do nome do repositório.
+O nome aparece em `REPO` (`src-tauri/src/updater.rs`), `REPO_URL` (`ui/settings.js`) e nos links
+de `site/index.html`.
