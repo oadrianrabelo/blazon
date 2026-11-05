@@ -24,21 +24,23 @@ pub(crate) const DEFAULTS: &[(&str, &str)] = &[
     ("duplicate", "Ctrl+Shift+D"),
     ("mute", "Ctrl+M"),
     ("settings", "Ctrl+,"),
+    ("print", "Ctrl+P"),
+    ("savepdf", ""),
 ];
 
-/// Every command's current combo ("" when turned off).
+/// Every command's current combo ("" when turned off). A default the person
+/// already gave to another command (e.g. Ctrl+P, before Print had it) stays off.
 pub(crate) fn effective(settings: &Settings) -> Vec<(&'static str, String)> {
+    let chosen: Vec<&String> = settings.shortcuts.values().collect();
     DEFAULTS
         .iter()
         .map(|(id, def)| {
-            (
-                *id,
-                settings
-                    .shortcuts
-                    .get(*id)
-                    .cloned()
-                    .unwrap_or_else(|| def.to_string()),
-            )
+            let combo = match settings.shortcuts.get(*id) {
+                Some(c) => c.clone(),
+                None if chosen.iter().any(|c| c.as_str() == *def) => String::new(),
+                None => def.to_string(),
+            };
+            (*id, combo)
         })
         .collect()
 }
@@ -176,5 +178,9 @@ mod tests {
         assert!(map.get("Ctrl+K").is_none());
         assert!(map.get("Ctrl+H").is_none());
         assert_eq!(map["Ctrl+T"], "newtab");
+        assert_eq!(
+            map["Ctrl+P"], "palette",
+            "Print's default doesn't take it back"
+        );
     }
 }

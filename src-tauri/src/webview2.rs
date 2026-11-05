@@ -8,7 +8,8 @@ use webview2_com::{
     take_pwstr, BrowserExtensionEnableCompletedHandler, BrowserExtensionRemoveCompletedHandler,
     BytesReceivedChangedEventHandler, CapturePreviewCompletedHandler, DownloadStartingEventHandler,
     GetNonDefaultPermissionSettingsCompletedHandler, IsDocumentPlayingAudioChangedEventHandler,
-    Microsoft::Web::WebView2::Win32::*, NavigationCompletedEventHandler, ProcessFailedEventHandler,
+    Microsoft::Web::WebView2::Win32::*, NavigationCompletedEventHandler,
+    PrintToPdfCompletedHandler, ProcessFailedEventHandler,
     ProfileAddBrowserExtensionCompletedHandler, ProfileGetBrowserExtensionsCompletedHandler,
     SetPermissionStateCompletedHandler, StateChangedEventHandler, WebResourceRequestedEventHandler,
 };
@@ -201,6 +202,63 @@ pub fn install(
             );
         }
     });
+}
+
+/// Opens the print dialog for the page: Edge's print preview, or Windows' own
+/// print dialog. False when this WebView2 can't (very old runtimes).
+pub async fn show_print_ui(wv: &Webview, system: bool) -> bool {
+    ask(wv, move |pv, tx| unsafe {
+        let kind = if system {
+            COREWEBVIEW2_PRINT_DIALOG_KIND_SYSTEM
+        } else {
+            COREWEBVIEW2_PRINT_DIALOG_KIND_BROWSER
+        };
+        let ok = pv
+            .controller()
+            .CoreWebView2()
+            .and_then(|c| c.cast::<ICoreWebView2_16>())
+            .and_then(|c| c.ShowPrintUI(kind))
+            .is_ok();
+        let _ = tx.send(ok);
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Saves the page as a PDF file (what "Microsoft Print to PDF" would print).
+pub async fn print_to_pdf(wv: &Webview, path: PathBuf) -> bool {
+    let (tx, rx) = mpsc::channel();
+    let started = wv.with_webview(move |pv| unsafe {
+        let Ok(c7) = pv
+            .controller()
+            .CoreWebView2()
+            .and_then(|c| c.cast::<ICoreWebView2_7>())
+        else {
+            let _ = tx.send(false);
+            return;
+        };
+        let done = tx.clone();
+        let handler = PrintToPdfCompletedHandler::create(Box::new(
+            move |hr: windows_core::Result<()>, ok: bool| {
+                let _ = done.send(hr.is_ok() && ok);
+                Ok(())
+            },
+        ));
+        if c7
+            .PrintToPdf(&HSTRING::from(path.as_os_str()), None, &handler)
+            .is_err()
+        {
+            let _ = tx.send(false);
+        }
+    });
+    if started.is_err() {
+        return false;
+    }
+    tauri::async_runtime::spawn_blocking(move || {
+        rx.recv_timeout(Duration::from_secs(120)).unwrap_or(false)
+    })
+    .await
+    .unwrap_or(false)
 }
 
 /// Pages out of sight ask WebView2 to keep little in memory (it trims caches

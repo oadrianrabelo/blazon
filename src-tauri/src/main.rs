@@ -238,7 +238,7 @@ pub(crate) fn interface_webview(
     label: impl Into<String>,
     url: WebviewUrl,
 ) -> WebviewBuilder<tauri::Wry> {
-    let mut args = browser_args();
+    let mut args = interface_args();
     if let Some(port) = std::env::var("BLAZON_DEVTOOLS_PORT")
         .ok()
         .and_then(|p| p.parse::<u16>().ok())
@@ -254,13 +254,38 @@ pub(crate) fn interface_webview(
 /// change applies after a restart.
 static GRAYSCALE_TEXT: AtomicBool = AtomicBool::new(true);
 
-/// Browser arguments for every webview (wry's defaults plus the text smoothing).
-pub(crate) fn browser_args() -> String {
-    let mut args = String::from("--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection");
+/// Whether site pages get Microsoft SmartScreen (Privacy › Dangerous sites and
+/// downloads); read at startup, like the text smoothing, for the same reason.
+static SMARTSCREEN: AtomicBool = AtomicBool::new(true);
+
+fn text_args() -> &'static str {
     if GRAYSCALE_TEXT.load(Ordering::Relaxed) {
-        args.push_str(" --disable-lcd-text");
+        " --disable-lcd-text"
+    } else {
+        ""
     }
-    args
+}
+
+/// Browser arguments for site pages (tabs, Peek, the Quick Window and side
+/// panels). wry turns SmartScreen off for every webview; pages keep it unless
+/// the person turned it off, so phishing sites and dangerous downloads are
+/// flagged as in Edge.
+pub(crate) fn browser_args() -> String {
+    let features = if SMARTSCREEN.load(Ordering::Relaxed) {
+        "msWebOOUI,msPdfOOUI"
+    } else {
+        "msWebOOUI,msPdfOOUI,msSmartScreenProtection"
+    };
+    format!("--disable-features={features}{}", text_args())
+}
+
+/// Browser arguments for Blazon's own pages, which only load its local files:
+/// no reputation checks there.
+fn interface_args() -> String {
+    format!(
+        "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection{}",
+        text_args()
+    )
 }
 
 pub(crate) fn mac_text(settings: &Settings) -> bool {
@@ -327,6 +352,21 @@ async fn run_cmd(app: &AppHandle, cmd: &str, arg: Option<String>) {
             }
         }
         "reader" => tabs::reader_mode(app.clone()).await,
+        "print" => {
+            let _ = tabs::print_page(app.clone(), None).await;
+        }
+        "savepdf" => {
+            let ui = ui_of(&focused_label(app));
+            match tabs::save_pdf(app.clone()).await {
+                Ok(path) => {
+                    let _ = app.emit_to(ui.as_str(), "pdf-saved", path);
+                }
+                Err(e) if e != "Nenhum arquivo escolhido." => {
+                    let _ = app.emit_to(ui.as_str(), "pdf-failed", e);
+                }
+                Err(_) => {}
+            }
+        }
         "pin" | "duplicate" | "mute" => {
             if let Some(id) = with_data(app, |d| d.active_tab_id()) {
                 match cmd {
@@ -543,6 +583,8 @@ fn main() {
             tabs::update_folder,
             tabs::delete_folder,
             tabs::move_folder,
+            tabs::print_page,
+            tabs::save_pdf,
             tabs::duplicate_tab,
             tabs::split_tab,
             spaces::set_space_search,
@@ -612,6 +654,7 @@ fn main() {
             };
             data.repair();
             GRAYSCALE_TEXT.store(mac_text(&data.settings), Ordering::Relaxed);
+            SMARTSCREEN.store(data.settings.smartscreen, Ordering::Relaxed);
             if data.active_tab_id().is_none() {
                 let id = data.new_id();
                 let space = data.active_space.clone();

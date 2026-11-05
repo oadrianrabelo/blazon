@@ -76,6 +76,7 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `transition.rs` | Transição entre páginas: foto da página antiga numa camada (`fx.html`) acima do cartão, que esmaece ou desliza |
 | `keys.rs` | Atalhos personalizáveis: tabela de comandos e combinações padrão, trocas salvas em `settings.shortcuts`, mapa enviado às páginas abertas |
 | `fonts.rs` | Lista as famílias de fontes instaladas (DirectWrite) para Aparência → Texto |
+| `updater.rs` | Atualização pelas Releases: baixa o instalador e só o executa se a assinatura Ed25519 (`.sig`, feita pelo CI com `scripts/sign-update.mjs`) conferir com `UPDATE_KEY`; instalador em modo passivo |
 | `quick.rs` | Janela rápida: janela pequena para links de outros apps, com escolha de Space |
 | `backup.rs` | Exportar, restaurar (substituir ou mesclar) e backup automático numa pasta |
 | `support.rs` | Relatório de problema, travamentos, atualizações, Aplicativos padrão |
@@ -88,7 +89,6 @@ Criar uma webview na thread principal trava o Windows. Por isso:
 | `error.js` | Página de site fora do ar, injetada quando a navegação falha por rede |
 | `reader.js` + `vendor/Readability.js` | Modo leitura, injetado na aba |
 | `diag.rs` | Log em arquivo, relatório de travamento (panic hook), versões do Windows e do WebView2 |
-| `updater.rs` | Atualizações: última Release no GitHub, download via `curl.exe`, verificação SHA-256, instalador em modo passivo |
 
 ## Interface (`ui/`)
 

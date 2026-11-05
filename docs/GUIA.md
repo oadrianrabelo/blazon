@@ -158,6 +158,18 @@ Os botões **Embaralhar** e **Desfazer** ficam no topo.
 - **Permissões** (câmera, microfone, localização, notificações): cada site pede na primeira vez
   e a escolha fica salva no Space.
 
+## Imprimir e salvar como PDF
+
+- **Ctrl+P** (ou clique direito na aba → **Imprimir…**) abre a impressão sobre a página, com
+  prévia. Na paleta (Ctrl+K) há também **Imprimir com a janela do Windows…**.
+- **Salvar como PDF…** (menu da aba ou paleta) grava a página num arquivo PDF.
+
+## Sites e downloads perigosos
+
+O **Microsoft SmartScreen** avisa antes de abrir sites de phishing ou malware e de baixar arquivos
+perigosos, como no Edge. Para isso o Windows consulta a Microsoft sobre os endereços; dá para
+desligar em **Configurações → Privacidade** (vale depois de reiniciar o Blazon).
+
 ## Senhas
 
 Em **Configurações → Senhas**:

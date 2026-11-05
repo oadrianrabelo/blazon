@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.1.7
+
+Segurança e impressão:
+- **Imprimir** (Ctrl+P, menu da aba e paleta) abre a impressão do WebView2 sobre a página; a
+  paleta também tem "Imprimir com a janela do Windows…". **Salvar como PDF…** grava a página
+  num arquivo.
+- **SmartScreen** ligado nas páginas: aviso antes de sites de phishing e malware e de downloads
+  perigosos, como no Edge (Configurações → Privacidade).
+- **Atualizações assinadas**: o Blazon só instala versões assinadas com a chave do projeto.
+- **Dependências vigiadas**: Dependabot abre PRs semanais e o workflow Security roda
+  `cargo audit` e `npm audit` a cada push e toda semana. Veja `SECURITY.md`.
+
 ## 0.1.6
 
 Desempenho e qualidade de vida:

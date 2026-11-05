@@ -33,7 +33,7 @@ function el(tag, cls, text) {
 }
 
 // Repository for problem reports (GitHub redirects it if the repository is renamed).
-const REPO_URL = 'https://github.com/oadrianrabelo/crest-windows-vibe-coded';
+const REPO_URL = 'https://github.com/oadrianrabelo/blazon';
 let reportDraft = '';
 const SEARCH_ENGINES = [
   ['https://duckduckgo.com/?q=', 'DuckDuckGo'],
@@ -287,6 +287,8 @@ const SECTIONS = {
         group('Bloqueador',
           toggle('Bloquear anúncios e rastreadores', 'Usa as listas EasyList e EasyPrivacy, atualizadas toda semana.', S('adblock'), setS('adblock'))),
         group('Sites com o bloqueador pausado', allow),
+        group('Sites e downloads perigosos',
+          toggle('Proteção do Microsoft SmartScreen', 'Avisa antes de abrir sites de phishing ou malware e de baixar arquivos perigosos, como no Edge. Para isso, o Windows consulta a Microsoft sobre os endereços. Muda depois de reiniciar o Blazon.', S('smartscreen'), setS('smartscreen'))),
         group('Senhas e formulários',
           toggle('Oferecer para salvar senhas e preencher formulários', 'Guardado pelo próprio WebView2, separado por Space. Vale para abas novas.', S('passwords'), setS('passwords'))),
         downloads,
@@ -1139,7 +1141,7 @@ const SHORTCUT_NAMES = {
   address: 'Focar o endereço', newwindow: 'Nova janela', history: 'Histórico', next: 'Próxima aba',
   prev: 'Aba anterior', sidebar: 'Mostrar ou esconder as abas', tablayout: 'Abas verticais ou horizontais',
   reader: 'Modo leitura', pin: 'Fixar ou soltar a aba', duplicate: 'Duplicar a aba', mute: 'Silenciar a aba',
-  settings: 'Abrir as configurações',
+  settings: 'Abrir as configurações', print: 'Imprimir', savepdf: 'Salvar como PDF',
 };
 
 function comboOf(e) {
