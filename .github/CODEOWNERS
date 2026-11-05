@@ -1,0 +1,7 @@
+# Quem revisa cada parte. Mudanças nestes caminhos pedem a revisão do dono.
+* @oadrianrabelo
+# Segurança: atualizador, assinatura das versões, cofre de senhas e CI.
+/src-tauri/src/updater.rs @oadrianrabelo
+/src-tauri/src/passwords.rs @oadrianrabelo
+/scripts/sign-update.mjs @oadrianrabelo
+/.github/ @oadrianrabelo
