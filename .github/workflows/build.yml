@@ -18,8 +18,8 @@ jobs:
       WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
       WINDOWS_CERTIFICATE_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -51,7 +51,7 @@ jobs:
           $files = Get-ChildItem src-tauri/target/release/bundle/nsis/*.exe, src-tauri/target/release/bundle/msi/*.msi
           & $signtool.FullName sign /f $pfx /p $env:WINDOWS_CERTIFICATE_PASSWORD /fd SHA256 /tr http://timestamp.digicert.com /td SHA256 $files.FullName
           Remove-Item $pfx
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: blazon-windows
           path: |
@@ -109,11 +109,11 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: blazon-windows
           path: dist
@@ -130,7 +130,7 @@ jobs:
       - run: npm install --no-save playwright-core@1.56.1
       - name: Open Blazon and take screenshots
         run: node tests/smoke/run.mjs "${{ env.BLAZON_EXE }}" screenshots
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: blazon-screenshots
