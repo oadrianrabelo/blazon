@@ -8,6 +8,13 @@ updates:
       interval: weekly
       day: monday
     open-pull-requests-limit: 5
+    # The windows-rs crates must stay on the version webview2-com and wry are
+    # built against (their types are shared); they move together with Tauri.
+    ignore:
+      - dependency-name: "windows*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "webview2-com*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
     groups:
       rust:
         patterns: ["*"]
