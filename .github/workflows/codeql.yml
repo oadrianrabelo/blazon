@@ -1,0 +1,33 @@
+name: CodeQL
+
+# GitHub's code analysis for security bugs in Blazon's own code (Rust, the
+# interface's JavaScript and the workflows). Free for public repositories; on
+# a private one it is skipped.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "29 7 * * 3"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [rust, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+      - uses: github/codeql-action/analyze@v3
+        with:
+          category: /language:${{ matrix.language }}

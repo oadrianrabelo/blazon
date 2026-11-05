@@ -1,0 +1,40 @@
+name: Algo deu errado
+description: Um erro, travamento ou comportamento estranho no Blazon.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        O jeito mais rápido: no Blazon, **Configurações → Relatar problema** gera o relatório (versão, Windows, log) e abre esta página já preenchida.
+        Falhas de segurança não devem ser relatadas aqui: veja a aba Security do repositório.
+  - type: textarea
+    id: what
+    attributes:
+      label: O que aconteceu
+      description: O que você estava fazendo, o que esperava e o que aconteceu.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Como repetir
+      placeholder: "1. Abri…\n2. Cliquei em…\n3. …"
+  - type: input
+    id: version
+    attributes:
+      label: Versão do Blazon
+      description: Configurações → Sobre.
+      placeholder: "0.1.7"
+    validations:
+      required: true
+  - type: input
+    id: windows
+    attributes:
+      label: Windows
+      placeholder: "Windows 11 24H2"
+  - type: textarea
+    id: report
+    attributes:
+      label: Relatório do Blazon
+      description: Cole aqui o relatório de Configurações → Relatar problema, se tiver.
+      render: text
